@@ -1,0 +1,295 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" DefaultTargets="Build">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|Win32">
+      <Configuration>Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|Win32">
+      <Configuration>Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="ext\imgui\imgui.cpp" />
+    <ClCompile Include="ext\imgui\imgui_demo.cpp" />
+    <ClCompile Include="ext\imgui\imgui_draw.cpp" />
+    <ClCompile Include="ext\imgui\imgui_impl_dx11.cpp" />
+    <ClCompile Include="ext\imgui\imgui_impl_win32.cpp" />
+    <ClCompile Include="ext\imgui\imgui_tables.cpp" />
+    <ClCompile Include="ext\imgui\imgui_widgets.cpp" />
+    <ClCompile Include="main.cpp" />
+    <ClCompile Include="src\core\app\app.cpp" />
+    <ClCompile Include="src\core\functions\aim\aim.cpp" />
+    <ClCompile Include="src\core\functions\aim\raycast_silent.cpp" />
+    <ClCompile Include="src\core\functions\aim\silent_fov_center.cpp" />
+    <ClCompile Include="src\core\functions\aim\silent_nearest_point.cpp" />
+    <ClCompile Include="src\core\functions\mics\mics.cpp" />
+    <ClCompile Include="src\core\functions\movement\movement.cpp" />
+    <ClCompile Include="src\core\functions\settings\settings.cpp" />
+    <ClCompile Include="src\core\functions\skins\skins.cpp" />
+    <ClCompile Include="src\core\functions\visual\visual.cpp" />
+    <ClCompile Include="src\core\tp_handler\tp_handler.cpp" />
+    <ClCompile Include="src\core\functions\aim\viewport_silent.cpp" />
+    <ClCompile Include="src\core\functions\freecam\freecam.cpp" />
+    <ClCompile Include="src\core\functions\world\world.cpp" />
+    <ClCompile Include="src\core\cache\worldcache.cpp" />
+    <ClCompile Include="src\core\features\mesh\cache\MeshCache.cpp" />
+    <ClCompile Include="src\core\features\mesh\parser\MeshParser.cpp" />
+    <ClCompile Include="src\core\features\mesh\occlusion\MeshOcclusion.cpp" />
+    <ClCompile Include="src\core\features\mesh\chams\MeshChams.cpp" />
+    <ClCompile Include="src\core\features\mesh\shader\MeshDxShader.cpp" />
+    <ClCompile Include="src\core\features\native\NativeChams.cpp" />
+    <ClCompile Include="src\core\features\spotify\music_host_bind.cpp" />
+    <ClCompile Include="src\core\features\spotify\media.cpp" />
+    <ClCompile Include="src\core\features\spotify\player\player.cpp" />
+    <ClCompile Include="src\core\features\spotify\player\artwork.cpp" />
+    <ClCompile Include="src\core\features\spotify\player\background.cpp" />
+    <ClCompile Include="src\core\features\spotify\player\controls.cpp" />
+    <ClCompile Include="src\core\features\spotify\player\header.cpp" />
+    <ClCompile Include="src\core\features\spotify\player\lyrics.cpp" />
+    <ClCompile Include="src\core\features\spotify\player\svg_path.cpp" />
+    <ClCompile Include="src\memory\memory.cpp" />
+    <ClCompile Include="src\render\render.cpp" />
+    <ClCompile Include="src\render\SadblobVideo.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="ext\imgui\imconfig.h" />
+    <ClInclude Include="ext\imgui\imgui.h" />
+    <ClInclude Include="ext\imgui\imgui_impl_dx11.h" />
+    <ClInclude Include="ext\imgui\imgui_impl_win32.h" />
+    <ClInclude Include="ext\imgui\imgui_internal.h" />
+    <ClInclude Include="ext\imgui\imstb_rectpack.h" />
+    <ClInclude Include="ext\imgui\imstb_textedit.h" />
+    <ClInclude Include="ext\imgui\imstb_truetype.h" />
+    <ClInclude Include="src\core\cache\cache.h" />
+    <ClInclude Include="src\core\functions\aim\fallen_prediction.h" />
+    <ClInclude Include="src\core\functions\aim\viewport_silent.h" />
+    <ClInclude Include="src\core\functions\aim\raycast_silent.h" />
+    <ClInclude Include="src\core\functions\freecam\freecam.h" />
+    <ClInclude Include="src\core\functions\world\world.h" />
+    <ClInclude Include="src\core\cache\worldcache.h" />
+    <ClInclude Include="src\core\cache\workspace.h" />
+    <ClInclude Include="src\core\app\app.h" />
+    <ClInclude Include="src\core\app\RuntimePaths.h" />
+    <ClInclude Include="src\core\functions\aim\aim.h" />
+    <ClInclude Include="src\core\functions\mics\mics.h" />
+    <ClInclude Include="src\core\keys\keys.h" />
+    <ClInclude Include="src\core\functions\movement\movement.h" />
+    <ClInclude Include="src\core\functions\settings\settings.h" />
+    <ClInclude Include="src\core\functions\skins\skins.h" />
+    <ClInclude Include="src\core\functions\visual\visual.h" />
+    <ClInclude Include="src\core\globals\globals.h" />
+    <ClInclude Include="src\core\tp_handler\tp_handler.h" />
+    <ClInclude Include="src\core\variables\variables.h" />
+    <ClInclude Include="src\memory\memory.h" />
+    <ClInclude Include="src\render\menu\library.h" />
+    <ClInclude Include="src\render\render.h" />
+    <ClInclude Include="src\render\LaunchPrivacy.h" />
+    <ClInclude Include="src\render\PackedPreview.h" />
+    <ClInclude Include="src\render\CaptureProtection.h" />
+    <ClInclude Include="src\render\ProtectedError.h" />
+    <ClInclude Include="src\render\SadblobVideo.h" />
+    <ClInclude Include="src\sdk\math.h" />
+    <ClInclude Include="src\sdk\offsets.h" />
+    <ClInclude Include="src\sdk\sdk.h" />
+    <ClInclude Include="src\sdk\structs.h" />
+    <ClInclude Include="src\sdk\w2s.h" />
+    <ClInclude Include="src\sdk\MeshMath.h" />
+    <ClInclude Include="src\sdk\MeshBridge.h" />
+    <ClInclude Include="src\core\features\mesh\cache\MeshCache.h" />
+    <ClInclude Include="src\core\features\mesh\parser\MeshParser.h" />
+    <ClInclude Include="src\core\features\mesh\occlusion\MeshOcclusion.h" />
+    <ClInclude Include="src\core\features\mesh\chams\MeshChams.h" />
+    <ClInclude Include="src\core\features\mesh\shader\MeshDxShader.h" />
+    <ClInclude Include="src\core\features\native\NativeChams.h" />
+    <ClInclude Include="src\core\features\native\NativeWorldDepth.h" />
+    <ClInclude Include="src\core\features\mesh\occlusion\AvatarOccluderFilter.h" />
+    <ClInclude Include="src\core\features\spotify\spotify.h" />
+    <ClInclude Include="src\core\features\spotify\media.h" />
+    <ClInclude Include="src\core\features\spotify\music_host_bind.h" />
+    <ClInclude Include="src\core\features\spotify\music_player_host.h" />
+    <ClInclude Include="src\core\features\spotify\music_player_icons.h" />
+    <ClInclude Include="src\core\features\spotify\music_player_internal.h" />
+    <ClInclude Include="src\core\features\spotify\music_player_ui.h" />
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <VCProjectVersion>17.0</VCProjectVersion>
+    <Keyword>Win32Proj</Keyword>
+    <ProjectGuid>{d473cfd5-fc81-44f2-afa1-30f6a58e4234}</ProjectGuid>
+    <RootNamespace>External</RootNamespace>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+  </PropertyGroup>
+  <PropertyGroup>
+    <ApplicationIcon>$(ProjectDir)app_icon.ico</ApplicationIcon>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v143</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Label="Shared">
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup>
+    <IntDir>$(ProjectDir)..\build\$(Platform)\$(Configuration)\obj\</IntDir>
+    <OutDir>$(ProjectDir)..\build\$(Platform)\$(Configuration)\</OutDir>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <ClCompile>
+      <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
+      <WarningLevel>Level3</WarningLevel>
+      <SDLCheck>true</SDLCheck>
+      <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ConformanceMode>true</ConformanceMode>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <GenerateDebugInformation>false</GenerateDebugInformation>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <ClCompile>
+      <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
+      <WarningLevel>Level3</WarningLevel>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <SDLCheck>true</SDLCheck>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ConformanceMode>true</ConformanceMode>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <GenerateDebugInformation>false</GenerateDebugInformation>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <ClCompile>
+      <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
+      <WarningLevel>Level3</WarningLevel>
+      <SDLCheck>true</SDLCheck>
+      <PreprocessorDefinitions>_DEBUG;_CONSOLE;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ConformanceMode>true</ConformanceMode>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <AdditionalIncludeDirectories>$(ProjectDir)src;$(ProjectDir)src\core\features\spotify;$(ProjectDir)ext\imgui;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <GenerateDebugInformation>false</GenerateDebugInformation>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <ClCompile>
+      <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
+      <WarningLevel>Level3</WarningLevel>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <SDLCheck>true</SDLCheck>
+      <PreprocessorDefinitions>NDEBUG;_CONSOLE;_CRT_SECURE_NO_WARNINGS;NOMINMAX;WIN32_LEAN_AND_MEAN;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ConformanceMode>true</ConformanceMode>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <AdditionalIncludeDirectories>$(ProjectDir)\src;$(ProjectDir)src\core\features\spotify;$(ProjectDir)ext\imgui;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <GenerateDebugInformation>false</GenerateDebugInformation>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ResourceCompile Include="assets.rc" />
+    <ClCompile Include="src\core\features\world_render\WorldRender.cpp" />
+    <ClCompile Include="src\core\features\world_render\WorldHost.cpp" />
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+  <ItemGroup>
+    <ClInclude Include="src\core\features\SkinPreview.h" />
+    <ClInclude Include="src\core\features\SkyStyles.h" />
+    <ClInclude Include="src\core\features\TargetLabels.h" />
+    <ClInclude Include="src\core\features\WeaponVisuals.h" />
+    <ClInclude Include="src\core\features\WorldMaterials.h" />
+    <ClInclude Include="src\core\features\native\NativeDepthCapture.h" />
+    <ClInclude Include="src\core\features\native\NativeDepthCaptureBytes.h" />
+    <ClInclude Include="src\core\features\native\NativeOcclusion.h" />
+    <ClInclude Include="src\core\features\native\NativePattern.h" />
+    <ClInclude Include="src\core\features\native\NativePreparation.h" />
+    <ClInclude Include="src\core\features\world_render\WorldRender.h" />
+    <ClInclude Include="src\core\functions\aim\silent_fov_center.h" />
+    <ClInclude Include="src\core\functions\aim\silent_nearest_point.h" />
+    <ClInclude Include="src\core\functions\settings\preferences.h" />
+    <ClInclude Include="src\core\functions\skins\SkinMix.h" />
+    <ClInclude Include="src\core\keys\activation_key.h" />
+    <ClInclude Include="src\core\keys\visual_keybind.h" />
+    <ClInclude Include="src\core\net\game_info.h" />
+    <ClInclude Include="src\core\net\performance.h" />
+    <ClInclude Include="src\core\net\ping.h" />
+    <ClInclude Include="src\core\variables\player_rules.h" />
+    <ClInclude Include="src\pch.h" />
+    <ClInclude Include="src\render\ImageTexture.h" />
+    <ClInclude Include="src\render\MenuMotion.h" />
+    <ClInclude Include="src\render\OverlayLifecycle.h" />
+    <ClInclude Include="src\render\RetroUi.h" />
+    <ClInclude Include="src\render\StartupLoader.h" />
+    <ClInclude Include="src\render\TabBgAim.h" />
+    <ClInclude Include="src\render\TabBgMisc.h" />
+    <ClInclude Include="src\render\TabBgSkins.h" />
+    <ClInclude Include="src\render\TabBgVisuals.h" />
+    <ClInclude Include="src\render\TakeControlImage.h" />
+    <ClInclude Include="src\render\UiAssets.h" />
+    <ClInclude Include="src\render\WarningImg.h" />
+    <ClInclude Include="src\render\WeaponPreview.h" />
+    <ClInclude Include="src\render\floating_panels.h" />
+    <ClInclude Include="src\render\menu\IconFont.h" />
+    <ClInclude Include="src\render\menu\PrimordialFonts.h" />
+    <ClInclude Include="src\render\menu\PrimordialLogo.h" />
+    <ClInclude Include="src\render\menu\UiText.h" />
+  </ItemGroup>
+</Project>

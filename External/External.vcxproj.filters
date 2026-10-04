@@ -1,0 +1,635 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="4.0">
+  <ItemGroup>
+    <Filter Include="Header Files">
+      <UniqueIdentifier>{4F7E9F17-54F8-585D-B6E7-1235B4BF38A1}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\ext">
+      <UniqueIdentifier>{30AFEA1E-CCB1-5625-B934-79A6B55802F4}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\ext\imgui">
+      <UniqueIdentifier>{DACED0D6-712D-5E87-8E79-4B87E639F9DE}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\src">
+      <UniqueIdentifier>{D2FC7343-2C23-525C-97CF-A65DC15A8E88}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\src\core">
+      <UniqueIdentifier>{2CD7E65B-8DF3-5295-A497-EEE347E55DA1}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\src\core\app">
+      <UniqueIdentifier>{BC642574-54BD-5303-9DD3-833DC8F1A0B5}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\src\core\cache">
+      <UniqueIdentifier>{95A4BA8B-8F33-5684-9F1B-4A86616DE879}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\src\core\features">
+      <UniqueIdentifier>{06DA96DB-BB71-585A-8839-9DE398AD3D96}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\src\core\features\mesh">
+      <UniqueIdentifier>{39F181DD-F584-586D-8092-2655042A9982}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\src\core\features\mesh\cache">
+      <UniqueIdentifier>{EA3BC1DE-3810-53C0-B66F-CE5BAC9F1C30}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\src\core\features\mesh\chams">
+      <UniqueIdentifier>{42D51FEB-70E0-56E5-9A50-64C1EAAE69C1}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\src\core\features\mesh\occlusion">
+      <UniqueIdentifier>{E7F16971-DB48-537E-9D10-BD9B3FB67BBC}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\src\core\features\mesh\parser">
+      <UniqueIdentifier>{D431EF48-177F-5219-98B3-A8CAC09B72DB}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\src\core\features\mesh\shader">
+      <UniqueIdentifier>{37CADD63-0DAB-5E36-A244-22D6561FFDC2}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\src\core\features\native">
+      <UniqueIdentifier>{61FCD524-FE85-5B38-999D-57011E933287}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\src\core\features\spotify">
+      <UniqueIdentifier>{41C32392-74B2-57ED-A416-50169A67CBE3}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\src\core\features\world_render">
+      <UniqueIdentifier>{A141C013-6313-5EAE-ACFF-7428D97AAB9C}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\src\core\functions">
+      <UniqueIdentifier>{8FDCCE94-DD3C-51FD-8C44-E7A74E03BD0B}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\src\core\functions\aim">
+      <UniqueIdentifier>{03DE59C3-2538-55FE-82CE-9E873132D401}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\src\core\functions\freecam">
+      <UniqueIdentifier>{EFD59740-04D5-5B9A-9234-3A478A824166}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\src\core\functions\mics">
+      <UniqueIdentifier>{A629D766-489B-501E-981C-C20A9B238A1B}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\src\core\functions\movement">
+      <UniqueIdentifier>{839AB5B5-5F44-57E6-83FC-62C9FE2DBA11}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\src\core\functions\settings">
+      <UniqueIdentifier>{7AE220EF-D3E8-5281-B4FE-919D3083A2BF}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\src\core\functions\skins">
+      <UniqueIdentifier>{02ADAA9B-503A-56EE-8704-A25B55BFC48F}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\src\core\functions\visual">
+      <UniqueIdentifier>{4BD5EA6F-EA7E-5D65-A097-58C01779451A}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\src\core\functions\world">
+      <UniqueIdentifier>{43272C63-BA92-5C0E-A97F-3F1D949642CA}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\src\core\globals">
+      <UniqueIdentifier>{CF45AB96-A11F-5B55-A85E-1028AB466676}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\src\core\keys">
+      <UniqueIdentifier>{12FB27D8-A509-5760-B156-6EA33E72A65A}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\src\core\net">
+      <UniqueIdentifier>{D612872E-0A9B-5D2D-A6BD-78B0545D09F0}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\src\core\tp_handler">
+      <UniqueIdentifier>{F6FF3B94-D6B9-548D-93B4-B90E782EBAC7}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\src\core\variables">
+      <UniqueIdentifier>{0150C8AF-C335-52FC-AF7F-866AF25D598B}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\src\memory">
+      <UniqueIdentifier>{4679E3FF-97ED-5FC0-ACA9-04E97B1F7A3B}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\src\render">
+      <UniqueIdentifier>{6C738FBD-912C-506D-9ABE-1DBE0EDFB1E6}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\src\render\menu">
+      <UniqueIdentifier>{B5C5EC37-2784-5EC5-A9B4-A731ACD444DC}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\src\sdk">
+      <UniqueIdentifier>{AB70F35B-9D93-5349-96AD-E6F620B85E90}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Resource Files">
+      <UniqueIdentifier>{46C2726A-3B43-5702-BC20-87F5F7EC3107}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{15E86B00-A3D6-5CEC-A0BC-AF90B131DF59}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\ext">
+      <UniqueIdentifier>{A8376AEC-3755-5461-B53B-07EDB0AFA357}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\ext\imgui">
+      <UniqueIdentifier>{D2825AEE-74BE-5799-93C8-702AC481F9D8}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\src">
+      <UniqueIdentifier>{DECAA5DB-607B-5D2E-A93B-A313F85208F4}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\src\core">
+      <UniqueIdentifier>{DFEECC22-0FB6-5B29-A537-C68FAA0AB270}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\src\core\app">
+      <UniqueIdentifier>{D7A4CD8E-2BAA-5EA6-B51A-6FD07A508C4E}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\src\core\cache">
+      <UniqueIdentifier>{16970800-E9EF-513A-BF30-04844F822FAB}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\src\core\features">
+      <UniqueIdentifier>{3A447094-C845-5881-881E-899B71CAAEED}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\src\core\features\mesh">
+      <UniqueIdentifier>{A3C4C128-8655-5FC4-BE92-7162C7CEBD7E}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\src\core\features\mesh\cache">
+      <UniqueIdentifier>{AB52639F-D8FD-59FA-8B77-A9B1CFA7BE7E}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\src\core\features\mesh\chams">
+      <UniqueIdentifier>{7463ECCD-3D20-53E5-8100-07C363CF9B2E}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\src\core\features\mesh\occlusion">
+      <UniqueIdentifier>{F165D6DD-018F-5121-9848-C7551D06798D}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\src\core\features\mesh\parser">
+      <UniqueIdentifier>{ABA9832F-00D9-5CD0-872D-4965E9831E7D}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\src\core\features\mesh\shader">
+      <UniqueIdentifier>{66BA2098-3C60-5BF1-A38C-86AD1AEE037E}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\src\core\features\native">
+      <UniqueIdentifier>{8F7CB453-D013-5F52-81A4-82356365D8B4}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\src\core\features\spotify">
+      <UniqueIdentifier>{4C0EE030-0340-50CC-9422-21E78B135134}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\src\core\features\spotify\player">
+      <UniqueIdentifier>{9C1013C8-5886-55C5-B68F-B9D7DC023449}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\src\core\features\world_render">
+      <UniqueIdentifier>{071F9B9C-6416-5A8B-BF4D-823D210379F3}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\src\core\functions">
+      <UniqueIdentifier>{164566D9-0F5E-5D32-8743-18E9115605C0}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\src\core\functions\aim">
+      <UniqueIdentifier>{48E6868F-3E90-50F7-91EF-A989157CE685}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\src\core\functions\freecam">
+      <UniqueIdentifier>{4FA6CD44-5FD3-5231-8F25-2A2AEA7FB273}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\src\core\functions\mics">
+      <UniqueIdentifier>{D44592DE-1D14-5791-B88D-E560504A9CE4}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\src\core\functions\movement">
+      <UniqueIdentifier>{24EB8092-29DC-531D-872F-7E76491157C4}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\src\core\functions\settings">
+      <UniqueIdentifier>{FF3BA07D-5BC5-5998-8303-9DDCBA9FE416}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\src\core\functions\skins">
+      <UniqueIdentifier>{B5A84F25-144A-5482-917A-1482AC572294}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\src\core\functions\visual">
+      <UniqueIdentifier>{BF3FA5AE-7F02-5BAD-9855-DEE671F49612}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\src\core\functions\world">
+      <UniqueIdentifier>{7A7DAA22-E2B8-5DD1-B888-8419AB802D46}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\src\core\tp_handler">
+      <UniqueIdentifier>{669ECCA0-B0E7-59DC-A946-D47ED2881FBC}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\src\memory">
+      <UniqueIdentifier>{9B934088-E282-5108-94EF-1CBF0700FE6D}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\src\render">
+      <UniqueIdentifier>{DD498862-A7DF-53C7-A1D0-EED6530490D5}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="ext\imgui\imgui.cpp">
+      <Filter>Source Files\ext\imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="ext\imgui\imgui_demo.cpp">
+      <Filter>Source Files\ext\imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="ext\imgui\imgui_draw.cpp">
+      <Filter>Source Files\ext\imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="ext\imgui\imgui_impl_dx11.cpp">
+      <Filter>Source Files\ext\imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="ext\imgui\imgui_impl_win32.cpp">
+      <Filter>Source Files\ext\imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="ext\imgui\imgui_tables.cpp">
+      <Filter>Source Files\ext\imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="ext\imgui\imgui_widgets.cpp">
+      <Filter>Source Files\ext\imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="main.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\core\app\app.cpp">
+      <Filter>Source Files\src\core\app</Filter>
+    </ClCompile>
+    <ClCompile Include="src\core\functions\aim\aim.cpp">
+      <Filter>Source Files\src\core\functions\aim</Filter>
+    </ClCompile>
+    <ClCompile Include="src\core\functions\aim\raycast_silent.cpp">
+      <Filter>Source Files\src\core\functions\aim</Filter>
+    </ClCompile>
+    <ClCompile Include="src\core\functions\aim\silent_fov_center.cpp">
+      <Filter>Source Files\src\core\functions\aim</Filter>
+    </ClCompile>
+    <ClCompile Include="src\core\functions\aim\silent_nearest_point.cpp">
+      <Filter>Source Files\src\core\functions\aim</Filter>
+    </ClCompile>
+    <ClCompile Include="src\core\functions\mics\mics.cpp">
+      <Filter>Source Files\src\core\functions\mics</Filter>
+    </ClCompile>
+    <ClCompile Include="src\core\functions\movement\movement.cpp">
+      <Filter>Source Files\src\core\functions\movement</Filter>
+    </ClCompile>
+    <ClCompile Include="src\core\functions\settings\settings.cpp">
+      <Filter>Source Files\src\core\functions\settings</Filter>
+    </ClCompile>
+    <ClCompile Include="src\core\functions\skins\skins.cpp">
+      <Filter>Source Files\src\core\functions\skins</Filter>
+    </ClCompile>
+    <ClCompile Include="src\core\functions\visual\visual.cpp">
+      <Filter>Source Files\src\core\functions\visual</Filter>
+    </ClCompile>
+    <ClCompile Include="src\core\tp_handler\tp_handler.cpp">
+      <Filter>Source Files\src\core\tp_handler</Filter>
+    </ClCompile>
+    <ClCompile Include="src\core\functions\aim\viewport_silent.cpp">
+      <Filter>Source Files\src\core\functions\aim</Filter>
+    </ClCompile>
+    <ClCompile Include="src\core\functions\freecam\freecam.cpp">
+      <Filter>Source Files\src\core\functions\freecam</Filter>
+    </ClCompile>
+    <ClCompile Include="src\core\functions\world\world.cpp">
+      <Filter>Source Files\src\core\functions\world</Filter>
+    </ClCompile>
+    <ClCompile Include="src\core\cache\worldcache.cpp">
+      <Filter>Source Files\src\core\cache</Filter>
+    </ClCompile>
+    <ClCompile Include="src\core\features\mesh\cache\MeshCache.cpp">
+      <Filter>Source Files\src\core\features\mesh\cache</Filter>
+    </ClCompile>
+    <ClCompile Include="src\core\features\mesh\parser\MeshParser.cpp">
+      <Filter>Source Files\src\core\features\mesh\parser</Filter>
+    </ClCompile>
+    <ClCompile Include="src\core\features\mesh\occlusion\MeshOcclusion.cpp">
+      <Filter>Source Files\src\core\features\mesh\occlusion</Filter>
+    </ClCompile>
+    <ClCompile Include="src\core\features\mesh\chams\MeshChams.cpp">
+      <Filter>Source Files\src\core\features\mesh\chams</Filter>
+    </ClCompile>
+    <ClCompile Include="src\core\features\mesh\shader\MeshDxShader.cpp">
+      <Filter>Source Files\src\core\features\mesh\shader</Filter>
+    </ClCompile>
+    <ClCompile Include="src\core\features\native\NativeChams.cpp">
+      <Filter>Source Files\src\core\features\native</Filter>
+    </ClCompile>
+    <ClCompile Include="src\core\features\spotify\music_host_bind.cpp">
+      <Filter>Source Files\src\core\features\spotify</Filter>
+    </ClCompile>
+    <ClCompile Include="src\core\features\spotify\media.cpp">
+      <Filter>Source Files\src\core\features\spotify</Filter>
+    </ClCompile>
+    <ClCompile Include="src\core\features\spotify\player\player.cpp">
+      <Filter>Source Files\src\core\features\spotify\player</Filter>
+    </ClCompile>
+    <ClCompile Include="src\core\features\spotify\player\artwork.cpp">
+      <Filter>Source Files\src\core\features\spotify\player</Filter>
+    </ClCompile>
+    <ClCompile Include="src\core\features\spotify\player\background.cpp">
+      <Filter>Source Files\src\core\features\spotify\player</Filter>
+    </ClCompile>
+    <ClCompile Include="src\core\features\spotify\player\controls.cpp">
+      <Filter>Source Files\src\core\features\spotify\player</Filter>
+    </ClCompile>
+    <ClCompile Include="src\core\features\spotify\player\header.cpp">
+      <Filter>Source Files\src\core\features\spotify\player</Filter>
+    </ClCompile>
+    <ClCompile Include="src\core\features\spotify\player\lyrics.cpp">
+      <Filter>Source Files\src\core\features\spotify\player</Filter>
+    </ClCompile>
+    <ClCompile Include="src\core\features\spotify\player\svg_path.cpp">
+      <Filter>Source Files\src\core\features\spotify\player</Filter>
+    </ClCompile>
+    <ClCompile Include="src\memory\memory.cpp">
+      <Filter>Source Files\src\memory</Filter>
+    </ClCompile>
+    <ClCompile Include="src\render\render.cpp">
+      <Filter>Source Files\src\render</Filter>
+    </ClCompile>
+    <ClCompile Include="src\render\SadblobVideo.cpp">
+      <Filter>Source Files\src\render</Filter>
+    </ClCompile>
+    <ClCompile Include="src\core\features\world_render\WorldRender.cpp">
+      <Filter>Source Files\src\core\features\world_render</Filter>
+    </ClCompile>
+    <ClCompile Include="src\core\features\world_render\WorldHost.cpp">
+      <Filter>Source Files\src\core\features\world_render</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="ext\imgui\imconfig.h">
+      <Filter>Header Files\ext\imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="ext\imgui\imgui.h">
+      <Filter>Header Files\ext\imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="ext\imgui\imgui_impl_dx11.h">
+      <Filter>Header Files\ext\imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="ext\imgui\imgui_impl_win32.h">
+      <Filter>Header Files\ext\imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="ext\imgui\imgui_internal.h">
+      <Filter>Header Files\ext\imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="ext\imgui\imstb_rectpack.h">
+      <Filter>Header Files\ext\imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="ext\imgui\imstb_textedit.h">
+      <Filter>Header Files\ext\imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="ext\imgui\imstb_truetype.h">
+      <Filter>Header Files\ext\imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="src\core\cache\cache.h">
+      <Filter>Header Files\src\core\cache</Filter>
+    </ClInclude>
+    <ClInclude Include="src\core\functions\aim\fallen_prediction.h">
+      <Filter>Header Files\src\core\functions\aim</Filter>
+    </ClInclude>
+    <ClInclude Include="src\core\functions\aim\viewport_silent.h">
+      <Filter>Header Files\src\core\functions\aim</Filter>
+    </ClInclude>
+    <ClInclude Include="src\core\functions\aim\raycast_silent.h">
+      <Filter>Header Files\src\core\functions\aim</Filter>
+    </ClInclude>
+    <ClInclude Include="src\core\functions\freecam\freecam.h">
+      <Filter>Header Files\src\core\functions\freecam</Filter>
+    </ClInclude>
+    <ClInclude Include="src\core\functions\world\world.h">
+      <Filter>Header Files\src\core\functions\world</Filter>
+    </ClInclude>
+    <ClInclude Include="src\core\cache\worldcache.h">
+      <Filter>Header Files\src\core\cache</Filter>
+    </ClInclude>
+    <ClInclude Include="src\core\cache\workspace.h">
+      <Filter>Header Files\src\core\cache</Filter>
+    </ClInclude>
+    <ClInclude Include="src\core\app\app.h">
+      <Filter>Header Files\src\core\app</Filter>
+    </ClInclude>
+    <ClInclude Include="src\core\app\RuntimePaths.h">
+      <Filter>Header Files\src\core\app</Filter>
+    </ClInclude>
+    <ClInclude Include="src\core\functions\aim\aim.h">
+      <Filter>Header Files\src\core\functions\aim</Filter>
+    </ClInclude>
+    <ClInclude Include="src\core\functions\mics\mics.h">
+      <Filter>Header Files\src\core\functions\mics</Filter>
+    </ClInclude>
+    <ClInclude Include="src\core\keys\keys.h">
+      <Filter>Header Files\src\core\keys</Filter>
+    </ClInclude>
+    <ClInclude Include="src\core\functions\movement\movement.h">
+      <Filter>Header Files\src\core\functions\movement</Filter>
+    </ClInclude>
+    <ClInclude Include="src\core\functions\settings\settings.h">
+      <Filter>Header Files\src\core\functions\settings</Filter>
+    </ClInclude>
+    <ClInclude Include="src\core\functions\skins\skins.h">
+      <Filter>Header Files\src\core\functions\skins</Filter>
+    </ClInclude>
+    <ClInclude Include="src\core\functions\visual\visual.h">
+      <Filter>Header Files\src\core\functions\visual</Filter>
+    </ClInclude>
+    <ClInclude Include="src\core\globals\globals.h">
+      <Filter>Header Files\src\core\globals</Filter>
+    </ClInclude>
+    <ClInclude Include="src\core\tp_handler\tp_handler.h">
+      <Filter>Header Files\src\core\tp_handler</Filter>
+    </ClInclude>
+    <ClInclude Include="src\core\variables\variables.h">
+      <Filter>Header Files\src\core\variables</Filter>
+    </ClInclude>
+    <ClInclude Include="src\memory\memory.h">
+      <Filter>Header Files\src\memory</Filter>
+    </ClInclude>
+    <ClInclude Include="src\render\menu\library.h">
+      <Filter>Header Files\src\render\menu</Filter>
+    </ClInclude>
+    <ClInclude Include="src\render\render.h">
+      <Filter>Header Files\src\render</Filter>
+    </ClInclude>
+    <ClInclude Include="src\render\LaunchPrivacy.h">
+      <Filter>Header Files\src\render</Filter>
+    </ClInclude>
+    <ClInclude Include="src\render\PackedPreview.h">
+      <Filter>Header Files\src\render</Filter>
+    </ClInclude>
+    <ClInclude Include="src\render\CaptureProtection.h">
+      <Filter>Header Files\src\render</Filter>
+    </ClInclude>
+    <ClInclude Include="src\render\ProtectedError.h">
+      <Filter>Header Files\src\render</Filter>
+    </ClInclude>
+    <ClInclude Include="src\render\SadblobVideo.h">
+      <Filter>Header Files\src\render</Filter>
+    </ClInclude>
+    <ClInclude Include="src\sdk\math.h">
+      <Filter>Header Files\src\sdk</Filter>
+    </ClInclude>
+    <ClInclude Include="src\sdk\offsets.h">
+      <Filter>Header Files\src\sdk</Filter>
+    </ClInclude>
+    <ClInclude Include="src\sdk\sdk.h">
+      <Filter>Header Files\src\sdk</Filter>
+    </ClInclude>
+    <ClInclude Include="src\sdk\structs.h">
+      <Filter>Header Files\src\sdk</Filter>
+    </ClInclude>
+    <ClInclude Include="src\sdk\w2s.h">
+      <Filter>Header Files\src\sdk</Filter>
+    </ClInclude>
+    <ClInclude Include="src\sdk\MeshMath.h">
+      <Filter>Header Files\src\sdk</Filter>
+    </ClInclude>
+    <ClInclude Include="src\sdk\MeshBridge.h">
+      <Filter>Header Files\src\sdk</Filter>
+    </ClInclude>
+    <ClInclude Include="src\core\features\mesh\cache\MeshCache.h">
+      <Filter>Header Files\src\core\features\mesh\cache</Filter>
+    </ClInclude>
+    <ClInclude Include="src\core\features\mesh\parser\MeshParser.h">
+      <Filter>Header Files\src\core\features\mesh\parser</Filter>
+    </ClInclude>
+    <ClInclude Include="src\core\features\mesh\occlusion\MeshOcclusion.h">
+      <Filter>Header Files\src\core\features\mesh\occlusion</Filter>
+    </ClInclude>
+    <ClInclude Include="src\core\features\mesh\chams\MeshChams.h">
+      <Filter>Header Files\src\core\features\mesh\chams</Filter>
+    </ClInclude>
+    <ClInclude Include="src\core\features\mesh\shader\MeshDxShader.h">
+      <Filter>Header Files\src\core\features\mesh\shader</Filter>
+    </ClInclude>
+    <ClInclude Include="src\core\features\native\NativeChams.h">
+      <Filter>Header Files\src\core\features\native</Filter>
+    </ClInclude>
+    <ClInclude Include="src\core\features\native\NativeWorldDepth.h">
+      <Filter>Header Files\src\core\features\native</Filter>
+    </ClInclude>
+    <ClInclude Include="src\core\features\mesh\occlusion\AvatarOccluderFilter.h">
+      <Filter>Header Files\src\core\features\mesh\occlusion</Filter>
+    </ClInclude>
+    <ClInclude Include="src\core\features\spotify\spotify.h">
+      <Filter>Header Files\src\core\features\spotify</Filter>
+    </ClInclude>
+    <ClInclude Include="src\core\features\spotify\media.h">
+      <Filter>Header Files\src\core\features\spotify</Filter>
+    </ClInclude>
+    <ClInclude Include="src\core\features\spotify\music_host_bind.h">
+      <Filter>Header Files\src\core\features\spotify</Filter>
+    </ClInclude>
+    <ClInclude Include="src\core\features\spotify\music_player_host.h">
+      <Filter>Header Files\src\core\features\spotify</Filter>
+    </ClInclude>
+    <ClInclude Include="src\core\features\spotify\music_player_icons.h">
+      <Filter>Header Files\src\core\features\spotify</Filter>
+    </ClInclude>
+    <ClInclude Include="src\core\features\spotify\music_player_internal.h">
+      <Filter>Header Files\src\core\features\spotify</Filter>
+    </ClInclude>
+    <ClInclude Include="src\core\features\spotify\music_player_ui.h">
+      <Filter>Header Files\src\core\features\spotify</Filter>
+    </ClInclude>
+    <ClInclude Include="src\core\features\SkinPreview.h">
+      <Filter>Header Files\src\core\features</Filter>
+    </ClInclude>
+    <ClInclude Include="src\core\features\SkyStyles.h">
+      <Filter>Header Files\src\core\features</Filter>
+    </ClInclude>
+    <ClInclude Include="src\core\features\TargetLabels.h">
+      <Filter>Header Files\src\core\features</Filter>
+    </ClInclude>
+    <ClInclude Include="src\core\features\WeaponVisuals.h">
+      <Filter>Header Files\src\core\features</Filter>
+    </ClInclude>
+    <ClInclude Include="src\core\features\WorldMaterials.h">
+      <Filter>Header Files\src\core\features</Filter>
+    </ClInclude>
+    <ClInclude Include="src\core\features\native\NativeDepthCapture.h">
+      <Filter>Header Files\src\core\features\native</Filter>
+    </ClInclude>
+    <ClInclude Include="src\core\features\native\NativeDepthCaptureBytes.h">
+      <Filter>Header Files\src\core\features\native</Filter>
+    </ClInclude>
+    <ClInclude Include="src\core\features\native\NativeOcclusion.h">
+      <Filter>Header Files\src\core\features\native</Filter>
+    </ClInclude>
+    <ClInclude Include="src\core\features\native\NativePattern.h">
+      <Filter>Header Files\src\core\features\native</Filter>
+    </ClInclude>
+    <ClInclude Include="src\core\features\native\NativePreparation.h">
+      <Filter>Header Files\src\core\features\native</Filter>
+    </ClInclude>
+    <ClInclude Include="src\core\features\world_render\WorldRender.h">
+      <Filter>Header Files\src\core\features\world_render</Filter>
+    </ClInclude>
+    <ClInclude Include="src\core\functions\aim\silent_fov_center.h">
+      <Filter>Header Files\src\core\functions\aim</Filter>
+    </ClInclude>
+    <ClInclude Include="src\core\functions\aim\silent_nearest_point.h">
+      <Filter>Header Files\src\core\functions\aim</Filter>
+    </ClInclude>
+    <ClInclude Include="src\core\functions\settings\preferences.h">
+      <Filter>Header Files\src\core\functions\settings</Filter>
+    </ClInclude>
+    <ClInclude Include="src\core\functions\skins\SkinMix.h">
+      <Filter>Header Files\src\core\functions\skins</Filter>
+    </ClInclude>
+    <ClInclude Include="src\core\keys\activation_key.h">
+      <Filter>Header Files\src\core\keys</Filter>
+    </ClInclude>
+    <ClInclude Include="src\core\keys\visual_keybind.h">
+      <Filter>Header Files\src\core\keys</Filter>
+    </ClInclude>
+    <ClInclude Include="src\core\net\game_info.h">
+      <Filter>Header Files\src\core\net</Filter>
+    </ClInclude>
+    <ClInclude Include="src\core\net\performance.h">
+      <Filter>Header Files\src\core\net</Filter>
+    </ClInclude>
+    <ClInclude Include="src\core\net\ping.h">
+      <Filter>Header Files\src\core\net</Filter>
+    </ClInclude>
+    <ClInclude Include="src\core\variables\player_rules.h">
+      <Filter>Header Files\src\core\variables</Filter>
+    </ClInclude>
+    <ClInclude Include="src\pch.h">
+      <Filter>Header Files\src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\render\ImageTexture.h">
+      <Filter>Header Files\src\render</Filter>
+    </ClInclude>
+    <ClInclude Include="src\render\MenuMotion.h">
+      <Filter>Header Files\src\render</Filter>
+    </ClInclude>
+    <ClInclude Include="src\render\OverlayLifecycle.h">
+      <Filter>Header Files\src\render</Filter>
+    </ClInclude>
+    <ClInclude Include="src\render\RetroUi.h">
+      <Filter>Header Files\src\render</Filter>
+    </ClInclude>
+    <ClInclude Include="src\render\StartupLoader.h">
+      <Filter>Header Files\src\render</Filter>
+    </ClInclude>
+    <ClInclude Include="src\render\TabBgAim.h">
+      <Filter>Header Files\src\render</Filter>
+    </ClInclude>
+    <ClInclude Include="src\render\TabBgMisc.h">
+      <Filter>Header Files\src\render</Filter>
+    </ClInclude>
+    <ClInclude Include="src\render\TabBgSkins.h">
+      <Filter>Header Files\src\render</Filter>
+    </ClInclude>
+    <ClInclude Include="src\render\TabBgVisuals.h">
+      <Filter>Header Files\src\render</Filter>
+    </ClInclude>
+    <ClInclude Include="src\render\TakeControlImage.h">
+      <Filter>Header Files\src\render</Filter>
+    </ClInclude>
+    <ClInclude Include="src\render\UiAssets.h">
+      <Filter>Header Files\src\render</Filter>
+    </ClInclude>
+    <ClInclude Include="src\render\WarningImg.h">
+      <Filter>Header Files\src\render</Filter>
+    </ClInclude>
+    <ClInclude Include="src\render\WeaponPreview.h">
+      <Filter>Header Files\src\render</Filter>
+    </ClInclude>
+    <ClInclude Include="src\render\floating_panels.h">
+      <Filter>Header Files\src\render</Filter>
+    </ClInclude>
+    <ClInclude Include="src\render\menu\IconFont.h">
+      <Filter>Header Files\src\render\menu</Filter>
+    </ClInclude>
+    <ClInclude Include="src\render\menu\PrimordialFonts.h">
+      <Filter>Header Files\src\render\menu</Filter>
+    </ClInclude>
+    <ClInclude Include="src\render\menu\PrimordialLogo.h">
+      <Filter>Header Files\src\render\menu</Filter>
+    </ClInclude>
+    <ClInclude Include="src\render\menu\UiText.h">
+      <Filter>Header Files\src\render\menu</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="assets.rc">
+      <Filter>Resource Files</Filter>
+    </ResourceCompile>
+  </ItemGroup>
+</Project>
