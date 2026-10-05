@@ -15,8 +15,8 @@ void Shutdown();
 void Resize(unsigned width, unsigned height);
 
 void BeginFrame(const Mesh::Matrix4x4& view, const Mesh::Vector3& camera, float time);
-void QueueMesh(const std::string& mesh_id, const Mesh::Matrix4x4& world, bool weapon=false);
-void QueueBox(const Mesh::Matrix4x4& world, bool weapon=false);
+void QueueMesh(const std::string& mesh_id, const Mesh::Matrix4x4& world);
+void QueueBox(const Mesh::Matrix4x4& world);
 void Flush(ID3D11RenderTargetView* rtv);
 bool IsFrameValid();
 std::uintptr_t NativeDepthHandle(unsigned slot);

@@ -70,8 +70,6 @@ struct Vector3
     static Vector3 Down() { return Vector3(0, -1, 0); }
     static Vector3 Left() { return Vector3(-1, 0, 0); }
     static Vector3 Right() { return Vector3(1, 0, 0); }
-    static Vector3 Forward() { return Vector3(0, 0, 1); }
-    static Vector3 Back() { return Vector3(0, 0, -1); }
 
     static Vector3 Lerp(const Vector3& a, const Vector3& b, float t) { return a + (b - a) * t; }
 };
@@ -156,28 +154,10 @@ struct Color3
     bool operator==(const Color3& other) const { return r == other.r && g == other.g && b == other.b; }
     bool operator!=(const Color3& other) const { return !(*this == other); }
 
-    Color3 Clamp() const
-    {
-        float rr = r;
-        float gg = g;
-        float bb = b;
-        if (rr < 0.f) rr = 0.f;
-        if (rr > 1.f) rr = 1.f;
-        if (gg < 0.f) gg = 0.f;
-        if (gg > 1.f) gg = 1.f;
-        if (bb < 0.f) bb = 0.f;
-        if (bb > 1.f) bb = 1.f;
-        return Color3(rr, gg, bb);
-    }
-
-    static Color3 Black() { return Color3(0, 0, 0); }
     static Color3 White() { return Color3(1, 1, 1); }
-    static Color3 Red() { return Color3(1, 0, 0); }
-    static Color3 Green() { return Color3(0, 1, 0); }
-    static Color3 Blue() { return Color3(0, 0, 1); }
+
     static Color3 Yellow() { return Color3(1, 1, 0); }
     static Color3 Cyan() { return Color3(0, 1, 1); }
-    static Color3 Magenta() { return Color3(1, 0, 1); }
 
     static Color3 Lerp(const Color3& a, const Color3& b, float t) { return a + (b - a) * t; }
 };
@@ -226,27 +206,6 @@ struct Matrix4x4
         return result;
     }
 
-    Vector3 MultiplyPoint(const Vector3& point) const
-    {
-        float x = m[0][0] * point.x + m[0][1] * point.y + m[0][2] * point.z + m[0][3];
-        float y = m[1][0] * point.x + m[1][1] * point.y + m[1][2] * point.z + m[1][3];
-        float z = m[2][0] * point.x + m[2][1] * point.y + m[2][2] * point.z + m[2][3];
-        return Vector3(x, y, z);
-    }
-
-    Vector3 MultiplyVector(const Vector3& vector) const
-    {
-        float x = m[0][0] * vector.x + m[0][1] * vector.y + m[0][2] * vector.z;
-        float y = m[1][0] * vector.x + m[1][1] * vector.y + m[1][2] * vector.z;
-        float z = m[2][0] * vector.x + m[2][1] * vector.y + m[2][2] * vector.z;
-        return Vector3(x, y, z);
-    }
-
-    static Matrix4x4 Identity()
-    {
-        return Matrix4x4();
-    }
-
     static Matrix4x4 Translation(float x, float y, float z)
     {
         Matrix4x4 result;
@@ -259,42 +218,6 @@ struct Matrix4x4
     static Matrix4x4 Translation(const Vector3& translation)
     {
         return Translation(translation.x, translation.y, translation.z);
-    }
-
-    static Matrix4x4 RotationX(float angle)
-    {
-        float c = std::cos(angle);
-        float s = std::sin(angle);
-        Matrix4x4 result;
-        result.m[1][1] = c;
-        result.m[1][2] = -s;
-        result.m[2][1] = s;
-        result.m[2][2] = c;
-        return result;
-    }
-
-    static Matrix4x4 RotationY(float angle)
-    {
-        float c = std::cos(angle);
-        float s = std::sin(angle);
-        Matrix4x4 result;
-        result.m[0][0] = c;
-        result.m[0][2] = s;
-        result.m[2][0] = -s;
-        result.m[2][2] = c;
-        return result;
-    }
-
-    static Matrix4x4 RotationZ(float angle)
-    {
-        float c = std::cos(angle);
-        float s = std::sin(angle);
-        Matrix4x4 result;
-        result.m[0][0] = c;
-        result.m[0][1] = -s;
-        result.m[1][0] = s;
-        result.m[1][1] = c;
-        return result;
     }
 
     static Matrix4x4 Scale(float x, float y, float z)

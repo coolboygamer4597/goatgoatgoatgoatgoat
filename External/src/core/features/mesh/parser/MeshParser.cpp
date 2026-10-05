@@ -53,7 +53,7 @@ class DiscoveryWorker {
             lock.unlock();
             std::shared_ptr<const std::vector<Entry>> result;
             try {
-                result = std::make_shared<const std::vector<Entry>>(((character&1)?CollectWeapon(character&~std::uint64_t(1)):CollectDrawable(character)));
+                result = std::make_shared<const std::vector<Entry>>(CollectDrawable(character));
             } catch (...) {
 
             }
@@ -402,27 +402,8 @@ std::vector<Entry> CollectDrawable(std::uint64_t character)
 	return out;
 }
 
-std::vector<Entry> CollectWeapon(std::uint64_t root){
-    std::vector<Entry> out;
-    std::vector<std::pair<Instance,int>> pending{{Instance(root),0}};
-    std::unordered_set<std::uint64_t> seen,walked;
-    while(!pending.empty() && out.size()<256 && walked.size()<1024){
-        auto [node,depth]=pending.back();pending.pop_back();
-        if(depth>12||!g_Memory.IsValid(node.address)||!walked.insert(node.address).second)continue;
-        const auto cls=node.GetClassName(),name=node.GetName();
-        if(IsSkipClass(cls)||IsSkipPartName(name))continue;
-        if(IsBasePartClass(cls)){
-            const float alpha=g_Memory.Read<float>(node.address+Offsets::BasePart::Transparency);
-            if(std::isfinite(alpha)&&alpha<.999f)PushPart(root,node,"weapon",false,seen,out);
-        }
-        for(const auto& child:node.GetChildren())pending.push_back({child,depth+1});
-    }
-    return out;
-}
-std::shared_ptr<const std::vector<Entry>> RequestWeaponDrawable(std::uint64_t root){
 
-    return Discovery().Request(root|1);
-}
+
 
 std::vector<Entry> CollectForBounds(std::uint64_t character)
 {
@@ -443,6 +424,24 @@ std::vector<Entry> CollectForBounds(std::uint64_t character)
 		out.push_back(std::move(e));
 	}
 	return out;
+}
+
+std::vector<Entry> CollectWeapon(std::uint64_t root){
+    std::vector<Entry> out;
+    std::vector<std::pair<Instance,int>> pending{{Instance(root),0}};
+    std::unordered_set<std::uint64_t> seen,walked;
+    while(!pending.empty() && out.size()<256 && walked.size()<1024){
+        auto [node,depth]=pending.back();pending.pop_back();
+        if(depth>12||!g_Memory.IsValid(node.address)||!walked.insert(node.address).second)continue;
+        const auto cls=node.GetClassName(),name=node.GetName();
+        if(IsSkipClass(cls)||IsSkipPartName(name))continue;
+        if(IsBasePartClass(cls)){
+            const float alpha=g_Memory.Read<float>(node.address+Offsets::BasePart::Transparency);
+            if(std::isfinite(alpha)&&alpha<.999f)PushPart(root,node,"weapon",false,seen,out);
+        }
+        for(const auto& child:node.GetChildren())pending.push_back({child,depth+1});
+    }
+    return out;
 }
 
 std::shared_ptr<const std::vector<Entry>> RequestDrawable(std::uint64_t character) {

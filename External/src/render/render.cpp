@@ -8,25 +8,13 @@
 #include "OverlayLifecycle.h"
 #include "WeaponPreview.h"
 #include "../core/features/TargetLabels.h"
-#include "../core/features/WorldMaterials.h"
-#include "../core/features/SkyStyles.h"
 #include "StartupLoader.h"
 #include "../core/net/game_info.h"
-#include "ImageTexture.h"
 #include "SadblobVideo.h"
-#include "TakeControlImage.h"
-#include "../core/net/game_info.h"
 #include "../core/net/performance.h"
 #include "floating_panels.h"
 #include "../core/functions/settings/preferences.h"
-#include "menu/CascadiaMonoBL.c"
-#include "menu/PrimordialFonts.h"
 
-#include "TabBgAim.h"
-#include "TabBgVisuals.h"
-#include "TabBgMisc.h"
-#include "TabBgSkins.h"
-#include "WarningImg.h"
 #include <dwmapi.h>
 #include <cmath>
 #include <algorithm>
@@ -43,14 +31,13 @@
 #include "../../src/core/functions/skins/skins.h"
 #include "../../src/core/keys/keys.h"
 
-#include "../../src/core/functions/visual/visual.h"
 #include "../../src/core/features/mesh/shader/MeshDxShader.h"
 #include "../../src/core/features/mesh/chams/MeshChams.h"
 #include "../../src/core/features/native/NativeChams.h"
-#include "../../src/core/features/spotify/spotify.h"
 #include "../../src/core/features/spotify/music_host_bind.h"
+#include "../../src/core/features/spotify/music_player_ui.h"
+#include "../../src/core/features/spotify/media.h"
 #include "../../src/core/cache/cache.h"
-#include "../../src/core/net/ping.h"
 #include "../../src/sdk/offsets.h"
 #include <chrono>
 #include <ctime>
@@ -434,10 +421,6 @@ void OverlayWindow::ResizeSwapChain(int width, int height) {
     }
 }
 
-static ID3D11ShaderResourceView* g_tabBg[4] = { nullptr, nullptr, nullptr, nullptr };
-static ID3D11ShaderResourceView* g_warnSrv = nullptr;
-static ID3D11ShaderResourceView* g_logoSrv = nullptr;
-
 bool OverlayWindow::Initialize() {
     WNDCLASSEXW wc = { sizeof(wc), CS_CLASSDC, OverlayWndProc, 0L, 0L, GetModuleHandleW(nullptr), nullptr, nullptr, nullptr, nullptr, L"ExternalOverlay", nullptr };
     windowClass = wc;
@@ -523,7 +506,7 @@ void OverlayWindow::UpdateWindowStyle(bool inputWanted) {
 
 void OverlayWindow::BeginFrame() {
     SyncToGameWindow();
-    imGuiCustom::g_fontScale = 1.25f * variables::Misc::menuFontSize;
+    imGuiCustom::g_fontScale = 1.25f;
     imGuiCustom::Theme& theme = imGuiCustom::GetThemeMutable();
     theme.WindowBg = variables::Theme::background;
     theme.CardBg = variables::Theme::panels;
@@ -552,8 +535,6 @@ namespace {
 
 constexpr float kMenuW = 940.0f;
 constexpr float kMenuH = 630.0f;
-constexpr float kInnerW = 832.0f;
-constexpr float kHeaderH = 55.0f;
 constexpr float kSidebarW = 164.0f;
 constexpr float kContentTop = 56.0f;
 constexpr float kContentBottom = 517.0f;
@@ -564,24 +545,7 @@ constexpr float kChildY = kContentTop + 13.0f;
 constexpr float kChildW = kFrameW - kChildX - 20.0f;
 constexpr float kChildH = kContentBottom - kChildY - 16.0f;
 
-inline ImU32 ColOf(const ImVec4& c, int fallbackR, int fallbackG, int fallbackB)
-{
-    int r = (int)(c.x * 255.0f + 0.5f), g = (int)(c.y * 255.0f + 0.5f), b = (int)(c.z * 255.0f + 0.5f);
-    if (r <= 0 && g <= 0 && b <= 0) { r = fallbackR; g = fallbackG; b = fallbackB; }
-    return IM_COL32(r, g, b, 255);
-}
-inline ImU32 PrimBg()      { const imGuiCustom::Theme& t = imGuiCustom::GetTheme(); return ColOf(t.WindowBg, 29, 29, 29); }
-inline ImU32 PrimPanel()   { const imGuiCustom::Theme& t = imGuiCustom::GetTheme(); return ColOf(t.CardBg, 41, 41, 41); }
-inline ImU32 PrimSidebar() { const imGuiCustom::Theme& t = imGuiCustom::GetTheme(); return ColOf(t.ControlBg, 34, 34, 34); }
-inline ImU32 PrimChild()   { return PrimPanel(); }
-inline ImU32 PrimLine()    { const imGuiCustom::Theme& t = imGuiCustom::GetTheme(); return ColOf(t.ControlBg, 41, 41, 41); }
-inline ImU32 PrimOutline() { return IM_COL32(8, 8, 8, 255); }
 inline ImU32 PrimText()    { const imGuiCustom::Theme& t = imGuiCustom::GetTheme(); return ImGui::GetColorU32(t.Text); }
-inline ImU32 PrimTextDim() { const imGuiCustom::Theme& t = imGuiCustom::GetTheme(); return ImGui::GetColorU32(t.Text); }
-
-inline ImVec4 PrimAccent() { return variables::Theme::accent; }
-
-inline float Clamp01(float v) { return v < 0.0f ? 0.0f : (v > 1.0f ? 1.0f : v); }
 
 struct PrimTabDef { const char* label; const char* icon; };
 constexpr PrimTabDef kTabs[]={{"AIM",""},{"VISUALS",""},{"SYSTEM",""},{"SKINS",""}};
@@ -595,120 +559,8 @@ constexpr PrimSubTabDef kSubTabs[kTabCount][6]={
 };
 int SubTabCount(int tab){int n=0;for(int i=0;i<6;++i)if(kSubTabs[tab][i].label && kSubTabs[tab][i].label[0])++n;return n;}
 
-static ImVec2 s_dragTarget{ 0.0f, 0.0f };
-
-bool PrimTabButton(const char* label, const char* icon, bool selected, float alpha) {
-    ImGuiWindow* window = ImGui::GetCurrentWindow();
-    if (window->SkipItems)
-        return false;
-    const ImGuiID id = window->GetID(label);
-    label=UiText::Tr(label);
-    const ImVec2 label_size = ImGui::CalcTextSize(label, nullptr, true);
-    constexpr float kSlotW = 78.0f;
-    constexpr float kSlotH = 46.0f;
-    const ImVec2 pos = window->DC.CursorPos;
-    const ImRect slot(pos, ImVec2(pos.x + kSlotW, pos.y + kSlotH));
-    ImGui::ItemSize(slot.GetSize());
-    if (!ImGui::ItemAdd(slot, id))
-        return false;
-    bool hovered = false, held = false;
-    const bool pressed = ImGui::ButtonBehavior(slot, id, &hovered, &held);
-
-    const float filled = imGuiCustom::AnimateFloat(id, selected, 6.5f) * alpha;
-    const float hover = imGuiCustom::AnimateFloat(id + 0x51, hovered && !selected, 8.0f);
-    const float hover_offset = hover * -3.0f;
-
-    if (filled > 0.01f || hover > 0.01f) {
-        const float pillA = ImMax(filled, hover * 0.55f);
-        const int bgv = 48 + (int)((29.0f - 48.0f) * (1.0f - filled));
-        window->DrawList->AddRectFilled(
-            ImVec2(slot.Min.x + 4.0f, slot.Min.y + 2.0f),
-            ImVec2(slot.Max.x - 4.0f, slot.Max.y - 2.0f),
-            IM_COL32(bgv, bgv, bgv, (int)(255 * pillA)), 10.0f);
-    }
-
-    const float cx = (slot.Min.x + slot.Max.x) * 0.5f;
-    const ImVec4 accent = PrimAccent();
-    ImVec4 txt = ImLerp(ImVec4(0.498f, 0.494f, 0.494f, 1.0f), ImVec4(0.902f, 0.902f, 0.902f, 1.0f), filled);
-    txt = ImLerp(txt, accent, filled * 0.55f);
-    window->DrawList->AddText(
-        ImVec2(cx - label_size.x * 0.5f,
-               slot.Max.y - label_size.y - 6.0f + hover_offset),
-        ImGui::GetColorU32(ImVec4(txt.x, txt.y, txt.z, Clamp01(alpha))),
-        label);
-
-    if (icon && icon[0]) {
-        const imGuiCustom::Fonts& fonts = imGuiCustom::GetFonts();
-        if (fonts.IconFont) {
-            const ImVec2 isz = fonts.IconFont->CalcTextSizeA(20.0f, FLT_MAX, 0.0f, icon);
-            window->DrawList->AddText(fonts.IconFont, 20.0f,
-                ImVec2(cx - isz.x * 0.5f, slot.Min.y + 2.0f + hover_offset),
-                ImGui::GetColorU32(ImVec4(txt.x, txt.y, txt.z, Clamp01(alpha))), icon);
-        }
-    }
-    return pressed;
-}
-
-bool PrimSubTabButton(const char* label, const char* desc, bool selected) {
-    desc=UiText::Tr(desc);
-    ImGuiWindow* window = ImGui::GetCurrentWindow();
-    if (window->SkipItems)
-        return false;
-    const ImGuiID id = window->GetID(label);
-    label=UiText::Tr(label);
-    const ImVec2 pos = window->DC.CursorPos;
-    const ImRect bb(pos, ImVec2(pos.x + 128.0f, pos.y + 45.0f));
-    ImGui::ItemSize(ImVec2(bb.GetWidth(), bb.GetHeight()));
-    if (!ImGui::ItemAdd(bb, id))
-        return false;
-    bool hovered = false, held = false;
-    bool pressed = false;
-
-    bool overPopup = false;
-    {
-        const ImVec2 m = ImGui::GetIO().MousePos;
-        for (const ImVec4& r : imGuiCustom::HandDrawnPopupRects())
-            if (m.x >= r.x && m.x < r.z && m.y >= r.y && m.y < r.w) { overPopup = true; break; }
-    }
-    if (!overPopup)
-        pressed = ImGui::ButtonBehavior(bb, id, &hovered, &held);
-
-    float anim = window->StateStorage.GetFloat(id, 0.0f);
-    anim = ImLerp(anim, (hovered || selected) ? 1.0f : 0.0f, ImSaturate(12.0f * ImGui::GetIO().DeltaTime));
-    window->StateStorage.SetFloat(id, anim);
-
-    if (anim > 0.001f) {
-        const float am = selected ? 1.0f : anim * 0.6f;
-        const ImVec4 accent = PrimAccent();
-        window->DrawList->AddRectFilled(
-            ImVec2(bb.Min.x, bb.Min.y), ImVec2(bb.Min.x + 2.0f, bb.Max.y),
-            ImGui::GetColorU32(ImVec4(accent.x, accent.y, accent.z, am)));
-        const ImU32 c1 = IM_COL32(46, 46, 46, (int)(255 * am));
-        const ImU32 c2 = IM_COL32(34, 34, 34, (int)(255 * am));
-        window->DrawList->AddRectFilledMultiColor(
-            ImVec2(bb.Min.x + 2.0f, bb.Min.y), ImVec2(bb.Min.x + 130.0f, bb.Max.y), c1, c2, c2, c1);
-    }
-
-    const ImVec4 un(140.0f / 255.0f, 140.0f / 255.0f, 140.0f / 255.0f, 1.0f);
-    const ImVec4 sel(230.0f / 255.0f, 230.0f / 255.0f, 230.0f / 255.0f, 1.0f);
-    const ImVec4 txt = ImLerp(un, sel, selected ? 1.0f : anim);
-    ImVec4 desc_col(85.0f / 255.0f, 85.0f / 255.0f, 85.0f / 255.0f, 1.0f);
-    if (selected)
-        desc_col = ImVec4(110.0f / 255.0f, 110.0f / 255.0f, 110.0f / 255.0f, 1.0f);
-
-        const imGuiCustom::Fonts& fonts = imGuiCustom::GetFonts();
-    if (fonts.InterSemiBoldSmall)
-        window->DrawList->AddText(fonts.InterSemiBoldSmall, 15.0f, ImVec2(bb.Min.x + 2.0f, bb.Min.y + 6.0f),
-            ImGui::GetColorU32(txt), label);
-    if (fonts.InterSmall && desc[0] != '\0')
-        window->DrawList->AddText(fonts.InterSmall, 12.0f, ImVec2(bb.Min.x + 2.0f, bb.Min.y + 27.0f),
-            ImGui::GetColorU32(desc_col), desc);
-    return pressed;
-}
-
 void PrimContent(const char* id, const char* title, const ImVec2& pos, const ImVec2& size,
-                 const std::function<void()>& body, ID3D11ShaderResourceView* bg = nullptr,
-                 float bgNatW = 0.0f, float bgNatH = 0.0f) {
+                 const std::function<void()>& body) {
     ImDrawList* dl = ImGui::GetWindowDrawList();
     const ImVec2 win = ImGui::GetWindowPos();
     const ImVec2 min = ImVec2(std::floor(win.x + pos.x + imGuiCustom::g_contentOffset.x),
@@ -736,24 +588,6 @@ void PrimContent(const char* id, const char* title, const ImVec2& pos, const ImV
         dl->PopClipRect();
     }
 
-    if (variables::Theme::preset != SadblobVideo::ThemePreset &&
-        variables::Theme::preset != SadblobVideo::CustomPreset && bg && bgNatW > 1.0f && bgNatH > 1.0f) {
-        const float scale = size.y / bgNatH;
-        const float bw = bgNatW * scale;
-        if (bw > 8.0f && bw < size.x) {
-
-            if(bg==g_tabBg[1]) {
-
-                const ImVec2 left(max.x-bw,min.y);
-                dl->AddImageQuad((ImTextureID)(intptr_t)(uintptr_t)bg,left,ImVec2(max.x,min.y),max,ImVec2(left.x,max.y),
-                    ImVec2(1,0),ImVec2(1,1),ImVec2(0,1),ImVec2(0,0),IM_COL32(255,255,255,130));
-            } else {
-            dl->AddImageRounded((ImTextureID)(intptr_t)(uintptr_t)bg,
-                ImVec2(max.x - bw, min.y), max, ImVec2(0, 0), ImVec2(1, 1),
-                IM_COL32(255, 255, 255, 56), 10.0f, ImDrawFlags_RoundCornersAll);
-            }
-        }
-    }
     dl->AddRect(min,max,ImGui::GetColorU32(variables::Theme::accent),0,0,2);
         const imGuiCustom::Fonts& fonts = imGuiCustom::GetFonts();
     if (fonts.InterBold)
@@ -814,17 +648,16 @@ void OverlayWindow::RenderMenu() {
     draw->PopClipRect();
     const ImVec2 childPos(196,111),childSize(728,496);
     const int tab=variables::selectedTab,sub=s_subTab;
-    ID3D11ShaderResourceView* bg=nullptr;const float bgW=0,bgH=0;
     imGuiCustom::g_contentOffset=ImVec2(0,0);
     switch (tab) {
     case 0: {
 
         if (sub == 0)
             PrimContent("aim_main", "Silent Aim", childPos, childSize,
-                [] { Settings::RenderAimMain(); }, bg, bgW, bgH);
+                [] { Settings::RenderAimMain(); });
         else
             PrimContent("aim_checks", "Checks", childPos, childSize,
-                [] { Settings::RenderAimChecks(); }, bg, bgW, bgH);
+                [] { Settings::RenderAimChecks(); });
         break;
     }
     case 1: {
@@ -932,16 +765,16 @@ void OverlayWindow::RenderMenu() {
                     ry += imGuiCustom::SliderStep();
                     imGuiCustom::SliderFloat("mesh_trans_max", &variables::ESP::meshTransparencyMax, 0.0f, 1.0f, ImVec2(12.0f, ry + imGuiCustom::SliderTop()), 272.0f, "Transparency Max", "%.2f");
                 }
-            }, bg, bgW, bgH);
+            });
         break;
     }
     case 2:
         if(sub==1) PrimContent("misc_players","Players",childPos,childSize,
             []{Mics::RenderPlayersMenu();});
         else if(sub==2) PrimContent("misc_theme","Theme",childPos,childSize,
-            []{Mics::RenderThemeMenu();},bg,bgW,bgH);
+            []{Mics::RenderThemeMenu();});
         else PrimContent("misc_main", "General", childPos, childSize,
-            [] { Mics::RenderMiscMenu(); }, bg, bgW, bgH);
+            [] { Mics::RenderMiscMenu(); });
         break;
     case 3:
         if(sub==1)PrimContent("skin_overlay", "Custom skin overlay",childPos,childSize,
@@ -969,11 +802,11 @@ void OverlayWindow::RenderMenu() {
                     right("Weapon chams",&native);right("Arm chams",&arms.enabled);right("Glove chams",&gloves.enabled);
                     right("Show original gun",&showOriginal);
                     y+=12;right("Hide weapon and arms",&hide);right("First-person weapon",&viewmodel);right("AR-15",&ar15);right("Glock",&glock);right("Show weapon preview",&preview);
-            },bg,bgW,bgH);
+            });
         else if(sub==2)PrimContent("skin_editor","Skin editor",childPos,childSize,
-            []{Skins::RenderEditor();},bg,bgW,bgH);
+            []{Skins::RenderEditor();});
         else PrimContent("skins_main", "Skin Changer", childPos, childSize,
-            [this] { Skins::RenderMenu();WeaponPreview::DrawSkins(d3dDevice,d3dContext,Skins::SavedSelection()); }, bg, bgW, bgH);
+            [this] { Skins::RenderMenu();WeaponPreview::DrawSkins(d3dDevice,d3dContext,Skins::SavedSelection()); });
         break;
     }
 
@@ -1067,7 +900,7 @@ bool OverlayWindow::EndFrame() {
     LARGE_INTEGER p0, p1, freq;
     QueryPerformanceCounter(&p0);
     HRESULT presentResult;
-    {Performance::Scope timing(Performance::Present);presentResult = OverlayLifecycle::Present(swapChain, variables::Misc::vsync);}
+    {Performance::Scope timing(Performance::Present);presentResult = OverlayLifecycle::Present(swapChain, false);}
     if (presentResult == DXGI_ERROR_WAS_STILL_DRAWING || presentResult == DXGI_STATUS_OCCLUDED) return false;
     if (FAILED(presentResult)) {
         static HRESULT lastFailure = S_OK;
@@ -1123,7 +956,6 @@ bool OverlayWindow::EndFrame() {
 void OverlayWindow::Cleanup() {
     WeaponPreview::Shutdown();
     SadblobVideo::Shutdown();
-    if(g_logoSrv){g_logoSrv->Release();g_logoSrv=nullptr;}
     if (g_hookThread.joinable()) {
         g_hookStop.store(true, std::memory_order_release);
         if (g_mouseEvent) SetEvent(g_mouseEvent);

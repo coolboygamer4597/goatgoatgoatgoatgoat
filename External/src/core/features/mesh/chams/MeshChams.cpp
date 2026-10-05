@@ -1010,7 +1010,7 @@ void Draw(
 	const Vector2& viewport,
 	float scale_x,
 	float scale_y,
-	ImU32 fill_col, bool weapon)
+	ImU32 fill_col)
 {
 	if (!g_Memory.IsValid(character))
 		return;
@@ -1025,7 +1025,7 @@ void Draw(
 
 	const ULONGLONG now = GetTickCount64();
 
-	const auto partsSnapshot = weapon?MeshParser::RequestWeaponDrawable(character):MeshParser::RequestDrawable(character);
+	const auto partsSnapshot = MeshParser::RequestDrawable(character);
 	if (!partsSnapshot)
 		return;
 	const auto& parts = *partsSnapshot;
@@ -1158,7 +1158,7 @@ void Draw(
 				if (!is_acc && e.name != "Head")
 				{
 					if (use_shader)
-						MeshDxShader::QueueBox(MakeBoxWorld(pos, rot, sz),weapon);
+						MeshDxShader::QueueBox(MakeBoxWorld(pos, rot, sz));
 					else
 					{
 						DrawBoxFallback(dl, pos, rot, sz, live_view, viewport, scale_x, scale_y, fill_col);
@@ -1191,7 +1191,7 @@ void Draw(
 		}
 
 		if (use_shader)
-			MeshDxShader::QueueMesh(rr.mesh_id, MakeWorld(pos, rot, ms, off),weapon);
+			MeshDxShader::QueueMesh(rr.mesh_id, MakeWorld(pos, rot, ms, off));
 
 		if (!want_fill_imgui && !want_outline)
 			continue;

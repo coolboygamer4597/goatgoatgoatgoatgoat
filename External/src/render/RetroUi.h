@@ -7,11 +7,7 @@
 namespace RetroUi {
 inline ImU32 White = IM_COL32(242,242,235,255);
 inline ImU32 Gold = IM_COL32(255,222,50,255);
-inline void Heart(ImDrawList* d, ImVec2 p, float pixel, ImU32 color) {
-    const char* rows[] = {"0110110","1111111","1111111","0111110","0011100","0001000"};
-    for(int y=0;y<6;++y)for(int x=0;x<7;++x)if(rows[y][x]=='1')
-        d->AddRectFilled(ImVec2(p.x+x*pixel,p.y+y*pixel),ImVec2(p.x+(x+1)*pixel,p.y+(y+1)*pixel),color);
-}
+
 inline void Frame(ImDrawList* d, ImVec2 p, ImVec2 q, ImU32 color=IM_COL32(242,242,235,255)) {
     d->AddRectFilled(p,q,ImGui::GetColorU32(variables::Theme::background));
     d->AddRect(p,q,ImGui::GetColorU32(variables::Theme::accent),0,0,1);

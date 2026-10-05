@@ -10,7 +10,6 @@
 #include "../../ext/imgui/imgui_impl_win32.h"
 #include "../../ext/imgui/imgui_impl_dx11.h"
 #include "menu/UiText.h"
-#include "ImageTexture.h"
 #include "RetroUi.h"
 #include "LaunchPrivacy.h"
 #include "CaptureProtection.h"

@@ -11,7 +11,6 @@
 #include "../../../sdk/offsets.h"
 #include "../../cache/cache.h"
 #include "../WeaponVisuals.h"
-#include "../WorldMaterials.h"
 #include "../mesh/parser/MeshParser.h"
 #include "../../app/app.h"
 #include "../../globals/globals.h"
@@ -200,30 +199,9 @@ float hash21(float2 p)
     return float(h & 0x00ffffffu) / 16777216.0;
 }
 
-float vnoise(float2 p)
-{
-    float2 i = floor(p);
-    float2 f = frac(p);
-    f = f * f * (3.0 - 2.0 * f);
-    float a = hash21(i);
-    float b = hash21(i + float2(1.0, 0.0));
-    float c = hash21(i + float2(0.0, 1.0));
-    float d = hash21(i + float2(1.0, 1.0));
-    return lerp(lerp(a, b, f.x), lerp(c, d, f.x), f.y);
-}
 
-float fbm2(float2 p)
-{
-    float a = 0.0;
-    float w = 0.5;
-    [unroll] for (int k = 0; k < 4; ++k)
-    {
-        a += w * vnoise(p);
-        p = p * 2.02 + 7.3;
-        w *= 0.5;
-    }
-    return a;
-}
+
+
 
 float3 hue_rot(float3 c, float h)
 {
@@ -760,9 +738,6 @@ struct Hook {
 	bool draw_live = false;
 	std::chrono::steady_clock::time_point first_match{};
 	bool logged = false;
-	int sceneOpening = -1;
-    unsigned sceneOpened = 0;
-    bool sceneFailed = false;
 	bool occl_off = false;
 	std::uint8_t occl = 0;
 	std::uintptr_t occl_addr = 0;
@@ -1668,23 +1643,7 @@ std::vector<std::uint8_t> make_create_stub(std::uintptr_t state)
 	return c;
 }
 
-std::vector<std::uint8_t> make_entity_scope(std::uintptr_t state,std::uintptr_t original){
-    std::vector<std::uint8_t> c;
-    auto bytes=[&](std::initializer_list<std::uint8_t> v){c.insert(c.end(),v);};
-    auto d32=[&](std::uint32_t n){for(int i=0;i<4;++i)c.push_back(static_cast<std::uint8_t>(n>>(8*i)));};
-    bytes({0x53,0x48,0x81,0xec,0x80,0,0,0});
-    bytes({0x65,0x48,0x8b,0x1c,0x25,0x48,0,0,0});
-    bytes({0x48,0x89,0xd8,0xc1,0xe8,0x02,0x83,0xe0,0x1f,0xc1,0xe0,0x04});
-    bytes({0x49,0xba});append_u64(c,state+0x600);
-    bytes({0x49,0x01,0xc2,0x49,0x8b,0x02,0x48,0x89,0x44,0x24,0x60});
-    bytes({0x49,0x8b,0x42,0x08,0x48,0x89,0x44,0x24,0x68});
-    bytes({0x49,0x89,0x1a,0x49,0x89,0x4a,0x08,0x4c,0x89,0xd3});
-    for(std::uint32_t i=0;i<8;++i){bytes({0x48,0x8b,0x84,0x24});d32(0xb0+i*8);bytes({0x48,0x89,0x44,0x24,static_cast<std::uint8_t>(0x20+i*8)});}
-    bytes({0x48,0xb8});append_u64(c,original);append_call_rax(c);
-    bytes({0x4c,0x8b,0x54,0x24,0x68,0x4c,0x89,0x53,0x08});
-    bytes({0x4c,0x8b,0x54,0x24,0x60,0x4c,0x89,0x13});
-    bytes({0x48,0x81,0xc4,0x80,0,0,0,0x5b,0xc3});return c;
-}
+
 
 std::vector<std::uint8_t> make_draw_thunk(std::uintptr_t state)
 {
@@ -2431,26 +2390,7 @@ void store_res(std::uint64_t off, std::uint64_t v)
 	memory->Write<std::uint64_t>(g.state + off, v);
 }
 
-void pump_world_depth() {
-    if(g.stage<11 || g.sceneFailed)return;
-    if(g.sceneOpening>=0) {
-        const auto out=take_out();if(g.cmd_wait)return;
-        if(!out) {g.sceneFailed=true;std::printf("[NativeChams] world-depth sharing unavailable (hr=0x%X)\n",memory->Read<unsigned>(g.state+k_hr_off));}
-        else g.sceneOpened|=1u<<g.sceneOpening;
-        g.sceneOpening=-1;
-    }
-    if(g.sceneFailed || g.cmd_wait)return;
-    for(unsigned i=0;i<3;++i)if(!(g.sceneOpened&(1u<<i))) {
-        const auto handle=MeshDxShader::NativeDepthHandle(i);if(!handle)return;
-        const auto at=g.state+k_scene_slots+i*32;
-        if(memory->Read<std::uint64_t>(at+24)==handle && memory->Read<std::uint64_t>(at+8)) {
-            g.sceneOpened|=1u<<i;continue;
-        }
-        struct Desc { std::uint64_t handle; GUID texture,mutex; } desc{
-            handle,__uuidof(ID3D11Texture2D),__uuidof(IDXGIKeyedMutex)};
-        g.sceneOpening=int(i);issue_desc_cmd(8,&desc,sizeof(desc),at);return;
-    }
-}
+
 
 bool pump_creates()
 {
@@ -2556,7 +2496,7 @@ bool pump_creates()
 bool Active()
 {
 
-	return variables::ESP::nativeChams || WeaponVisuals::Active() || WorldMaterials::Available() && WorldMaterials::settings.enabled;
+	return variables::ESP::nativeChams || WeaponVisuals::Active();
 }
 
 bool is_vt(std::uint64_t obj, std::uint64_t rva)
@@ -2721,7 +2661,7 @@ void fill_geoms(bool refreshTargets)
 	const float dscale = 1.0f;
 	const float dbias = 0.0f;
 	static auto previous = std::chrono::steady_clock::now();
-	static double phase = 0.0, weaponPhase=0.0, armPhase=0.0, glovePhase=0.0, worldPhase=0.0;
+	static double phase = 0.0, weaponPhase=0.0, armPhase=0.0, glovePhase=0.0;
 	const auto frameTime = std::chrono::steady_clock::now();
 	const float speed = std::isfinite(variables::ESP::nativeChamsAnimationSpeed)
 		? std::clamp(variables::ESP::nativeChamsAnimationSpeed, 0.0f, 15.0f) : 1.0f;
@@ -2731,7 +2671,6 @@ void fill_geoms(bool refreshTargets)
     const double elapsed=std::chrono::duration<double>(frameTime-previous).count();
     armPhase+=elapsed*std::clamp(variables::Weapons::arms.speed,0.f,15.f);
     glovePhase+=elapsed*std::clamp(variables::Weapons::gloves.speed,0.f,15.f);
-    worldPhase+=elapsed*std::clamp(WorldMaterials::speed,0.f,15.f);
 	previous = frameTime;
 	const float now_s = static_cast<float>(phase);
 
@@ -2850,25 +2789,7 @@ void fill_geoms(bool refreshTargets)
 		++g_npick;
 		push_character(local_addr);
 	}
-    if(WorldMaterials::Available() && WorldMaterials::settings.enabled){
 
-        static std::vector<GeometryRange> mapRanges,building;
-        static std::vector<std::uint64_t> visited;
-        static std::vector<std::uintptr_t> mapParts;
-        static std::size_t cursor=0;
-        static auto nextMap=std::chrono::steady_clock::time_point{};
-        if(cursor>=mapParts.size()&&frameTime>=nextMap){mapParts=WorldMaterials::parts;cursor=0;building.clear();visited.clear();nextMap=frameTime+std::chrono::seconds(2);}
-        const auto deadline=std::chrono::steady_clock::now()+std::chrono::milliseconds(2);
-        for(int budget=100;cursor<mapParts.size()&&budget-->0&&std::chrono::steady_clock::now()<deadline;++cursor)
-            collect_fces(mapParts[cursor],building,visited);
-        if(cursor>=mapParts.size())mapRanges=building;
-        const auto& available=mapRanges.empty()?building:mapRanges;
-        for(const auto& range:available){
-            if(targets.size()>=k_max_targets)break;
-            if(std::any_of(taken.begin(),taken.end(),[&](const GeometryRange& r){return r.key()==range.key();}))continue;
-            Target t{};t.weapon=4;t.geom=range.geom;t.renderEntity=range.renderEntity;t.startIndex=range.startIndex;t.baseVertex=range.baseVertex;t.indexCount=range.indexCount;t.topology=range.topology;targets.push_back(t);
-        }
-    }
 	std::sort(targets.begin(), targets.end(), [](const Target& a, const Target& b) { return std::tie(a.renderEntity,a.geom,a.startIndex,a.baseVertex,a.indexCount,a.topology) < std::tie(b.renderEntity,b.geom,b.startIndex,b.baseVertex,b.indexCount,b.topology); });
 	}
 
@@ -3025,14 +2946,7 @@ void fill_geoms(bool refreshTargets)
             t.occludedMode=std::clamp(variables::ESP::nativeChamsOccludedStyle,0,ShaderNameCount()-1);
         }
         if(!variables::ESP::nativeChamsOcclusion){std::memcpy(t.occludedColor,mat.color,16);t.occludedMode=mat.mode;}
-        if(kind==4){
-            std::memcpy(mat.color,WorldMaterials::settings.color,16);mat.color[3]*=std::clamp(WorldMaterials::opacity,0.f,1.f);
-            mat.mode=std::clamp(WorldMaterials::style,0,ShaderNameCount()-1);mat.time=static_cast<float>(worldPhase);
-            mat.glow[3]=0;mat.pattern[0]=1.f/(std::max)(.1f,WorldMaterials::scale);mat.pattern[1]=0;mat.pattern[2]=0;
-            mat.body_status[1]=2.f;
 
-            std::memcpy(t.occludedColor,mat.color,16);t.occludedColor[3]=0;t.occludedMode=mat.mode;
-        }
 	}
 
 	g.ntarget = (int)targets.size();
@@ -3062,7 +2976,7 @@ void fill_geoms(bool refreshTargets)
     std::vector<BodyCache> drawBodies;
     for (std::size_t i=0;i<targets.size();++i) {
         const auto primitive=targets[i].anchorPrimitive;
-        if(!primitive || targets[i].weapon==4){snapshot[i].liveBody=0;continue;}
+        if(!primitive){snapshot[i].liveBody=0;continue;}
         auto inserted=bodySlots.emplace(primitive,drawBodies.size());
         if(inserted.second) { BodyCache body{}; body.source=primitive+Offsets::Primitive::Rotation; drawBodies.push_back(body); }
         snapshot[i].liveBody=dst+k_max_targets*sizeof(Target)+inserted.first->second*sizeof(BodyCache);

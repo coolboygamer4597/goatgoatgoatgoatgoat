@@ -113,10 +113,6 @@ namespace Cheat {
     public:
         BasePart(uintptr_t addr) : Instance(addr) {}
 
-        uintptr_t GetPrimitive() const {
-            return CachedPrimitive(address);
-        }
-
         bool GetFrameData(Vector3& pos, Matrix4x4& rot, Vector3& sz) const {
             pos = {}; rot = Matrix4x4(); sz = {};
 			const uintptr_t prim = CachedPrimitive(address);
@@ -166,18 +162,6 @@ namespace Cheat {
             );
         }
 
-        float GetTransparency() const {
-            if (!address) return 0.f;
-            return memory->read<float>(address + Offsets::BasePart::Transparency);
-        }
-
-        Color3 GetColor() const {
-            if (!address) return Color3(0.8f, 0.8f, 0.8f);
-            Color3 direct = memory->read<Color3>(address + Offsets::BasePart::Color3);
-            if (direct.r > 0.001f || direct.g > 0.001f || direct.b > 0.001f)
-                return direct;
-            return Color3(0.8f, 0.8f, 0.8f);
-        }
     };
 
     class MeshPart : public Instance {
@@ -204,13 +188,6 @@ namespace Cheat {
             if (!mesh) return "Unknown";
             return memory->read_string(mesh);
         }
-        Vector3 GetScale() const {
-            if (!address) return Vector3(1.f, 1.f, 1.f);
-            return memory->read<Vector3>(address + Offsets::SpecialMesh::Scale);
-        }
-        Vector3 GetOffset() const {
-            if (!address) return Vector3(0.f, 0.f, 0.f);
-            return memory->read<Vector3>(address + Offsets::SpecialMesh::Offset);
-        }
+
     };
 }

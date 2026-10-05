@@ -38,18 +38,7 @@ float Saturation(const MusicRgb& c) {
     return hi > 0.0001f ? (hi - lo) / hi : 0.f;
 }
 
-float Hue(const MusicRgb& c) {
-    const float hi = std::max(c.r, std::max(c.g, c.b));
-    const float lo = std::min(c.r, std::min(c.g, c.b));
-    const float delta = hi - lo;
-    if (delta <= 0.0001f) return 0.f;
-    float hue = 0.f;
-    if (hi == c.r) hue = std::fmod((c.g - c.b) / delta, 6.f);
-    else if (hi == c.g) hue = (c.b - c.r) / delta + 2.f;
-    else hue = (c.r - c.g) / delta + 4.f;
-    hue /= 6.f;
-    return hue < 0.f ? hue + 1.f : hue;
-}
+
 
 MusicRgb Mix(const MusicRgb& a, const MusicRgb& b, float t) {
     t = std::clamp(t, 0.f, 1.f);

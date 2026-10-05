@@ -20,7 +20,6 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ext\imgui\imgui.cpp" />
-    <ClCompile Include="ext\imgui\imgui_demo.cpp" />
     <ClCompile Include="ext\imgui\imgui_draw.cpp" />
     <ClCompile Include="ext\imgui\imgui_impl_dx11.cpp" />
     <ClCompile Include="ext\imgui\imgui_impl_win32.cpp" />
@@ -33,15 +32,9 @@
     <ClCompile Include="src\core\functions\aim\silent_fov_center.cpp" />
     <ClCompile Include="src\core\functions\aim\silent_nearest_point.cpp" />
     <ClCompile Include="src\core\functions\mics\mics.cpp" />
-    <ClCompile Include="src\core\functions\movement\movement.cpp" />
     <ClCompile Include="src\core\functions\settings\settings.cpp" />
     <ClCompile Include="src\core\functions\skins\skins.cpp" />
-    <ClCompile Include="src\core\functions\visual\visual.cpp" />
     <ClCompile Include="src\core\tp_handler\tp_handler.cpp" />
-    <ClCompile Include="src\core\functions\aim\viewport_silent.cpp" />
-    <ClCompile Include="src\core\functions\freecam\freecam.cpp" />
-    <ClCompile Include="src\core\functions\world\world.cpp" />
-    <ClCompile Include="src\core\cache\worldcache.cpp" />
     <ClCompile Include="src\core\features\mesh\cache\MeshCache.cpp" />
     <ClCompile Include="src\core\features\mesh\parser\MeshParser.cpp" />
     <ClCompile Include="src\core\features\mesh\occlusion\MeshOcclusion.cpp" />
@@ -71,22 +64,14 @@
     <ClInclude Include="ext\imgui\imstb_textedit.h" />
     <ClInclude Include="ext\imgui\imstb_truetype.h" />
     <ClInclude Include="src\core\cache\cache.h" />
-    <ClInclude Include="src\core\functions\aim\fallen_prediction.h" />
-    <ClInclude Include="src\core\functions\aim\viewport_silent.h" />
     <ClInclude Include="src\core\functions\aim\raycast_silent.h" />
-    <ClInclude Include="src\core\functions\freecam\freecam.h" />
-    <ClInclude Include="src\core\functions\world\world.h" />
-    <ClInclude Include="src\core\cache\worldcache.h" />
-    <ClInclude Include="src\core\cache\workspace.h" />
     <ClInclude Include="src\core\app\app.h" />
     <ClInclude Include="src\core\app\RuntimePaths.h" />
     <ClInclude Include="src\core\functions\aim\aim.h" />
     <ClInclude Include="src\core\functions\mics\mics.h" />
     <ClInclude Include="src\core\keys\keys.h" />
-    <ClInclude Include="src\core\functions\movement\movement.h" />
     <ClInclude Include="src\core\functions\settings\settings.h" />
     <ClInclude Include="src\core\functions\skins\skins.h" />
-    <ClInclude Include="src\core\functions\visual\visual.h" />
     <ClInclude Include="src\core\globals\globals.h" />
     <ClInclude Include="src\core\tp_handler\tp_handler.h" />
     <ClInclude Include="src\core\variables\variables.h" />
@@ -113,7 +98,6 @@
     <ClInclude Include="src\core\features\native\NativeChams.h" />
     <ClInclude Include="src\core\features\native\NativeWorldDepth.h" />
     <ClInclude Include="src\core\features\mesh\occlusion\AvatarOccluderFilter.h" />
-    <ClInclude Include="src\core\features\spotify\spotify.h" />
     <ClInclude Include="src\core\features\spotify\media.h" />
     <ClInclude Include="src\core\features\spotify\music_host_bind.h" />
     <ClInclude Include="src\core\features\spotify\music_player_host.h" />
@@ -215,7 +199,7 @@
       <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
       <WarningLevel>Level3</WarningLevel>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>_DEBUG;_CONSOLE;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_DEBUG;_CONSOLE;_CRT_SECURE_NO_WARNINGS;NOMINMAX;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <AdditionalIncludeDirectories>$(ProjectDir)src;$(ProjectDir)src\core\features\spotify;$(ProjectDir)ext\imgui;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -244,24 +228,18 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ResourceCompile Include="assets.rc" />
-    <ClCompile Include="src\core\features\world_render\WorldRender.cpp" />
-    <ClCompile Include="src\core\features\world_render\WorldHost.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>
   <ItemGroup>
-    <ClInclude Include="src\core\features\SkinPreview.h" />
-    <ClInclude Include="src\core\features\SkyStyles.h" />
     <ClInclude Include="src\core\features\TargetLabels.h" />
     <ClInclude Include="src\core\features\WeaponVisuals.h" />
-    <ClInclude Include="src\core\features\WorldMaterials.h" />
     <ClInclude Include="src\core\features\native\NativeDepthCapture.h" />
     <ClInclude Include="src\core\features\native\NativeDepthCaptureBytes.h" />
     <ClInclude Include="src\core\features\native\NativeOcclusion.h" />
     <ClInclude Include="src\core\features\native\NativePattern.h" />
     <ClInclude Include="src\core\features\native\NativePreparation.h" />
-    <ClInclude Include="src\core\features\world_render\WorldRender.h" />
     <ClInclude Include="src\core\functions\aim\silent_fov_center.h" />
     <ClInclude Include="src\core\functions\aim\silent_nearest_point.h" />
     <ClInclude Include="src\core\functions\settings\preferences.h" />
@@ -270,26 +248,14 @@
     <ClInclude Include="src\core\keys\visual_keybind.h" />
     <ClInclude Include="src\core\net\game_info.h" />
     <ClInclude Include="src\core\net\performance.h" />
-    <ClInclude Include="src\core\net\ping.h" />
     <ClInclude Include="src\core\variables\player_rules.h" />
-    <ClInclude Include="src\pch.h" />
-    <ClInclude Include="src\render\ImageTexture.h" />
     <ClInclude Include="src\render\MenuMotion.h" />
     <ClInclude Include="src\render\OverlayLifecycle.h" />
     <ClInclude Include="src\render\RetroUi.h" />
     <ClInclude Include="src\render\StartupLoader.h" />
-    <ClInclude Include="src\render\TabBgAim.h" />
-    <ClInclude Include="src\render\TabBgMisc.h" />
-    <ClInclude Include="src\render\TabBgSkins.h" />
-    <ClInclude Include="src\render\TabBgVisuals.h" />
-    <ClInclude Include="src\render\TakeControlImage.h" />
     <ClInclude Include="src\render\UiAssets.h" />
-    <ClInclude Include="src\render\WarningImg.h" />
     <ClInclude Include="src\render\WeaponPreview.h" />
     <ClInclude Include="src\render\floating_panels.h" />
-    <ClInclude Include="src\render\menu\IconFont.h" />
-    <ClInclude Include="src\render\menu\PrimordialFonts.h" />
-    <ClInclude Include="src\render\menu\PrimordialLogo.h" />
     <ClInclude Include="src\render\menu\UiText.h" />
   </ItemGroup>
 </Project>

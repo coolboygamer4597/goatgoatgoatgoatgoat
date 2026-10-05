@@ -335,36 +335,6 @@ namespace rbx {
 			return res;
 		}
 
-		matrix3_t lerp_smooth(const matrix3_t& other, float x, float y) const {
-			matrix3_t res;
-			for (int i = 0; i < 9; ++i) {
-				if (i % 3 == 0)
-					res.data[i] = data[i] + (other.data[i] - data[i]) * x;
-				else
-					res.data[i] = data[i] + (other.data[i] - data[i]) * y;
-			}
-			return res;
-		}
-
-		static matrix3_t from_axis_angle(const vector3_t& axis, float angle) {
-			matrix3_t res;
-			auto c = cosf(angle);
-			auto s = sinf(angle);
-			auto t = 1.f - c;
-			auto x = axis.x;
-			auto y = axis.y;
-			auto z = axis.z;
-			res.data[0] = t * x * x + c;
-			res.data[1] = t * x * y - s * z;
-			res.data[2] = t * x * z + s * y;
-			res.data[3] = t * x * y + s * z;
-			res.data[4] = t * y * y + c;
-			res.data[5] = t * y * z - s * x;
-			res.data[6] = t * x * z - s * y;
-			res.data[7] = t * y * z + s * x;
-			res.data[8] = t * z * z + c;
-			return res;
-		}
 	};
 
 	struct matrix4_t {
@@ -437,46 +407,12 @@ namespace rbx {
 
 		color3_t(float rd = 0.f, float gr = 0.f, float bl = 0.f) : r(rd), g(gr), b(bl) {}
 
-		static color3_t from_rgb(float r, float g, float b) {
-			return color3_t(r / 255.f, g / 255.f, b / 255.f);
-		}
-
-		static color3_t to_rgb(float r, float g, float b) {
-			return color3_t(r * 255.f, g * 255.f, b * 255.f);
-		}
-
-		static color3_t from_hex(std::string hex) {
-			auto temp = hex;
-			if (temp[0] == '#') temp = temp.substr(1);
-			if (temp.length() != 6) return color3_t();
-			auto r = stof(temp.substr(0, 2));
-			auto g = stof(temp.substr(2, 2));
-			auto b = stof(temp.substr(4, 2));
-			return from_rgb(r, g, b);
-		}
-
-		std::string to_hex() {
-			char hex[8];
-			auto rd = (int)(round(std::clamp(r, 0.f, 1.f) * 255.f));
-			auto gr = (int)(round(std::clamp(g, 0.f, 1.f) * 255.f));
-			auto bl = (int)(round(std::clamp(b, 0.f, 1.f) * 255.f));
-			std::snprintf(hex, sizeof(hex), "#%02x%02x%02x", rd, gr, bl);
-			return std::string(hex);
-		}
 	};
 
 	struct cframe_t {
 		matrix3_t rotation = matrix3_t();
 		vector3_t position = vector3_t();
 	};
-
-	inline vector3_t multiply(const matrix3_t& m, const vector3_t& v) {
-		return {
-			m.data[0] * v.x + m.data[1] * v.y + m.data[2] * v.z,
-			m.data[3] * v.x + m.data[4] * v.y + m.data[5] * v.z,
-			m.data[6] * v.x + m.data[7] * v.y + m.data[8] * v.z
-		};
-	}
 
 	struct udim_t {
 		float scale;
@@ -504,27 +440,4 @@ namespace rbx {
 		return (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
 	}
 
-	inline std::vector<vector2_t> convex_hull(std::vector<vector2_t> points) {
-		if (points.size() <= 1) return points;
-		std::sort(points.begin(), points.end(),
-			[](const vector2_t& a, const vector2_t& b) {
-				return a.x < b.x || (a.x == b.x && a.y < b.y);
-			});
-		std::vector<vector2_t> hull;
-		for (const auto& p : points) {
-			while (hull.size() >= 2 &&
-				cross(hull[hull.size() - 2], hull.back(), p) <= 0)
-				hull.pop_back();
-			hull.push_back(p);
-		}
-		size_t lower_size = hull.size();
-		for (int i = (int)points.size() - 2; i >= 0; --i) {
-			while (hull.size() > lower_size &&
-				cross(hull[hull.size() - 2], hull.back(), points[i]) <= 0)
-				hull.pop_back();
-			hull.push_back(points[i]);
-		}
-		hull.pop_back();
-		return hull;
-	}
 }

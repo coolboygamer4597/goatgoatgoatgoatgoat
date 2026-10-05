@@ -1096,7 +1096,6 @@ struct DrawItem
 {
 	const GpuMesh* mesh = nullptr;
 	Matrix4x4      world{};
-    bool weapon=false;
 };
 
 constexpr float kDepthWindow = 5000.0f;
@@ -1795,7 +1794,7 @@ void BeginFrame(const Matrix4x4& view, const Vector3& camera, float time)
 	g_cbdata.camera[2] = camera.z;
 	g_cbdata.time = time;
 
-	g_cbdata.mode = (variables::ESP::meshChamsStyle == 1) ? variables::ESP::meshChamsDxMode : 0;
+	g_cbdata.mode = variables::ESP::meshChamsDxMode;
 	if (g_cbdata.mode < 0) g_cbdata.mode = 0;
 	if (g_cbdata.mode > 63) g_cbdata.mode = 63;
 	g_cbdata.occluded_mode = variables::ESP::meshChamsOccludedDxMode;
@@ -1829,21 +1828,21 @@ void BeginFrame(const Matrix4x4& view, const Vector3& camera, float time)
 	g_cbdata.cb_padding[0]=5000;g_cbdata.cb_padding[1]=1;g_cbdata.cb_padding[2]=0;
 }
 
-void QueueMesh(const std::string& mesh_id, const Matrix4x4& world, bool weapon)
+void QueueMesh(const std::string& mesh_id, const Matrix4x4& world)
 {
 	if (!g_frame_valid)
 		return;
 	const GpuMesh* mesh = Fetch(mesh_id);
 	if (!mesh)
 		return;
-	g_queue.push_back({ mesh, world, weapon });
+	g_queue.push_back({ mesh, world });
 }
 
-void QueueBox(const Matrix4x4& world, bool weapon)
+void QueueBox(const Matrix4x4& world)
 {
 	if (!g_frame_valid || !g_unit_cube.vb)
 		return;
-	g_queue.push_back({ &g_unit_cube, world, weapon });
+	g_queue.push_back({ &g_unit_cube, world });
 }
 
 std::uintptr_t NativeDepthHandle(unsigned slot) {
@@ -1889,7 +1888,7 @@ void Flush(ID3D11RenderTargetView* rtv)
 		return;
 	}
 
-	const bool want_occ = (nativeDepth || g_cbdata.occlusion_enabled != 0 || (variables::Weapons::mesh && variables::ESP::meshChamsOcclusion)) && g_world_dsv && g_world_srv && g_unit_cube.vb;
+	const bool want_occ = (nativeDepth || g_cbdata.occlusion_enabled != 0) && g_world_dsv && g_world_srv && g_unit_cube.vb;
 	if (!want_occ)
 	{
 		g_occ_reach_last = 0.0f;
@@ -2076,23 +2075,10 @@ void Flush(ID3D11RenderTargetView* rtv)
 		g_context->PSSetShaderResources(0, 1, null_srv);
 	}
 
-    const auto bodyMaterial=g_cbdata;
     for(const auto& item:g_queue){
-        g_cbdata=bodyMaterial;
-        if(item.weapon){
-            g_cbdata.mode=std::clamp(variables::Weapons::meshStyle,0,ModeNameCount()-1);
-            g_cbdata.occluded_mode=g_cbdata.mode;
-            g_cbdata.time*=variables::Weapons::speed;
-            g_cbdata.cb_padding[1]=variables::Weapons::scale;
-            for(auto dest:{g_cbdata.base_color,g_cbdata.visible_color,g_cbdata.fresnel_color})std::memcpy(dest,variables::Weapons::color,16);
-            std::memcpy(g_cbdata.occluded_color,variables::ESP::meshChamsOccludedColor,16);
-            std::memcpy(g_cbdata.occluded_fresnel,variables::ESP::meshChamsOccludedColor,16);
-            g_cbdata.chams_opacity=variables::Weapons::opacity;
-            g_cbdata.occlusion_enabled=variables::ESP::meshChamsOcclusion?1:0;
-        }
+
         if(item.mesh)Issue(*item.mesh,item.world);
     }
-    g_cbdata=bodyMaterial;
 
 	const bool want_outline =
 		g_cbdata.outline_enabled != 0 && g_cham_srv && g_vs_fs && g_ps_outline;

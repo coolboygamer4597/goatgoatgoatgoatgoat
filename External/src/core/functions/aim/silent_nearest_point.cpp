@@ -1,6 +1,4 @@
 #include "silent_nearest_point.h"
-#include "../../cache/workspace.h"
-#include "../../cache/worldcache.h"
 #include "../../globals/globals.h"
 #include "../../variables/variables.h"
 #include "../../../memory/memory.h"

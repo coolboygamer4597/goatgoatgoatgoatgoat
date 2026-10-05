@@ -20,17 +20,8 @@
 #include "../globals/globals.h"
 #include "../tp_handler/tp_handler.h"
 #include "../functions/aim/aim.h"
-#include "../functions/visual/visual.h"
-#include "../functions/mics/mics.h"
-#include "../functions/movement/movement.h"
-#include "../functions/freecam/freecam.h"
-#include "../functions/aim/viewport_silent.h"
 #include "../functions/aim/raycast_silent.h"
-#include "../functions/world/world.h"
 #include "../functions/skins/skins.h"
-#include "../cache/workspace.h"
-#include "../cache/worldcache.h"
-#include "../net/ping.h"
 #include "../../render/render.h"
 #include "../../render/OverlayLifecycle.h"
 #include "../../render/menu/library.h"
@@ -42,31 +33,17 @@
 #include "../features/WeaponVisuals.h"
 #include "../../render/MenuMotion.h"
 #include "../features/TargetLabels.h"
-#include "../features/WorldMaterials.h"
-#include "../features/SkyStyles.h"
 
 #pragma comment(lib, "winmm.lib")
 
 namespace {
 constexpr const char* kProc = "RobloxPlayerBeta.exe";
 constexpr const wchar_t* kTitle = L"Roblox";
-constexpr bool kEnableSilentAim = true;
-constexpr bool kEnableLegacyVisuals = false;
-constexpr bool kEnableLegacyMicsFeatures = false;
 
 Mesh::Matrix4x4 ToMeshMatrix(const RBX::Mat4& src) {
     Mesh::Matrix4x4 out;
     std::memcpy(out.m, src.data, sizeof(src.data));
     return out;
-}
-
-bool IsBodyPartName(const std::string& name) {
-    return name == "Head" || name == "Torso" || name == "UpperTorso" || name == "LowerTorso" ||
-        name == "Left Arm" || name == "Right Arm" || name == "Left Leg" || name == "Right Leg" ||
-        name == "LeftUpperArm" || name == "LeftLowerArm" || name == "LeftHand" ||
-        name == "RightUpperArm" || name == "RightLowerArm" || name == "RightHand" ||
-        name == "LeftUpperLeg" || name == "LeftLowerLeg" || name == "LeftFoot" ||
-        name == "RightUpperLeg" || name == "RightLowerLeg" || name == "RightFoot";
 }
 
 bool PassesMeshVisibilityChecks(std::uintptr_t character) {
@@ -597,7 +574,6 @@ std::int32_t Run() {
     std::cout << "[+] overlay initialized\n[*] press insert to toggle menu\n\n";
     timeBeginPeriod(1);
     std::thread tpThread(Core::tp_handler::thread);
-    std::thread localThread;
 
     std::thread skinsThread([] {
         while (Globals::running.load()) {
@@ -605,15 +581,7 @@ std::int32_t Run() {
             std::this_thread::sleep_for(std::chrono::milliseconds(50));
         }
     });
-    std::thread worldThread;
-    std::thread moveThread;
-    if constexpr (kEnableLegacyVisuals)
-        worldThread = std::thread(WorldCache::Loop);
-    if constexpr (kEnableLegacyMicsFeatures) {
-        localThread = std::thread(Mics::Loop);
-        moveThread = std::thread(Movement::Loop);
-        Freecam::Start();
-    }
+
     while (memory->IsConnected() && Globals::running) {
 
         if (!OverlayLifecycle::PumpMessages() || !Globals::running) break;
@@ -642,21 +610,18 @@ std::int32_t Run() {
         }
         menuKeyWasDown = menuKeyDown;
 
-        if (variables::Misc::fpsUnlocker)
-            apply_game_fps_limit();
+        apply_game_fps_limit();
         if (!Globals::renderEngine.Addr || !Globals::players.Addr || !Globals::localPlayer.Addr) {
             std::this_thread::sleep_for(std::chrono::milliseconds(50));
             continue;
         }
-        if constexpr (kEnableSilentAim) {
 
-            static auto lastPlayerScan = std::chrono::steady_clock::time_point{};
-            const auto nowScan = std::chrono::steady_clock::now();
-            if (nowScan - lastPlayerScan >= std::chrono::milliseconds(33)) {
-                lastPlayerScan = nowScan;
-                Performance::Scope timing(Performance::PlayerCache);
-                PlayerCache::updateplayers();
-            }
+        static auto lastPlayerScan = std::chrono::steady_clock::time_point{};
+        const auto nowScan = std::chrono::steady_clock::now();
+        if (nowScan - lastPlayerScan >= std::chrono::milliseconds(33)) {
+            lastPlayerScan = nowScan;
+            Performance::Scope timing(Performance::PlayerCache);
+            PlayerCache::updateplayers();
         }
 
     static VisualKeybind::State visualKeyState;
@@ -668,13 +633,12 @@ std::int32_t Run() {
         !variables::menuOpen && foregroundPid==memory->get_process_id(),
         variables::ESP::nativeChams,variables::ESP::meshChams);
     WeaponVisuals::Refresh();
-    WorldMaterials::settings.enabled=false;SkyStyles::enabled=false;
     { Performance::Scope timing(Performance::Native);
-      if (variables::ESP::nativeChams || WeaponVisuals::Active() || (WorldMaterials::Available() && WorldMaterials::settings.enabled)) Cheat::Visuals::NativeChams::Tick();
+      if (variables::ESP::nativeChams || WeaponVisuals::Active()) Cheat::Visuals::NativeChams::Tick();
       else Cheat::Visuals::NativeChams::Stop();
     }
 
-        if constexpr (kEnableSilentAim) {
+        {
             const auto vm = Globals::renderEngine.GetViewMat();
             Performance::Scope timing(Performance::SilentAim);
             Aimbot::RunAimbot(vm);
@@ -718,13 +682,7 @@ std::int32_t Run() {
             Performance::Scope timing(Performance::Mesh);
             RenderMeshVisuals(dl, meshView, overlaySize);
         }
-        if constexpr (kEnableSilentAim)
-            Aimbot::RenderTracer(dl);
-        if constexpr (kEnableLegacyVisuals) {
-            const auto vm = Globals::renderEngine.GetViewMat();
-            Visuals::RenderESP(dl, vm);
-            WorldVisuals::Render(dl, vm);
-        }
+
         overlay.EndFrame();
 
         {
@@ -742,7 +700,7 @@ std::int32_t Run() {
                 nextFrame = nowFrame + std::chrono::microseconds(periodUs);
         }
     }
-    world_render::stop();WeaponVisuals::RestoreHidden();SkyStyles::Restore();UiAssets::Shutdown();
+    UiAssets::Shutdown();
     Cheat::Features::RaycastSilent::SetActive(false);
     Cheat::Features::RaycastSilent::Remove();
     Cheat::Visuals::NativeChams::Stop();
@@ -752,19 +710,10 @@ std::int32_t Run() {
     Cheat::Visuals::MeshParser::Shutdown();
     if (skinsThread.joinable())
         skinsThread.join();
-    ViewportSilent::Shutdown();
     Cheat::Features::RaycastSilent::Remove();
     Skins::Shutdown();
     if (tpThread.joinable())
         tpThread.join();
-    if (localThread.joinable())
-        localThread.join();
-    WorldCache::running = false;
-    Freecam::Stop();
-    if (worldThread.joinable())
-        worldThread.join();
-    if (moveThread.joinable())
-        moveThread.join();
     overlay.Cleanup();
     return 0;
 }

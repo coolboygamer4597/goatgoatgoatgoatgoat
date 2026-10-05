@@ -153,28 +153,6 @@ inline ImU32 ColorU32(const ImVec4& color, float alpha_mul = 1.0f)
     return ImGui::GetColorU32(c);
 }
 
-inline void AddTextWithOutline(ImDrawList* draw_list, ImFont* font, float font_size, const ImVec2& pos, ImU32 text_col, const char* text)
-{
-    const ImU32 outline_col = OutlineBlack();
-    static const ImVec2 offsets[8] = {
-        ImVec2(-1.0f, -1.0f), ImVec2(0.0f, -1.0f), ImVec2(1.0f, -1.0f),
-        ImVec2(-1.0f,  0.0f),                      ImVec2(1.0f,  0.0f),
-        ImVec2(-1.0f,  1.0f), ImVec2(0.0f,  1.0f), ImVec2(1.0f,  1.0f)
-    };
-    if (font)
-    {
-        for (int i = 0; i < 8; ++i)
-            draw_list->AddText(font, font_size, ImVec2(pos.x + offsets[i].x, pos.y + offsets[i].y), outline_col, text);
-        draw_list->AddText(font, font_size, pos, text_col, text);
-    }
-    else
-    {
-        for (int i = 0; i < 8; ++i)
-            draw_list->AddText(ImVec2(pos.x + offsets[i].x, pos.y + offsets[i].y), outline_col, text);
-        draw_list->AddText(pos, text_col, text);
-    }
-}
-
 inline bool Checkbox(const char* label,bool* value,const ImVec2& pos){
     auto p=ImGui::GetWindowPos()+pos+g_contentOffset;
     const char* end=strstr(label,"##");std::string name=end?std::string(label,end):label;
@@ -697,8 +675,8 @@ struct SelectorShared
         return boxMin;
     }
 
-    static void Rows(const char* const items[], int items_count, int* current_item, bool values[],
-        bool multi, float row_height, float visible_h, ImFont* font, float font_size, bool& changed, bool& close_now)
+    static void Rows(const char* const items[], int items_count, int* current_item,
+        float row_height, float visible_h, ImFont* font, float font_size, bool& changed, bool& close_now)
     {
         const Theme& theme = GetTheme();
         ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0.0f, 0.0f));
@@ -706,18 +684,11 @@ struct SelectorShared
         for (int i = 0; i < items_count; ++i)
         {
             ImGui::PushID(i);
-            const bool is_current = multi ? values[i] : (i == *current_item);
+            const bool is_current = i == *current_item;
             if (ImGui::Selectable("##row", is_current, ImGuiSelectableFlags_SelectOnRelease, ImVec2(0.0f, row_height)))
             {
-                if (multi)
-                {
-                    values[i] = !values[i];
-                }
-                else
-                {
-                    *current_item = i;
-                    close_now = true;
-                }
+                *current_item = i;
+                close_now = true;
                 changed = true;UiAssets::Sound(true);
             }
             UiAssets::Item();ImGui::PopID();
@@ -819,7 +790,7 @@ inline bool Combo(const char* label, int* current_item, const char* const items[
             {
                 ImGui::BeginChild("##rows", ImVec2(0.0f, visible_h), ImGuiChildFlags_None);
                 bool close_now = false;
-                SelectorShared::Rows(items, items_count, current_item, nullptr, false,
+                SelectorShared::Rows(items, items_count, current_item,
                     row_height, visible_h, font, font_size, changed, close_now);
                 ImGui::EndChild();
                 if (close_now)
@@ -850,129 +821,4 @@ inline bool Combo(const char* label, int* current_item, const char* const items[
     return changed;
 }
 
-struct MultiComboTextAnimation
-{
-    std::string Previous;
-    std::string Current;
-    float Blend = 1.0f;
-};
-
-inline bool MultiCombo(const char* label, bool values[], const char* const items[], int items_count, const ImVec2& pos, float width, const char* text_label)
-{
-    const float font_size = 16.0f;
-    std::string preview;
-    int selected_count = 0;
-    for (int i = 0; i < items_count; ++i)
-    {
-        if (!values[i])
-            continue;
-        ++selected_count;
-        if (!preview.empty())
-            preview += " , ";
-        preview += items[i];
-    }
-    if (selected_count > 3)
-        preview = std::to_string(selected_count) + UiText::Tr(" Selected");
-    if (preview.empty())
-        preview = "Select...";
-
-    ImGuiWindow* window = ImGui::GetCurrentWindow();
-    const ImVec2 base = window->Pos;
-    const ImVec2 min = ImVec2(std::floor(base.x + pos.x + g_contentOffset.x), std::floor(base.y + pos.y + g_contentOffset.y));
-    const ImVec2 size(width, 24.0f);
-    ImGui::PushID(label);
-    ImGui::SetCursorScreenPos(min);
-    const bool pressed = ImGui::InvisibleButton("##multicombo_preview", size);
-    const ImGuiID id = ImGui::GetItemID();
-
-    static ImGuiID open_id = 0;
-    bool toggle_close = false;
-    if (pressed)
-    {
-        if (open_id == id)
-            toggle_close = true;
-        else
-            ImGui::OpenPopup("##primmulticombo");
-        open_id = toggle_close ? 0 : id;
-    }
-    const bool open = open_id == id;
-
-    const Fonts& fonts = GetFonts();
-    ImFont* font = fonts.InterMedium ? fonts.InterMedium : (fonts.CascadiaMonoBL ? fonts.CascadiaMonoBL : ImGui::GetFont());
-    const Theme& theme = GetTheme();
-
-    static std::unordered_map<ImGuiID, MultiComboTextAnimation> text_animations;
-    MultiComboTextAnimation& text_anim = text_animations[id];
-    if (text_anim.Current.empty())
-        text_anim.Current = preview;
-    if (text_anim.Current != preview)
-    {
-        text_anim.Previous = text_anim.Current;
-        text_anim.Current = preview;
-        text_anim.Blend = 0.0f;
-    }
-    text_anim.Blend = ImLerp(text_anim.Blend, 1.0f, ImClamp(ImGui::GetIO().DeltaTime * 14.0f, 0.0f, 1.0f));
-    SelectorShared::DrawControl(text_anim.Current.c_str(), open, min, size, text_label, id, font_size, font);
-    if (!text_anim.Previous.empty() && text_anim.Blend < 0.98f)
-    {
-        ImVec2 preview_sz = font->CalcTextSizeA(font_size, FLT_MAX, 0.0f, text_anim.Previous.c_str());
-        ImGui::GetWindowDrawList()->AddText(font, font_size,
-            ImVec2(min.x + 3.0f, min.y + (size.y - preview_sz.y) * 0.5f),
-            ColorU32(theme.Text, 1.0f - text_anim.Blend), text_anim.Previous.c_str());
-    }
-
-    bool changed = false;
-    const float row_height = 24.0f;
-    const float popup_padding = 3.0f;
-    float visible_h = 0.0f;
-    const ImVec2 boxMin = SelectorShared::PlacePopup(min, size, row_height, items_count, visible_h);
-
-    if (open)
-    {
-        ImGui::PushStyleColor(ImGuiCol_PopupBg, theme.ControlBg);
-        ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0.0f, 0.0f, 0.0f, 1.0f));
-        ImGui::PushStyleColor(ImGuiCol_Header, ImVec4(0.0f, 0.0f, 0.0f, 0.0f));
-        ImGui::PushStyleColor(ImGuiCol_HeaderHovered, ImVec4(0.0f, 0.0f, 0.0f, 0.0f));
-        ImGui::PushStyleColor(ImGuiCol_HeaderActive, ImVec4(0.0f, 0.0f, 0.0f, 0.0f));
-        ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
-        ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 1.0f);
-        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(2.0f, popup_padding));
-        ImGui::PushStyleVar(ImGuiStyleVar_ScrollbarSize, 6.0f);
-        ImGui::SetNextWindowPos(boxMin);
-        ImGui::SetNextWindowSize(ImVec2(width, visible_h + popup_padding * 2.0f));
-        if (ImGui::BeginPopup("##primmulticombo"))
-        {
-            if (toggle_close)
-            {
-                ImGui::CloseCurrentPopup();
-            }
-            else
-            {
-
-                ImGui::BeginChild("##rows", ImVec2(0.0f, visible_h), ImGuiChildFlags_None);
-                bool close_now = false;
-                SelectorShared::Rows(items, items_count, nullptr, values, true,
-                    row_height, visible_h, font, font_size, changed, close_now);
-                ImGui::EndChild();
-            }
-            ImGui::EndPopup();
-        }
-        else if (open_id == id)
-        {
-            open_id = 0;
-            ComboClosedFrame() = ImGui::GetFrameCount();
-        }
-        ImGui::PopStyleColor(5);
-        ImGui::PopStyleVar(4);
-    }
-    if (open_id == id)
-        ComboOpenId() = id;
-    else if (ComboOpenId() == id)
-    {
-        ComboOpenId() = 0;
-        ComboClosedFrame() = ImGui::GetFrameCount();
-    }
-    ImGui::PopID();
-    return changed;
-}
 }

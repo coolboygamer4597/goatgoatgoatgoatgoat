@@ -49,35 +49,20 @@
     <Filter Include="Header Files\src\core\features\spotify">
       <UniqueIdentifier>{41C32392-74B2-57ED-A416-50169A67CBE3}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Header Files\src\core\features\world_render">
-      <UniqueIdentifier>{A141C013-6313-5EAE-ACFF-7428D97AAB9C}</UniqueIdentifier>
-    </Filter>
     <Filter Include="Header Files\src\core\functions">
       <UniqueIdentifier>{8FDCCE94-DD3C-51FD-8C44-E7A74E03BD0B}</UniqueIdentifier>
     </Filter>
     <Filter Include="Header Files\src\core\functions\aim">
       <UniqueIdentifier>{03DE59C3-2538-55FE-82CE-9E873132D401}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Header Files\src\core\functions\freecam">
-      <UniqueIdentifier>{EFD59740-04D5-5B9A-9234-3A478A824166}</UniqueIdentifier>
-    </Filter>
     <Filter Include="Header Files\src\core\functions\mics">
       <UniqueIdentifier>{A629D766-489B-501E-981C-C20A9B238A1B}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Header Files\src\core\functions\movement">
-      <UniqueIdentifier>{839AB5B5-5F44-57E6-83FC-62C9FE2DBA11}</UniqueIdentifier>
     </Filter>
     <Filter Include="Header Files\src\core\functions\settings">
       <UniqueIdentifier>{7AE220EF-D3E8-5281-B4FE-919D3083A2BF}</UniqueIdentifier>
     </Filter>
     <Filter Include="Header Files\src\core\functions\skins">
       <UniqueIdentifier>{02ADAA9B-503A-56EE-8704-A25B55BFC48F}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Header Files\src\core\functions\visual">
-      <UniqueIdentifier>{4BD5EA6F-EA7E-5D65-A097-58C01779451A}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Header Files\src\core\functions\world">
-      <UniqueIdentifier>{43272C63-BA92-5C0E-A97F-3F1D949642CA}</UniqueIdentifier>
     </Filter>
     <Filter Include="Header Files\src\core\globals">
       <UniqueIdentifier>{CF45AB96-A11F-5B55-A85E-1028AB466676}</UniqueIdentifier>
@@ -127,9 +112,6 @@
     <Filter Include="Source Files\src\core\app">
       <UniqueIdentifier>{D7A4CD8E-2BAA-5EA6-B51A-6FD07A508C4E}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Source Files\src\core\cache">
-      <UniqueIdentifier>{16970800-E9EF-513A-BF30-04844F822FAB}</UniqueIdentifier>
-    </Filter>
     <Filter Include="Source Files\src\core\features">
       <UniqueIdentifier>{3A447094-C845-5881-881E-899B71CAAEED}</UniqueIdentifier>
     </Filter>
@@ -160,35 +142,20 @@
     <Filter Include="Source Files\src\core\features\spotify\player">
       <UniqueIdentifier>{9C1013C8-5886-55C5-B68F-B9D7DC023449}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Source Files\src\core\features\world_render">
-      <UniqueIdentifier>{071F9B9C-6416-5A8B-BF4D-823D210379F3}</UniqueIdentifier>
-    </Filter>
     <Filter Include="Source Files\src\core\functions">
       <UniqueIdentifier>{164566D9-0F5E-5D32-8743-18E9115605C0}</UniqueIdentifier>
     </Filter>
     <Filter Include="Source Files\src\core\functions\aim">
       <UniqueIdentifier>{48E6868F-3E90-50F7-91EF-A989157CE685}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Source Files\src\core\functions\freecam">
-      <UniqueIdentifier>{4FA6CD44-5FD3-5231-8F25-2A2AEA7FB273}</UniqueIdentifier>
-    </Filter>
     <Filter Include="Source Files\src\core\functions\mics">
       <UniqueIdentifier>{D44592DE-1D14-5791-B88D-E560504A9CE4}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Source Files\src\core\functions\movement">
-      <UniqueIdentifier>{24EB8092-29DC-531D-872F-7E76491157C4}</UniqueIdentifier>
     </Filter>
     <Filter Include="Source Files\src\core\functions\settings">
       <UniqueIdentifier>{FF3BA07D-5BC5-5998-8303-9DDCBA9FE416}</UniqueIdentifier>
     </Filter>
     <Filter Include="Source Files\src\core\functions\skins">
       <UniqueIdentifier>{B5A84F25-144A-5482-917A-1482AC572294}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Source Files\src\core\functions\visual">
-      <UniqueIdentifier>{BF3FA5AE-7F02-5BAD-9855-DEE671F49612}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Source Files\src\core\functions\world">
-      <UniqueIdentifier>{7A7DAA22-E2B8-5DD1-B888-8419AB802D46}</UniqueIdentifier>
     </Filter>
     <Filter Include="Source Files\src\core\tp_handler">
       <UniqueIdentifier>{669ECCA0-B0E7-59DC-A946-D47ED2881FBC}</UniqueIdentifier>
@@ -202,9 +169,6 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ext\imgui\imgui.cpp">
-      <Filter>Source Files\ext\imgui</Filter>
-    </ClCompile>
-    <ClCompile Include="ext\imgui\imgui_demo.cpp">
       <Filter>Source Files\ext\imgui</Filter>
     </ClCompile>
     <ClCompile Include="ext\imgui\imgui_draw.cpp">
@@ -243,32 +207,14 @@
     <ClCompile Include="src\core\functions\mics\mics.cpp">
       <Filter>Source Files\src\core\functions\mics</Filter>
     </ClCompile>
-    <ClCompile Include="src\core\functions\movement\movement.cpp">
-      <Filter>Source Files\src\core\functions\movement</Filter>
-    </ClCompile>
     <ClCompile Include="src\core\functions\settings\settings.cpp">
       <Filter>Source Files\src\core\functions\settings</Filter>
     </ClCompile>
     <ClCompile Include="src\core\functions\skins\skins.cpp">
       <Filter>Source Files\src\core\functions\skins</Filter>
     </ClCompile>
-    <ClCompile Include="src\core\functions\visual\visual.cpp">
-      <Filter>Source Files\src\core\functions\visual</Filter>
-    </ClCompile>
     <ClCompile Include="src\core\tp_handler\tp_handler.cpp">
       <Filter>Source Files\src\core\tp_handler</Filter>
-    </ClCompile>
-    <ClCompile Include="src\core\functions\aim\viewport_silent.cpp">
-      <Filter>Source Files\src\core\functions\aim</Filter>
-    </ClCompile>
-    <ClCompile Include="src\core\functions\freecam\freecam.cpp">
-      <Filter>Source Files\src\core\functions\freecam</Filter>
-    </ClCompile>
-    <ClCompile Include="src\core\functions\world\world.cpp">
-      <Filter>Source Files\src\core\functions\world</Filter>
-    </ClCompile>
-    <ClCompile Include="src\core\cache\worldcache.cpp">
-      <Filter>Source Files\src\core\cache</Filter>
     </ClCompile>
     <ClCompile Include="src\core\features\mesh\cache\MeshCache.cpp">
       <Filter>Source Files\src\core\features\mesh\cache</Filter>
@@ -324,12 +270,6 @@
     <ClCompile Include="src\render\SadblobVideo.cpp">
       <Filter>Source Files\src\render</Filter>
     </ClCompile>
-    <ClCompile Include="src\core\features\world_render\WorldRender.cpp">
-      <Filter>Source Files\src\core\features\world_render</Filter>
-    </ClCompile>
-    <ClCompile Include="src\core\features\world_render\WorldHost.cpp">
-      <Filter>Source Files\src\core\features\world_render</Filter>
-    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ext\imgui\imconfig.h">
@@ -359,26 +299,8 @@
     <ClInclude Include="src\core\cache\cache.h">
       <Filter>Header Files\src\core\cache</Filter>
     </ClInclude>
-    <ClInclude Include="src\core\functions\aim\fallen_prediction.h">
-      <Filter>Header Files\src\core\functions\aim</Filter>
-    </ClInclude>
-    <ClInclude Include="src\core\functions\aim\viewport_silent.h">
-      <Filter>Header Files\src\core\functions\aim</Filter>
-    </ClInclude>
     <ClInclude Include="src\core\functions\aim\raycast_silent.h">
       <Filter>Header Files\src\core\functions\aim</Filter>
-    </ClInclude>
-    <ClInclude Include="src\core\functions\freecam\freecam.h">
-      <Filter>Header Files\src\core\functions\freecam</Filter>
-    </ClInclude>
-    <ClInclude Include="src\core\functions\world\world.h">
-      <Filter>Header Files\src\core\functions\world</Filter>
-    </ClInclude>
-    <ClInclude Include="src\core\cache\worldcache.h">
-      <Filter>Header Files\src\core\cache</Filter>
-    </ClInclude>
-    <ClInclude Include="src\core\cache\workspace.h">
-      <Filter>Header Files\src\core\cache</Filter>
     </ClInclude>
     <ClInclude Include="src\core\app\app.h">
       <Filter>Header Files\src\core\app</Filter>
@@ -395,17 +317,11 @@
     <ClInclude Include="src\core\keys\keys.h">
       <Filter>Header Files\src\core\keys</Filter>
     </ClInclude>
-    <ClInclude Include="src\core\functions\movement\movement.h">
-      <Filter>Header Files\src\core\functions\movement</Filter>
-    </ClInclude>
     <ClInclude Include="src\core\functions\settings\settings.h">
       <Filter>Header Files\src\core\functions\settings</Filter>
     </ClInclude>
     <ClInclude Include="src\core\functions\skins\skins.h">
       <Filter>Header Files\src\core\functions\skins</Filter>
-    </ClInclude>
-    <ClInclude Include="src\core\functions\visual\visual.h">
-      <Filter>Header Files\src\core\functions\visual</Filter>
     </ClInclude>
     <ClInclude Include="src\core\globals\globals.h">
       <Filter>Header Files\src\core\globals</Filter>
@@ -485,9 +401,6 @@
     <ClInclude Include="src\core\features\mesh\occlusion\AvatarOccluderFilter.h">
       <Filter>Header Files\src\core\features\mesh\occlusion</Filter>
     </ClInclude>
-    <ClInclude Include="src\core\features\spotify\spotify.h">
-      <Filter>Header Files\src\core\features\spotify</Filter>
-    </ClInclude>
     <ClInclude Include="src\core\features\spotify\media.h">
       <Filter>Header Files\src\core\features\spotify</Filter>
     </ClInclude>
@@ -506,19 +419,10 @@
     <ClInclude Include="src\core\features\spotify\music_player_ui.h">
       <Filter>Header Files\src\core\features\spotify</Filter>
     </ClInclude>
-    <ClInclude Include="src\core\features\SkinPreview.h">
-      <Filter>Header Files\src\core\features</Filter>
-    </ClInclude>
-    <ClInclude Include="src\core\features\SkyStyles.h">
-      <Filter>Header Files\src\core\features</Filter>
-    </ClInclude>
     <ClInclude Include="src\core\features\TargetLabels.h">
       <Filter>Header Files\src\core\features</Filter>
     </ClInclude>
     <ClInclude Include="src\core\features\WeaponVisuals.h">
-      <Filter>Header Files\src\core\features</Filter>
-    </ClInclude>
-    <ClInclude Include="src\core\features\WorldMaterials.h">
       <Filter>Header Files\src\core\features</Filter>
     </ClInclude>
     <ClInclude Include="src\core\features\native\NativeDepthCapture.h">
@@ -535,9 +439,6 @@
     </ClInclude>
     <ClInclude Include="src\core\features\native\NativePreparation.h">
       <Filter>Header Files\src\core\features\native</Filter>
-    </ClInclude>
-    <ClInclude Include="src\core\features\world_render\WorldRender.h">
-      <Filter>Header Files\src\core\features\world_render</Filter>
     </ClInclude>
     <ClInclude Include="src\core\functions\aim\silent_fov_center.h">
       <Filter>Header Files\src\core\functions\aim</Filter>
@@ -563,17 +464,8 @@
     <ClInclude Include="src\core\net\performance.h">
       <Filter>Header Files\src\core\net</Filter>
     </ClInclude>
-    <ClInclude Include="src\core\net\ping.h">
-      <Filter>Header Files\src\core\net</Filter>
-    </ClInclude>
     <ClInclude Include="src\core\variables\player_rules.h">
       <Filter>Header Files\src\core\variables</Filter>
-    </ClInclude>
-    <ClInclude Include="src\pch.h">
-      <Filter>Header Files\src</Filter>
-    </ClInclude>
-    <ClInclude Include="src\render\ImageTexture.h">
-      <Filter>Header Files\src\render</Filter>
     </ClInclude>
     <ClInclude Include="src\render\MenuMotion.h">
       <Filter>Header Files\src\render</Filter>
@@ -587,25 +479,7 @@
     <ClInclude Include="src\render\StartupLoader.h">
       <Filter>Header Files\src\render</Filter>
     </ClInclude>
-    <ClInclude Include="src\render\TabBgAim.h">
-      <Filter>Header Files\src\render</Filter>
-    </ClInclude>
-    <ClInclude Include="src\render\TabBgMisc.h">
-      <Filter>Header Files\src\render</Filter>
-    </ClInclude>
-    <ClInclude Include="src\render\TabBgSkins.h">
-      <Filter>Header Files\src\render</Filter>
-    </ClInclude>
-    <ClInclude Include="src\render\TabBgVisuals.h">
-      <Filter>Header Files\src\render</Filter>
-    </ClInclude>
-    <ClInclude Include="src\render\TakeControlImage.h">
-      <Filter>Header Files\src\render</Filter>
-    </ClInclude>
     <ClInclude Include="src\render\UiAssets.h">
-      <Filter>Header Files\src\render</Filter>
-    </ClInclude>
-    <ClInclude Include="src\render\WarningImg.h">
       <Filter>Header Files\src\render</Filter>
     </ClInclude>
     <ClInclude Include="src\render\WeaponPreview.h">
@@ -613,15 +487,6 @@
     </ClInclude>
     <ClInclude Include="src\render\floating_panels.h">
       <Filter>Header Files\src\render</Filter>
-    </ClInclude>
-    <ClInclude Include="src\render\menu\IconFont.h">
-      <Filter>Header Files\src\render\menu</Filter>
-    </ClInclude>
-    <ClInclude Include="src\render\menu\PrimordialFonts.h">
-      <Filter>Header Files\src\render\menu</Filter>
-    </ClInclude>
-    <ClInclude Include="src\render\menu\PrimordialLogo.h">
-      <Filter>Header Files\src\render\menu</Filter>
     </ClInclude>
     <ClInclude Include="src\render\menu\UiText.h">
       <Filter>Header Files\src\render\menu</Filter>

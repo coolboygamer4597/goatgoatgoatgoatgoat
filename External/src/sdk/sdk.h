@@ -136,67 +136,14 @@ public:
         return prim ? memory->read<Vec3>(prim + Offsets::Primitive::Position) : Vec3{};
     }
 
-    CFrame GetCFrame() const {
-        const auto prim = GetPrimitivePtr();
-        return prim ? memory->read<CFrame>(prim + Offsets::Primitive::Rotation) : CFrame{};
-    }
-
     RbxInstance GetModelRef() const {
         return RbxInstance(memory->read<std::uintptr_t>(Addr + Offsets::Player::ModelInstance));
     }
 
-    RbxInstance GetLocalPlayer() const {
-        return RbxInstance(memory->read<std::uintptr_t>(Addr + Offsets::Player::LocalPlayer));
-    }
-
-    RbxInstance GetModelInstance() const { return GetModelRef(); }
-    std::uintptr_t GetPart() const { return GetPrimitivePtr(); }
-    bool GetAnchored() const {
-        auto prim = GetPrimitivePtr();
-        if (!prim) return false;
-        uint8_t f = memory->read<uint8_t>(prim + Offsets::Primitive::Flags);
-        return (f & (uint8_t)Offsets::PrimitiveFlags::Anchored) != 0;
-    }
-    void SetAnchored(bool v) const {
-        auto prim = GetPrimitivePtr();
-        if (!prim) return;
-        uint8_t f = memory->read<uint8_t>(prim + Offsets::Primitive::Flags);
-        uint8_t bit = (uint8_t)Offsets::PrimitiveFlags::Anchored;
-        uint8_t n = v ? (f | bit) : (f & ~bit);
-        if (n != f) memory->write<uint8_t>(prim + Offsets::Primitive::Flags, n);
-    }
-    void SetVelocity(RBX::Vec3 v) const {
-        auto prim = GetPrimitivePtr();
-        if (prim) memory->write<RBX::Vec3>(prim + Offsets::Primitive::AssemblyLinearVelocity, v);
-    }
-    void SetCFrame(const RBX::CFrame& cf) const {
-        auto prim = GetPrimitivePtr();
-        if (prim) memory->write<RBX::CFrame>(prim + Offsets::Primitive::Rotation, cf);
-    }
-    void SetCameraType(int v) const { if(Addr) memory->write<int>(Addr + Offsets::Camera::CameraType, v); }
-    int GetCameraType() const { return Addr ? memory->read<int>(Addr + Offsets::Camera::CameraType) : 0; }
-    void SetCameraSubject(std::uintptr_t v) const { if(Addr) memory->write<std::uintptr_t>(Addr + Offsets::Camera::CameraSubject, v); }
-    std::uintptr_t GetCameraSubject() const { return Addr ? memory->read<std::uintptr_t>(Addr + Offsets::Camera::CameraSubject) : 0; }
     RBX::CFrame GetCameraCFrame() const { return Addr ? memory->read<RBX::CFrame>(Addr + Offsets::Camera::Rotation) : RBX::CFrame{}; }
-    void SetCameraCFrame(const RBX::CFrame& cf) const { if(Addr) memory->write<RBX::CFrame>(Addr + Offsets::Camera::Rotation, cf); }
+
     RbxInstance GetCurrentCamera() const { return RbxInstance(Addr ? memory->read<std::uintptr_t>(Addr + Offsets::Workspace::CurrentCamera) : 0); }
 
-    void SetSize(const rbx::vector3_t& size) const {
-        const auto part = GetPart();
-        if (part)
-            memory->write<rbx::vector3_t>(part + Offsets::Primitive::Size, size);
-    }
-
-    void SetAnimationId(const std::string& id) const {
-        if (Addr)
-            WriteString(Addr + Offsets::Misc::AnimationId, id);
-    }
-
-    float CalcDistance(const Vec3& p) const {
-        const Vec3 c = GetPos();
-        const float dx = c.X - p.X, dy = c.Y - p.Y, dz = c.Z - p.Z;
-        return sqrtf(dx * dx + dy * dy + dz * dz);
-    }
 };
 
 class RenderEngine : public RbxInstance {
@@ -207,33 +154,6 @@ public:
         return Addr ? memory->read<Mat4>(Addr + Offsets::VisualEngine::ViewMatrix) : Mat4{};
     }
 
-    Vec2 WorldToViewport(const Vec3& w) const {
-        Vec2 screen{};
-        const Mat4 m = GetViewMat();
-        const float qw = w.X * m.data[12] + w.Y * m.data[13] + w.Z * m.data[14] + m.data[15];
-        if (qw < 0.1f)
-            return screen;
-        const float qx = w.X * m.data[0] + w.Y * m.data[1] + w.Z * m.data[2] + m.data[3];
-        const float qy = w.X * m.data[4] + w.Y * m.data[5] + w.Z * m.data[6] + m.data[7];
-        const float sw = static_cast<float>(GetSystemMetrics(SM_CXSCREEN));
-        const float sh = static_cast<float>(GetSystemMetrics(SM_CYSCREEN));
-        screen.X = (sw * 0.5f * (qx / qw)) + (sw * 0.5f);
-        screen.Y = -(sh * 0.5f * (qy / qw)) + (sh * 0.5f);
-        return screen;
-    }
 };
 
-inline void ModifyWalkSpeed(const RbxInstance& h, float v) {
-    if (!h.Addr)
-        return;
-    memory->write(h.Addr + Offsets::Humanoid::Walkspeed, v);
-    memory->write(h.Addr + Offsets::Humanoid::WalkspeedCheck, v);
-}
-
-inline void ModifyJumpPower(const RbxInstance& h, float v) {
-    if (!h.Addr)
-        return;
-    memory->write(h.Addr + Offsets::Humanoid::JumpPower, v);
-    memory->write(h.Addr + 0x1AC, v);
-}
 }

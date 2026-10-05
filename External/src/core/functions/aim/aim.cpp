@@ -1,17 +1,12 @@
 #include "../../keys/activation_key.h"
 #include "../../keys/keys.h"
 #include "aim.h"
-#include "fallen_prediction.h"
-#include "viewport_silent.h"
+#include "../../cache/cache.h"
+#include "../../../sdk/w2s.h"
 #include "raycast_silent.h"
 #include "silent_fov_center.h"
 #include "silent_nearest_point.h"
-#include "../../cache/workspace.h"
-#include "../../cache/worldcache.h"
-#include <mutex>
 #include <vector>
-#include "../../keys/keys.h"
-#include "../../net/ping.h"
 #include "../../globals/globals.h"
 #include "../../../memory/memory.h"
 #include "../../../sdk/offsets.h"
@@ -23,65 +18,11 @@
 #include <cstdio>
 
 namespace Aimbot {
-void MoveMouse(float x, float y) {
-    INPUT in{};
-    in.type = INPUT_MOUSE;
-    in.mi.dwFlags = MOUSEEVENTF_MOVE;
-    in.mi.dx = static_cast<LONG>(x);
-    in.mi.dy = static_cast<LONG>(y);
-    SendInput(1, &in, sizeof(in));
-}
-
-void AutoClick() {
-    INPUT in[2]{};
-    in[0].type = INPUT_MOUSE;
-    in[0].mi.dwFlags = MOUSEEVENTF_LEFTDOWN;
-    in[1].type = INPUT_MOUSE;
-    in[1].mi.dwFlags = MOUSEEVENTF_LEFTUP;
-    SendInput(2, in, sizeof(INPUT));
-}
 
 float GetDistance2D(const RBX::Vec2& a, const RBX::Vec2& b) {
     const float dx = a.X - b.X;
     const float dy = a.Y - b.Y;
     return sqrtf(dx * dx + dy * dy);
-}
-
-bool IsAimKeyDown(int vk) {
-    if (vk <= 0)
-        return false;
-    if (vk >= ImGuiKey_NamedKey_BEGIN && vk < ImGuiKey_NamedKey_END) {
-        if (ImGui::IsKeyDown((ImGuiKey)vk)) return true;
-        int m = 0;
-        if (vk >= ImGuiKey_A && vk <= ImGuiKey_Z) m = 'A' + (vk - ImGuiKey_A);
-        else if (vk >= ImGuiKey_0 && vk <= ImGuiKey_9) m = '0' + (vk - ImGuiKey_0);
-        else if (vk >= ImGuiKey_F1 && vk <= ImGuiKey_F12) m = VK_F1 + (vk - ImGuiKey_F1);
-        else if (vk == ImGuiKey_Space) m = VK_SPACE;
-        if (m) return (GetAsyncKeyState(m) & 0x8000) != 0;
-        return false;
-    }
-    if (vk == 1)
-        return (GetAsyncKeyState(VK_LBUTTON) & 0x8000) != 0;
-    if (vk == 2)
-        return (GetAsyncKeyState(VK_RBUTTON) & 0x8000) != 0;
-    if (vk == 4)
-        return (GetAsyncKeyState(VK_MBUTTON) & 0x8000) != 0;
-    if (vk == 5)
-        return (GetAsyncKeyState(VK_XBUTTON1) & 0x8000) != 0;
-    if (vk == 6)
-        return (GetAsyncKeyState(VK_XBUTTON2) & 0x8000) != 0;
-    return (GetAsyncKeyState(vk) & 0x8000) != 0;
-}
-
-bool IsTargetVisible(const RBX::Vec3& worldPos) {
-    if (!variables::Aimbot::visibleCheck)
-        return true;
-    if (!Globals::camera.Addr)
-        return true;
-    const RBX::Vec3 cam = memory->read<RBX::Vec3>(Globals::camera.Addr + Offsets::Camera::Position);
-    if (cam.X == 0 && cam.Y == 0 && cam.Z == 0)
-        return true;
-    return WorkspaceCache::IsVisible(cam, worldPos);
 }
 
 void CollectHitboxParts(std::uintptr_t characterAddr, int hitbox, std::vector<std::uintptr_t>& out) {
@@ -142,62 +83,13 @@ RBX::Vec3 PartWorldPos(std::uintptr_t partAddr) {
     return memory->read<RBX::Vec3>(prim + Offsets::Primitive::Position);
 }
 
-void WriteMemoryAngles(const RBX::Vec3& targetWorld) {
-    if (!Globals::camera.Addr)
-        return;
-    rbx::matrix3_t curRot = memory->read<rbx::matrix3_t>(Globals::camera.Addr + Offsets::Camera::Rotation);
-    rbx::vector3_t camPos = memory->read<rbx::vector3_t>(Globals::camera.Addr + Offsets::Camera::Position);
-    if (camPos.x == 0.0f && camPos.y == 0.0f && camPos.z == 0.0f)
-        return;
-    rbx::vector3_t want(targetWorld.X - camPos.x, targetWorld.Y - camPos.y, targetWorld.Z - camPos.z);
-    if (want.magnitude() < 1e-6f)
-        return;
-    want = want.normalize();
-    rbx::vector3_t curLook(-curRot.data[2], -curRot.data[5], -curRot.data[8]);
-    if (curLook.magnitude() < 1e-6f)
-        curLook = want;
-    curLook = curLook.normalize();
-    float k = 1.0f / (variables::Aimbot::smoothing <= 0.01f ? 1.0f : variables::Aimbot::smoothing);
-    k = std::clamp(k, 0.01f, 1.0f);
-    rbx::vector3_t look = curLook + (want - curLook) * k;
-    if (look.magnitude() < 1e-6f)
-        return;
-    look = look.normalize();
-    rbx::vector3_t worldUp(0.0f, 1.0f, 0.0f);
-    rbx::vector3_t right = look.cross(worldUp);
-    if (right.magnitude() < 1e-6f) {
-        worldUp = rbx::vector3_t(0.0f, 0.0f, 1.0f);
-        right = look.cross(worldUp);
-        if (right.magnitude() < 1e-6f)
-            return;
-    }
-    right = right.normalize();
-    rbx::vector3_t up = right.cross(look).normalize();
-    rbx::vector3_t back = look * -1.0f;
-    rbx::matrix3_t newRot;
-    newRot.data[0] = right.x; newRot.data[1] = up.x; newRot.data[2] = back.x;
-    newRot.data[3] = right.y; newRot.data[4] = up.y; newRot.data[5] = back.y;
-    newRot.data[6] = right.z; newRot.data[7] = up.z; newRot.data[8] = back.z;
-    memory->write<rbx::matrix3_t>(Globals::camera.Addr + Offsets::Camera::Rotation, newRot);
-}
-
 namespace {
-
-RBX::Vec2 g_lockedAimCenter{};
-bool g_lockedAimCenterValid = false;
 
 bool IsAimPartVisible(std::uintptr_t part) {
     if (!variables::Aimbot::invisibleCheck)
         return true;
     const float transparency = memory->read<float>(part + Offsets::BasePart::Transparency);
     return std::isfinite(transparency) && transparency < 0.50f;
-}
-
-RBX::Vec2 AimCursorClient() {
-
-    if (g_lockedAimCenterValid)
-        return g_lockedAimCenter;
-    return SilentAimCenter();
 }
 
 struct AimProjectedVertex {
@@ -425,7 +317,6 @@ bool BestPartScreen(const PlayerCache::CachedPlayer& plr, const RBX::Mat4& view,
     if (parts.empty())
         return false;
     float best = maxDist;
-    bool foundVis = false;
     bool found = false;
     for (auto addr : parts) {
         if (!IsAimPartVisible(addr))
@@ -440,7 +331,6 @@ bool BestPartScreen(const PlayerCache::CachedPlayer& plr, const RBX::Mat4& view,
             best = preciseDistance;
             outScreen = preciseScreen;
             outWorld = preciseWorld;
-            foundVis = true;
             found = true;
             continue;
         }
@@ -458,21 +348,10 @@ bool BestPartScreen(const PlayerCache::CachedPlayer& plr, const RBX::Mat4& view,
         best = d;
         outScreen = s;
         outWorld = w;
-        foundVis = true;
         found = true;
     }
     return found;
 }
-}
-
-void RenderTracer(ImDrawList*) {
-}
-
-void RenderPredictionLine(ImDrawList*) {
-}
-
-namespace {
-
 }
 
 void RunAimbot(const RBX::Mat4& view) {
@@ -493,10 +372,7 @@ void RunAimbot(const RBX::Mat4& view) {
         loggedTarget = false;
         loggedHandlerActivity = false;
         loggedRayActivity = false;
-        lockedPlayerAddr = 0;
-        hasTarget = false;
-        g_lockedAimCenterValid = false;
-        ViewportSilent::Clear();
+
         Cheat::Features::RaycastSilent::SetActive(false);
         Cheat::Features::RaycastSilent::Ensure(false);
         return;
@@ -505,20 +381,14 @@ void RunAimbot(const RBX::Mat4& view) {
     Cheat::Features::RaycastSilent::Ensure(true);
 
     if (!keyActive) {
-        lockedPlayerAddr = 0;
-        hasTarget = false;
-        g_lockedAimCenterValid = false;
-        ViewportSilent::Clear();
+
         Cheat::Features::RaycastSilent::SetActive(false);
         return;
     }
 
-    g_lockedAimCenter = SilentAimCenter();
-    g_lockedAimCenterValid = true;
-    const RBX::Vec2 center = g_lockedAimCenter;
+    const RBX::Vec2 center = SilentAimCenter();
     const float radius = SilentAimRadius();
     const PlayerCache::CachedPlayer* bestPlayer = nullptr;
-    RBX::Vec2 bestScreen{};
     RBX::Vec3 bestWorld{};
     float bestScore = FLT_MAX;
 
@@ -565,25 +435,17 @@ void RunAimbot(const RBX::Mat4& view) {
         if (score < bestScore) {
             bestScore = score;
             bestPlayer = &player;
-            bestScreen = screen;
             bestWorld = world;
         }
     }
 
     if (!bestPlayer) {
-        lockedPlayerAddr = 0;
-        hasTarget = false;
-        ViewportSilent::Clear();
 
         Cheat::Features::RaycastSilent::SetActive(false);
         return;
     }
 
-    lockedPlayerAddr = bestPlayer->playerAddr;
-    lastTarget = bestScreen;
-    hasTarget = true;
     const Vector3 rayTarget{bestWorld.X, bestWorld.Y, bestWorld.Z};
-    ViewportSilent::Clear();
     Cheat::Features::RaycastSilent::SetActive(true, rayTarget, magicBullet);
     if (!loggedTarget) {
         std::printf("[Silent] target armed method=%s part=0x%llx\n",

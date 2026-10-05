@@ -33,10 +33,9 @@ struct Entry {
 std::vector<Entry> Collect(std::uint64_t character);
 
 std::vector<Entry> CollectDrawable(std::uint64_t character);
+std::vector<Entry> CollectWeapon(std::uint64_t root);
 
 std::shared_ptr<const std::vector<Entry>> RequestDrawable(std::uint64_t character);
-std::vector<Entry> CollectWeapon(std::uint64_t root);
-std::shared_ptr<const std::vector<Entry>> RequestWeaponDrawable(std::uint64_t root);
 void Shutdown();
 
 std::vector<Entry> CollectForBounds(std::uint64_t character);

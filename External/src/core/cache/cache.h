@@ -8,7 +8,6 @@
 #include <string>
 #include <utility>
 #include <chrono>
-#include <cstdio>
 #include <algorithm>
 #include <unordered_map>
 #include <unordered_set>
@@ -24,46 +23,12 @@ struct CachedPlayer {
     std::uintptr_t teamAddr = 0;
     std::string name;
     std::string tool = "None";
-    std::string teamName;
     RBX::Vec3 position{};
     float health = 0.0f;
-    float maxHealth = 0.0f;
     float distance = 0.0f;
     bool isValid = false;
     bool isR6 = false;
-    int role = 0;
 };
-
-inline int ScanRole(std::uintptr_t characterAddr) {
-    if (!characterAddr) return 0;
-    RBX::RbxInstance ch{characterAddr};
-    int sawTool = 0;
-    std::string firstTool;
-    for (auto& child : ch.GetChildList()) {
-        if (child.GetClass() != "Tool") continue;
-        sawTool++;
-        const std::string tn = child.GetName();
-        if (firstTool.empty()) firstTool = tn;
-        if (tn == "Knife") return 1;
-        if (tn == "Gun") return 2;
-        for (auto& sub : child.GetChildList()) {
-            const std::string sn = sub.GetName();
-            if (sn == "KnifeServer") return 1;
-            if (sn == "GunServer") return 2;
-        }
-    }
-    if (sawTool > 0) {
-        static int dbgN = 0;
-        if ((dbgN++ % 40) == 0)
-            printf("[Role] char 0x%llx has %d tool(s) first='%s' -> innocent\n", (unsigned long long)characterAddr, sawTool, firstTool.c_str());
-    }
-    return 0;
-}
-inline void DbgRoleChange(std::uintptr_t playerAddr, const std::string& name, int oldR, int newR) {
-    if (oldR == newR) return;
-    const char* rn[3] = {"innocent", "MURDERER", "SHERIFF"};
-    printf("[Role] %s -> %s\n", name.c_str(), rn[newR < 0 || newR > 2 ? 0 : newR]);
-}
 
 struct LimbAddrs {
     ULONGLONG collectedAt = 0;
@@ -135,41 +100,6 @@ inline const LimbAddrs& GetLimbs(std::uintptr_t characterAddr) {
     l.r6 = l.torso != 0;
     auto res = limbCache.emplace(characterAddr, l);
     return res.first->second;
-}
-
-inline std::string GetWeaponFromViewModels(const std::string& playerName) {
-    if (!Globals::workspace.Addr) return "None";
-    auto viewModels = Globals::workspace.FindChild("ViewModels");
-    if (!viewModels.Addr) return "None";
-    for (auto& child : viewModels.GetChildList()) {
-        const std::string className = child.GetClass();
-        const std::string name = child.GetName();
-        if (className == "Model" && name.rfind(playerName + " - ", 0) == 0) {
-            size_t firstDash = name.find(" - ");
-            if (firstDash != std::string::npos) {
-                size_t secondDash = name.find(" - ", firstDash + 3);
-                if (secondDash != std::string::npos)
-                    return name.substr(firstDash + 3, secondDash - (firstDash + 3));
-                return name.substr(firstDash + 3);
-            }
-        }
-        if (name == "FirstPerson") {
-            for (auto& fpChild : child.GetChildList()) {
-                const std::string fpClass = fpChild.GetClass();
-                const std::string fpName = fpChild.GetName();
-                if (fpClass == "Model" && fpName.rfind(playerName + " - ", 0) == 0) {
-                    size_t firstDash = fpName.find(" - ");
-                    if (firstDash != std::string::npos) {
-                        size_t secondDash = fpName.find(" - ", firstDash + 3);
-                        if (secondDash != std::string::npos)
-                            return fpName.substr(firstDash + 3, secondDash - (firstDash + 3));
-                        return fpName.substr(firstDash + 3);
-                    }
-                }
-            }
-        }
-    }
-    return "None";
 }
 
 inline void PruneLimbs(const std::unordered_set<std::uintptr_t>& alive) {
@@ -261,7 +191,6 @@ inline void updateplayers() {
             slot->headAddr = fresh.head;
             slot->isR6 = fresh.r6;
             slot->health = memory->read<float>(fresh.humanoid + Offsets::Humanoid::Health);
-            slot->maxHealth = memory->read<float>(fresh.humanoid + Offsets::Humanoid::MaxHealth);
             slot->teamAddr = memory->read<std::uintptr_t>(plr.Addr + Offsets::Player::Team);
             slot->isValid = true;
             continue;
@@ -279,12 +208,10 @@ inline void updateplayers() {
         c.rootPartAddr = limbs.hrp;
         c.headAddr = limbs.head;
         c.teamAddr = team;
-        c.teamName = team ? RBX::RbxInstance(team).GetName() : std::string{};
         c.name = plr.GetName();
-        c.health = hp;        c.maxHealth = memory->read<float>(limbs.humanoid + Offsets::Humanoid::MaxHealth);
+        c.health = hp;
         c.isR6 = limbs.r6;
         c.isValid = true;
-        c.role = 0;
         if (slot)
             *slot = std::move(c);
         else

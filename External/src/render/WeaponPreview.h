@@ -129,7 +129,7 @@ inline Snapshot CaptureAvatar(std::uintptr_t previous=0){
     const auto parts=Cheat::Visuals::MeshParser::CollectDrawable(character.Addr);
     return CaptureRoot(character,"Local character",&parts,true);
 }
-inline Snapshot Capture(std::uintptr_t =0){return Skins::CapturePreview("AR-15","Default");}
+
 inline Snapshot Bundled(const std::string& weapon){
     Snapshot s;s.name=weapon+" / Default";
     const auto module=GetModuleHandleW(nullptr);auto resource=FindResourceW(module,MAKEINTRESOURCEW(weapon=="AR-15"?205:206),MAKEINTRESOURCEW(10));

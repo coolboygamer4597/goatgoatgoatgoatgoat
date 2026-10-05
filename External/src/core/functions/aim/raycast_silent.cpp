@@ -82,10 +82,10 @@ namespace Cheat {
                 };
 
                 Hook g_hook{};
-                Hook g_legacy{};
+
                 bool g_wallbang = false;
                 auto g_lastFail = std::chrono::steady_clock::time_point{};
-                auto g_lastLegacyFail = std::chrono::steady_clock::time_point{};
+
 
                 bool addr_ok(std::uintptr_t a)
                 {
@@ -312,313 +312,11 @@ namespace Cheat {
                     std::memcpy(c.data() + o, &v, 4);
                 }
 
-                std::vector<std::uint8_t> make_jmp_thunk(std::uintptr_t orig)
-                {
-                    std::vector<std::uint8_t> c;
-                    c.insert(c.end(), { 0xFF, 0x25, 0x00, 0x00, 0x00, 0x00 });
-                    append_u64(c, orig);
-                    return c;
-                }
 
-                std::vector<std::uint8_t> make_legacy_thunk(std::uintptr_t stateAddress, std::uintptr_t originalFunction) {
-        std::vector<std::uint8_t> code;
-        code.reserve(768);
-        std::vector<std::size_t> inactiveJumpOffsets;
 
-        auto emitInactiveJump = [&]() {
-            code.insert(code.end(), { 0x0F, 0x84 });
-            inactiveJumpOffsets.push_back(code.size());
-            code.insert(code.end(), { 0x00, 0x00, 0x00, 0x00 });
-            };
 
-        code.insert(code.end(), { 0x48, 0x81, 0xEC, 0xA0, 0x00, 0x00, 0x00 });
-        code.insert(code.end(), { 0x4C, 0x89, 0x84, 0x24, 0x80, 0x00, 0x00, 0x00 });
-        code.insert(code.end(), { 0x49, 0xBA });
-        append_u64(code, stateAddress);
-        code.insert(code.end(), { 0x41, 0x83, 0x3A, 0x00 });
-        emitInactiveJump();
-        code.insert(code.end(), { 0x4D, 0x85, 0xC0 });
-        emitInactiveJump();
 
-        code.insert(code.end(), { 0x41, 0x0F, 0x10, 0x00 });
-        code.insert(code.end(), { 0x0F, 0x11, 0x44, 0x24, 0x40 });
 
-        code.insert(code.end(), { 0xF3, 0x41, 0x0F, 0x10, 0x40, 0x10 });
-        code.insert(code.end(), { 0xF3, 0x0F, 0x11, 0x44, 0x24, 0x58 });
-        code.insert(code.end(), { 0xF3, 0x41, 0x0F, 0x10, 0x40, 0x14 });
-        code.insert(code.end(), { 0xF3, 0x0F, 0x11, 0x44, 0x24, 0x5C });
-        code.insert(code.end(), { 0xF3, 0x41, 0x0F, 0x10, 0x40, 0x18 });
-        code.insert(code.end(), { 0xF3, 0x0F, 0x11, 0x44, 0x24, 0x60 });
-
-        code.insert(code.end(), { 0xF3, 0x41, 0x0F, 0x10, 0x42, 0x08 });
-        code.insert(code.end(), { 0xF3, 0x41, 0x0F, 0x5C, 0x00 });
-
-        code.insert(code.end(), { 0xF3, 0x41, 0x0F, 0x10, 0x4A, 0x0C });
-        code.insert(code.end(), { 0xF3, 0x41, 0x0F, 0x5C, 0x48, 0x04 });
-
-        code.insert(code.end(), { 0xF3, 0x41, 0x0F, 0x10, 0x52, 0x10 });
-        code.insert(code.end(), { 0xF3, 0x41, 0x0F, 0x5C, 0x50, 0x08 });
-        code.insert(code.end(), { 0xF3, 0x41, 0x0F, 0x59, 0x42, 0x14 });
-        code.insert(code.end(), { 0xF3, 0x0F, 0x11, 0x44, 0x24, 0x4C });
-        code.insert(code.end(), { 0xF3, 0x41, 0x0F, 0x59, 0x4A, 0x14 });
-        code.insert(code.end(), { 0xF3, 0x0F, 0x11, 0x4C, 0x24, 0x50 });
-        code.insert(code.end(), { 0xF3, 0x41, 0x0F, 0x59, 0x52, 0x14 });
-        code.insert(code.end(), { 0xF3, 0x0F, 0x11, 0x54, 0x24, 0x54 });
-
-        code.insert(code.end(), { 0xF3, 0x0F, 0x10, 0x5C, 0x24, 0x58 });
-        code.insert(code.end(), { 0xF3, 0x0F, 0x59, 0xDB });
-        code.insert(code.end(), { 0xF3, 0x0F, 0x10, 0x64, 0x24, 0x5C });
-        code.insert(code.end(), { 0xF3, 0x0F, 0x59, 0xE4 });
-        code.insert(code.end(), { 0xF3, 0x0F, 0x58, 0xDC });
-        code.insert(code.end(), { 0xF3, 0x0F, 0x10, 0x64, 0x24, 0x60 });
-        code.insert(code.end(), { 0xF3, 0x0F, 0x59, 0xE4 });
-        code.insert(code.end(), { 0xF3, 0x0F, 0x58, 0xDC });
-        code.insert(code.end(), { 0xF3, 0x0F, 0x51, 0xDB });
-        code.insert(code.end(), { 0x0F, 0x57, 0xE4 });
-        code.insert(code.end(), { 0x0F, 0x2E, 0xDC });
-        code.insert(code.end(), { 0x0F, 0x86 });
-        const std::size_t origMagZeroJump = code.size();
-        code.insert(code.end(), { 0x00, 0x00, 0x00, 0x00 });
-
-        code.insert(code.end(), { 0xF3, 0x0F, 0x10, 0x64, 0x24, 0x4C });
-        code.insert(code.end(), { 0xF3, 0x0F, 0x59, 0xE4 });
-        code.insert(code.end(), { 0xF3, 0x0F, 0x10, 0x6C, 0x24, 0x50 });
-        code.insert(code.end(), { 0xF3, 0x0F, 0x59, 0xED });
-        code.insert(code.end(), { 0xF3, 0x0F, 0x58, 0xE5 });
-        code.insert(code.end(), { 0xF3, 0x0F, 0x10, 0x6C, 0x24, 0x54 });
-        code.insert(code.end(), { 0xF3, 0x0F, 0x59, 0xED });
-        code.insert(code.end(), { 0xF3, 0x0F, 0x58, 0xE5 });
-        code.insert(code.end(), { 0xF3, 0x0F, 0x51, 0xE4 });
-
-        code.insert(code.end(), { 0x0F, 0x28, 0xF4 });
-
-        code.insert(code.end(), { 0x0F, 0x2E, 0xE4 });
-        code.insert(code.end(), { 0x7A, 0x02 });
-        code.insert(code.end(), { 0x0F, 0x57, 0xED });
-        code.insert(code.end(), { 0x0F, 0x2E, 0xEC });
-        code.insert(code.end(), { 0x0F, 0x83, 0x00, 0x00, 0x00, 0x00 });
-        const std::size_t nearZeroJump = code.size() - 4;
-        code.insert(code.end(), { 0xF3, 0x0F, 0x5F, 0xDC });
-        code.insert(code.end(), { 0xF3, 0x0F, 0x5E, 0xDE });
-
-        code.insert(code.end(), { 0xF3, 0x0F, 0x10, 0x44, 0x24, 0x4C });
-        code.insert(code.end(), { 0xF3, 0x0F, 0x59, 0xC3 });
-        code.insert(code.end(), { 0xF3, 0x0F, 0x11, 0x44, 0x24, 0x4C });
-        code.insert(code.end(), { 0xF3, 0x0F, 0x10, 0x4C, 0x24, 0x50 });
-        code.insert(code.end(), { 0xF3, 0x0F, 0x59, 0xCB });
-        code.insert(code.end(), { 0xF3, 0x0F, 0x11, 0x4C, 0x24, 0x50 });
-        code.insert(code.end(), { 0xF3, 0x0F, 0x10, 0x54, 0x24, 0x54 });
-        code.insert(code.end(), { 0xF3, 0x0F, 0x59, 0xD3 });
-        code.insert(code.end(), { 0xF3, 0x0F, 0x11, 0x54, 0x24, 0x54 });
-
-        const std::size_t skipOffset = code.size();
-        patch_rel32(code, origMagZeroJump, skipOffset);
-        patch_rel32(code, nearZeroJump, skipOffset);
-
-        code.insert(code.end(), { 0x4C, 0x8D, 0x44, 0x24, 0x40 });
-        code.push_back(0xE9);
-        const std::size_t activeJumpOffset = code.size();
-        code.insert(code.end(), { 0x00, 0x00, 0x00, 0x00 });
-
-        const std::size_t inactiveOffset = code.size();
-        for (const std::size_t jumpOffset : inactiveJumpOffsets)
-            patch_rel32(code, jumpOffset, inactiveOffset);
-
-        code.insert(code.end(), { 0x4C, 0x8B, 0x84, 0x24, 0x80, 0x00, 0x00, 0x00 });
-
-        const std::size_t callOriginalOffset = code.size();
-        patch_rel32(code, activeJumpOffset, callOriginalOffset);
-
-        code.insert(code.end(), { 0x48, 0x8B, 0x84, 0x24, 0xD0, 0x00, 0x00, 0x00 });
-        code.insert(code.end(), { 0x48, 0x89, 0x44, 0x24, 0x20 });
-        code.insert(code.end(), { 0x48, 0x8B, 0x84, 0x24, 0xCC, 0x00, 0x00, 0x00 });
-        code.insert(code.end(), { 0x48, 0x89, 0x44, 0x24, 0x28 });
-        code.insert(code.end(), { 0x48, 0xB8 });
-        append_u64(code, originalFunction);
-        code.insert(code.end(), { 0xFF, 0xD0 });
-        code.insert(code.end(), { 0x48, 0x81, 0xC4, 0xA0, 0x00, 0x00, 0x00 });
-        code.push_back(0xC3);
-        return code;
-    }
-
-    std::vector<std::uint8_t> make_hook_thunk(std::uintptr_t stateAddress, std::uintptr_t originalFunction) {
-        std::vector<std::uint8_t> code;
-        code.reserve(384);
-        std::vector<std::size_t> inactiveJumpOffsets;
-
-        auto emitInactiveJump = [&]() {
-            code.insert(code.end(), { 0x0F, 0x84 });
-            inactiveJumpOffsets.push_back(code.size());
-            code.insert(code.end(), { 0x00, 0x00, 0x00, 0x00 });
-            };
-
-        code.insert(code.end(), { 0x48, 0x83, 0xEC, 0x68 });
-        code.insert(code.end(), { 0x49, 0xBA });
-        append_u64(code, stateAddress);
-        code.insert(code.end(), { 0x41, 0x83, 0x3A, 0x00 });
-        emitInactiveJump();
-        code.insert(code.end(), { 0x4D, 0x85, 0xC0 });
-        emitInactiveJump();
-        code.insert(code.end(), { 0x4D, 0x85, 0xC9 });
-        emitInactiveJump();
-
-        code.insert(code.end(), { 0xF3, 0x41, 0x0F, 0x10, 0x42, 0x08 });
-        code.insert(code.end(), { 0xF3, 0x41, 0x0F, 0x5C, 0x00 });
-        code.insert(code.end(), { 0xF3, 0x0F, 0x11, 0x44, 0x24, 0x40 });
-
-        code.insert(code.end(), { 0xF3, 0x41, 0x0F, 0x10, 0x4A, 0x0C });
-        code.insert(code.end(), { 0xF3, 0x41, 0x0F, 0x5C, 0x48, 0x04 });
-        code.insert(code.end(), { 0xF3, 0x0F, 0x11, 0x4C, 0x24, 0x44 });
-
-        code.insert(code.end(), { 0xF3, 0x41, 0x0F, 0x10, 0x52, 0x10 });
-        code.insert(code.end(), { 0xF3, 0x41, 0x0F, 0x5C, 0x50, 0x08 });
-        code.insert(code.end(), { 0xF3, 0x0F, 0x11, 0x54, 0x24, 0x48 });
-
-        code.insert(code.end(), { 0x0F, 0x28, 0xD8 });
-        code.insert(code.end(), { 0xF3, 0x0F, 0x59, 0xDB });
-        code.insert(code.end(), { 0x0F, 0x28, 0xE1 });
-        code.insert(code.end(), { 0xF3, 0x0F, 0x59, 0xE4 });
-        code.insert(code.end(), { 0xF3, 0x0F, 0x58, 0xDC });
-        code.insert(code.end(), { 0x0F, 0x28, 0xE2 });
-        code.insert(code.end(), { 0xF3, 0x0F, 0x59, 0xE4 });
-        code.insert(code.end(), { 0xF3, 0x0F, 0x58, 0xDC });
-        code.insert(code.end(), { 0xF3, 0x0F, 0x51, 0xDB });
-        code.insert(code.end(), { 0x0F, 0x57, 0xED });
-        code.insert(code.end(), { 0x0F, 0x2E, 0xDD });
-        code.insert(code.end(), { 0x0F, 0x86 });
-        inactiveJumpOffsets.push_back(code.size());
-        code.insert(code.end(), { 0x00, 0x00, 0x00, 0x00 });
-
-        code.insert(code.end(), { 0xF3, 0x41, 0x0F, 0x10, 0x21 });
-        code.insert(code.end(), { 0xF3, 0x0F, 0x59, 0xE4 });
-        code.insert(code.end(), { 0xF3, 0x41, 0x0F, 0x10, 0x69, 0x04 });
-        code.insert(code.end(), { 0xF3, 0x0F, 0x59, 0xED });
-        code.insert(code.end(), { 0xF3, 0x0F, 0x58, 0xE5 });
-        code.insert(code.end(), { 0xF3, 0x41, 0x0F, 0x10, 0x69, 0x08 });
-        code.insert(code.end(), { 0xF3, 0x0F, 0x59, 0xED });
-        code.insert(code.end(), { 0xF3, 0x0F, 0x58, 0xE5 });
-        code.insert(code.end(), { 0xF3, 0x0F, 0x51, 0xE4 });
-        code.insert(code.end(), { 0x0F, 0x57, 0xED });
-        code.insert(code.end(), { 0x0F, 0x2E, 0xE5 });
-        code.insert(code.end(), { 0x0F, 0x86 });
-        inactiveJumpOffsets.push_back(code.size());
-        code.insert(code.end(), { 0x00, 0x00, 0x00, 0x00 });
-
-        code.insert(code.end(), { 0x41, 0x8B, 0x42, 0x04 });
-        code.insert(code.end(), { 0xA8, 0x04 });
-        code.insert(code.end(), { 0x0F, 0x84 });
-        const std::size_t skipShortGuardJumpOffset = code.size();
-        code.insert(code.end(), { 0x00, 0x00, 0x00, 0x00 });
-        code.insert(code.end(), { 0xB8, 0x00, 0x00, 0x80, 0x7F });
-        code.insert(code.end(), { 0x66, 0x0F, 0x6E, 0xE8 });
-        code.insert(code.end(), { 0x0F, 0x2E, 0xE5 });
-        code.insert(code.end(), { 0x0F, 0x82 });
-        inactiveJumpOffsets.push_back(code.size());
-        code.insert(code.end(), { 0x00, 0x00, 0x00, 0x00 });
-        const std::size_t skipShortGuardOffset = code.size();
-        patch_rel32(code, skipShortGuardJumpOffset, skipShortGuardOffset);
-
-        code.insert(code.end(), { 0xF3, 0x41, 0x0F, 0x10, 0x29 });
-        code.insert(code.end(), { 0xF3, 0x0F, 0x59, 0xE8 });
-        code.insert(code.end(), { 0xF3, 0x41, 0x0F, 0x10, 0x71, 0x04 });
-        code.insert(code.end(), { 0xF3, 0x0F, 0x59, 0xF1 });
-        code.insert(code.end(), { 0xF3, 0x0F, 0x58, 0xEE });
-        code.insert(code.end(), { 0xF3, 0x41, 0x0F, 0x10, 0x71, 0x08 });
-        code.insert(code.end(), { 0xF3, 0x0F, 0x59, 0xF2 });
-        code.insert(code.end(), { 0xF3, 0x0F, 0x58, 0xEE });
-        code.insert(code.end(), { 0x0F, 0x28, 0xF4 });
-        code.insert(code.end(), { 0xF3, 0x0F, 0x59, 0xF3 });
-        code.insert(code.end(), { 0xF3, 0x0F, 0x5E, 0xEE });
-        code.insert(code.end(), { 0xB8, 0x00, 0x00, 0x80, 0xBF });
-        code.insert(code.end(), { 0x66, 0x0F, 0x6E, 0xF0 });
-        code.insert(code.end(), { 0x0F, 0x2E, 0xEE });
-        code.insert(code.end(), { 0x0F, 0x82 });
-        inactiveJumpOffsets.push_back(code.size());
-        code.insert(code.end(), { 0x00, 0x00, 0x00, 0x00 });
-
-        code.insert(code.end(), { 0x41, 0x8B, 0x42, 0x04 });
-        code.insert(code.end(), { 0xA8, 0x02 });
-        code.insert(code.end(), { 0x0F, 0x84 });
-        const std::size_t noTerrainGuardJumpOffset = code.size();
-        code.insert(code.end(), { 0x00, 0x00, 0x00, 0x00 });
-        code.insert(code.end(), { 0x0F, 0x28, 0xEC });
-        code.insert(code.end(), { 0xF3, 0x41, 0x0F, 0x59, 0x6A, 0x14 });
-        code.insert(code.end(), { 0x0F, 0x2E, 0xEB });
-        code.insert(code.end(), { 0x0F, 0x82 });
-        inactiveJumpOffsets.push_back(code.size());
-        code.insert(code.end(), { 0x00, 0x00, 0x00, 0x00 });
-
-        const std::size_t noTerrainGuardOffset = code.size();
-        patch_rel32(code, noTerrainGuardJumpOffset, noTerrainGuardOffset);
-
-        code.insert(code.end(), { 0xA8, 0x01 });
-        code.insert(code.end(), { 0x0F, 0x85 });
-        const std::size_t wallbangJumpOffset = code.size();
-        code.insert(code.end(), { 0x00, 0x00, 0x00, 0x00 });
-
-        code.insert(code.end(), { 0x0F, 0x28, 0xEB });
-        code.insert(code.end(), { 0xF3, 0x41, 0x0F, 0x59, 0x6A, 0x14 });
-        code.insert(code.end(), { 0xF3, 0x0F, 0x5F, 0xE5 });
-        code.insert(code.end(), { 0xF3, 0x0F, 0x5E, 0xE3 });
-        code.insert(code.end(), { 0xF3, 0x0F, 0x59, 0xC4 });
-        code.insert(code.end(), { 0xF3, 0x0F, 0x11, 0x44, 0x24, 0x40 });
-        code.insert(code.end(), { 0xF3, 0x0F, 0x59, 0xCC });
-        code.insert(code.end(), { 0xF3, 0x0F, 0x11, 0x4C, 0x24, 0x44 });
-        code.insert(code.end(), { 0xF3, 0x0F, 0x59, 0xD4 });
-        code.insert(code.end(), { 0xF3, 0x0F, 0x11, 0x54, 0x24, 0x48 });
-        code.push_back(0xE9);
-        const std::size_t applyDirectionJumpOffset = code.size();
-        code.insert(code.end(), { 0x00, 0x00, 0x00, 0x00 });
-
-        const std::size_t wallbangOffset = code.size();
-        patch_rel32(code, wallbangJumpOffset, wallbangOffset);
-        code.insert(code.end(), { 0xF3, 0x0F, 0x5E, 0xC3 });
-        code.insert(code.end(), { 0xF3, 0x0F, 0x5E, 0xCB });
-        code.insert(code.end(), { 0xF3, 0x0F, 0x5E, 0xD3 });
-
-        code.insert(code.end(), { 0x0F, 0x28, 0xE0 });
-        code.insert(code.end(), { 0xF3, 0x41, 0x0F, 0x59, 0x62, 0x14 });
-        code.insert(code.end(), { 0xF3, 0x41, 0x0F, 0x10, 0x6A, 0x08 });
-        code.insert(code.end(), { 0xF3, 0x0F, 0x5C, 0xEC });
-        code.insert(code.end(), { 0xF3, 0x0F, 0x11, 0x6C, 0x24, 0x50 });
-        code.insert(code.end(), { 0xF3, 0x0F, 0x58, 0xE4 });
-        code.insert(code.end(), { 0xF3, 0x0F, 0x11, 0x64, 0x24, 0x40 });
-
-        code.insert(code.end(), { 0x0F, 0x28, 0xE1 });
-        code.insert(code.end(), { 0xF3, 0x41, 0x0F, 0x59, 0x62, 0x14 });
-        code.insert(code.end(), { 0xF3, 0x41, 0x0F, 0x10, 0x6A, 0x0C });
-        code.insert(code.end(), { 0xF3, 0x0F, 0x5C, 0xEC });
-        code.insert(code.end(), { 0xF3, 0x0F, 0x11, 0x6C, 0x24, 0x54 });
-        code.insert(code.end(), { 0xF3, 0x0F, 0x58, 0xE4 });
-        code.insert(code.end(), { 0xF3, 0x0F, 0x11, 0x64, 0x24, 0x44 });
-
-        code.insert(code.end(), { 0x0F, 0x28, 0xE2 });
-        code.insert(code.end(), { 0xF3, 0x41, 0x0F, 0x59, 0x62, 0x14 });
-        code.insert(code.end(), { 0xF3, 0x41, 0x0F, 0x10, 0x6A, 0x10 });
-        code.insert(code.end(), { 0xF3, 0x0F, 0x5C, 0xEC });
-        code.insert(code.end(), { 0xF3, 0x0F, 0x11, 0x6C, 0x24, 0x58 });
-        code.insert(code.end(), { 0xF3, 0x0F, 0x58, 0xE4 });
-        code.insert(code.end(), { 0xF3, 0x0F, 0x11, 0x64, 0x24, 0x48 });
-        code.insert(code.end(), { 0x4C, 0x8D, 0x44, 0x24, 0x50 });
-
-        const std::size_t applyDirectionOffset = code.size();
-        patch_rel32(code, applyDirectionJumpOffset, applyDirectionOffset);
-        code.insert(code.end(), { 0x49, 0xFF, 0x42, 0x18 });
-        code.insert(code.end(), { 0x4C, 0x8D, 0x4C, 0x24, 0x40 });
-
-        const std::size_t inactiveOffset = code.size();
-        for (const std::size_t jumpOffset : inactiveJumpOffsets)
-            patch_rel32(code, jumpOffset, inactiveOffset);
-
-        code.insert(code.end(), { 0x48, 0x8B, 0x84, 0x24, 0x90, 0x00, 0x00, 0x00 });
-        code.insert(code.end(), { 0x48, 0x89, 0x44, 0x24, 0x20 });
-        code.insert(code.end(), { 0x48, 0xB8 });
-        append_u64(code, originalFunction);
-        code.insert(code.end(), { 0xFF, 0xD0 });
-        code.insert(code.end(), { 0x48, 0x83, 0xC4, 0x68 });
-        code.push_back(0xC3);
-        return code;
-    }
 
     std::vector<std::uint8_t> make_direct_hook_thunk(
         std::uintptr_t stateAddress, std::uintptr_t originalFunction) {
@@ -997,115 +695,11 @@ namespace Cheat {
                     return p;
                 }
 
-                bool descriptor_has_name(std::uintptr_t base, std::uintptr_t rva,
-                                         const char* expected) {
-                    if (!base || !rva || !expected)
-                        return false;
-                    const std::uintptr_t name_ptr = g_Memory.Read<std::uintptr_t>(base + rva + 0x8);
-                    if (!addr_ok(name_ptr))
-                        return false;
-                    char name[64]{};
-                    if (g_Memory.ReadRaw(name_ptr, name, sizeof(name) - 1) == 0)
-                        return false;
-                    return std::strcmp(name, expected) == 0;
-                }
 
-                std::uintptr_t find_descriptor(std::uintptr_t base, const char* name,
-                                               std::uintptr_t preferred) {
-                    if (descriptor_has_name(base, preferred, name))
-                        return preferred;
-                    constexpr std::uintptr_t radius = 0x20000;
-                    const std::uintptr_t lo = desc_rva_z > radius ? desc_rva_z - radius : 0;
-                    const std::uintptr_t hi = desc_rva_z + radius;
-                    for (std::uintptr_t rva = (lo + 0xF) & ~std::uintptr_t(0xF);
-                         rva < hi; rva += 0x10) {
-                        if (!descriptor_has_name(base, rva, name))
-                            continue;
-                        const std::uintptr_t fn = g_Memory.Read<std::uintptr_t>(
-                            base + rva + bound_fn_offset);
-                        if (addr_ok(fn))
-                            return rva;
-                    }
-                    return 0;
-                }
 
-                bool install_legacy() {
-                    if (g_legacy.installed)
-                        return true;
-                    const auto now = std::chrono::steady_clock::now();
-                    if (g_lastLegacyFail.time_since_epoch().count() != 0 &&
-                        now - g_lastLegacyFail < std::chrono::milliseconds(1500))
-                        return false;
 
-                    const std::uintptr_t base = g_Memory.GetModuleBase(L"RobloxPlayerBeta.exe");
-                    if (!base)
-                        return false;
-                    const std::uintptr_t rva = find_descriptor(
-                        base, "FindPartOnRay", Offsets::WorldRoot::FindPartOnRayBoundDesc);
-                    if (!rva) {
-                        g_lastLegacyFail = now;
-                        return false;
-                    }
-                    const std::uintptr_t slot = base + rva + bound_fn_offset;
-                    const std::uintptr_t fn = g_Memory.Read<std::uintptr_t>(slot);
-                    if (!addr_ok(fn)) {
-                        g_lastLegacyFail = now;
-                        return false;
-                    }
-                    g_legacy.state = g_Memory.Alloc(page_sz(), PAGE_READWRITE);
-                    if (!g_legacy.state) {
-                        g_lastLegacyFail = now;
-                        return false;
-                    }
-                    const auto thunk = make_legacy_thunk(g_legacy.state, fn);
-                    if (thunk.empty() || thunk.size() > 0x300) {
-                        g_Memory.Free(g_legacy.state);
-                        g_legacy.state = 0;
-                        g_lastLegacyFail = now;
-                        return false;
-                    }
 
-                    bool owned = false;
-                    std::uintptr_t stub = find_exec_cave(0x300, base, g_hook.thunk);
-                    if (!stub) {
-                        stub = alloc_exec_page();
-                        owned = stub != 0;
-                    }
-                    RaycastState empty{};
-                    if (!stub || !write_protected(stub, thunk.data(), thunk.size()) ||
-                        !w_mem(g_legacy.state, &empty, sizeof(empty))) {
-                        if (owned && stub)
-                            g_Memory.Free(stub);
-                        g_Memory.Free(g_legacy.state);
-                        g_legacy = {};
-                        g_lastLegacyFail = now;
-                        return false;
-                    }
-                    FlushInstructionCache(g_Memory.GetHandle(), reinterpret_cast<void*>(stub), thunk.size());
-                    mark_cfg(stub);
-                    if (!is_executable_protect(query_protect(stub)) ||
-                        !write_protected(slot, &stub, sizeof(stub)) ||
-                        g_Memory.Read<std::uintptr_t>(slot) != stub) {
-                        if (owned)
-                            g_Memory.Free(stub);
-                        g_Memory.Free(g_legacy.state);
-                        g_legacy = {};
-                        g_lastLegacyFail = now;
-                        return false;
-                    }
-                    g_legacy.thunk = stub;
-                    g_legacy.originalFunction = fn;
-                    g_legacy.module_base = base;
-                    g_legacy.descriptor_rva = rva;
-                    g_legacy.thunk_owned = owned;
-                    g_legacy.installed = true;
-                    g_lastLegacyFail = {};
-                    std::printf("[Silent] legacy ready handler=0x%llx stub=0x%llx descriptor=0x%llx\n",
-                        static_cast<unsigned long long>(fn),
-                        static_cast<unsigned long long>(stub),
-                        static_cast<unsigned long long>(rva));
-                    return true;
-                }
+
 
                 void remove_hook(Hook& hook) {
                     if (hook.state) {
@@ -1136,18 +730,15 @@ namespace Cheat {
 
             }
 
-            bool Ready() { return g_hook.installed; }
-            bool Aiming() { return g_hook.active; }
-            bool WallbangMode() { return g_wallbang; }
-            std::uintptr_t OriginalHandler() { return g_hook.originalFunction; }
+
+
+
+
             std::uint64_t WorldCalls() {
                 return g_hook.state ? g_Memory.Read<std::uint64_t>(
                     g_hook.state + offsetof(RaycastState, calls)) : 0;
             }
-            std::uint64_t LegacyCalls() {
-                return g_legacy.state ? g_Memory.Read<std::uint64_t>(
-                    g_legacy.state + offsetof(RaycastState, calls)) : 0;
-            }
+
             std::uint64_t HandlerCalls() {
                 return g_hook.state ? g_Memory.Read<std::uint64_t>(
                     g_hook.state + offsetof(RaycastState, handler_calls)) : 0;
@@ -1330,7 +921,7 @@ namespace Cheat {
 
             void Remove()
             {
-                remove_hook(g_legacy);
+
                 remove_hook(g_hook);
                 g_wallbang = false;
             }
@@ -1351,8 +942,8 @@ namespace Cheat {
 
                     g_hook.thunk = 0;
                     g_hook.state = 0;
-                    g_legacy.thunk = 0;
-                    g_legacy.state = 0;
+
+
                     Console::Clear();
                     Console::DumpWorld();
                     Console::Log(Console::Color::Orange, "Silent rescan  module");
@@ -1386,7 +977,7 @@ namespace Cheat {
                     }
                 }
 
-                else if (g_hook.installed || g_legacy.installed)
+                else if (g_hook.installed)
                 {
                     Remove();
                     Console::Clear();
@@ -1400,7 +991,7 @@ namespace Cheat {
                 if (!on)
                 {
                     const std::uint32_t off=0;
-                    for(Hook* hook : {&g_hook,&g_legacy}){
+                    for(Hook* hook : {&g_hook}){
                         if(hook->state)w_mem(hook->state,&off,sizeof(off));
                         hook->active=false;
                     }

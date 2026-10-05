@@ -23,7 +23,7 @@ inline bool Scope(const std::string& name){
  auto n=Lower(name);
  return n.find("glass")!=n.npos||n.find("lens")!=n.npos||n.find("reticle")!=n.npos||n.find("projector")!=n.npos;
 }
-inline void RestoreHidden(){}
+
 inline bool AssetMesh(RBX::RbxInstance mesh){
  if(!mesh.Addr)return false;
  const auto field=mesh.Addr+Offsets::SpecialMesh::MeshId;

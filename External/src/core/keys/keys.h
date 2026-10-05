@@ -25,15 +25,6 @@ inline bool IsKeyPressed(int key) {
         else if (key == ImGuiKey_Pause) vk=VK_PAUSE;
         else if (key == ImGuiKey_NumLock) vk=VK_NUMLOCK;
         else if (key == ImGuiKey_ScrollLock) vk=VK_SCROLL;
-        else if (key == ImGuiKey_MouseLeft) vk=VK_LBUTTON;
-        else if (key == ImGuiKey_MouseRight) vk=VK_RBUTTON;
-        else if (key == ImGuiKey_MouseMiddle) vk=VK_MBUTTON;
-        else if (key == ImGuiKey_MouseX1) vk=VK_XBUTTON1;
-        else if (key == ImGuiKey_MouseX2) vk=VK_XBUTTON2;
-        else if (key == ImGuiKey_PrintScreen) vk=VK_SNAPSHOT;
-        else if (key == ImGuiKey_Pause) vk=VK_PAUSE;
-        else if (key == ImGuiKey_NumLock) vk=VK_NUMLOCK;
-        else if (key == ImGuiKey_ScrollLock) vk=VK_SCROLL;
         else if (key == ImGuiKey_Insert) vk = VK_INSERT;
         else if (key == ImGuiKey_Delete) vk = VK_DELETE;
         else if (key == ImGuiKey_Home) vk = VK_HOME;
@@ -77,27 +68,6 @@ inline bool IsKeyPressed(int key) {
     return (GetAsyncKeyState(key) & 0x8000) != 0;
 }
 
-template <typename T>
-void ProcessKeybind(int key, int mode, T& feature, bool& last) {
-    if (key == 0)
-        return;
-    const bool down = IsKeyPressed(key);
-    if (mode == 2) {
-        feature = true;
-        last = down;
-        return;
-    }
-    if (down != last) {
-        if (mode == 1) {
-            if (down)
-                feature = !feature;
-        } else {
-            feature = down;
-        }
-        last = down;
-    }
-}
-
 inline bool Gate(int key, int mode, bool& tog, bool& was) {
     if (mode == 2) return true;
     if (key == 0) return true;
@@ -130,17 +100,6 @@ inline bool Gate(int key, int mode, bool& tog, bool& was) {
     return down;
 }
 
-inline bool TeamCheckOn() {
-    static bool tog = false;
-    static bool was = false;
-    if (!variables::teamCheck) {
-        tog = false;
-        was = false;
-        return false;
-    }
-    return Gate(variables::teamCheckKey, variables::teamCheckKeyMode, tog, was);
-}
-
 inline bool StreamProofOn() {
     static bool tog = false;
     static bool was = false;
@@ -155,22 +114,13 @@ inline bool StreamProofOn() {
 inline bool SpotifyOn() {
     static bool tog = false;
     static bool was = false;
-    if (!variables::Misc::spotifyKeyEnabled) {
-        tog = false;
-        was = false;
-        return variables::Misc::spotifyPlayer;
-    }
-    return Gate(variables::Misc::spotifyKey, variables::Misc::spotifyKeyMode, tog, was);
-}
-
-inline bool KeybindsOn() {
-    static bool tog = false;
-    static bool was = false;
-    if (!variables::Misc::keybinds) {
+    if (!variables::Misc::spotifyPlayer) {
         tog = false;
         was = false;
         return false;
     }
-    return Gate(variables::Misc::keybindsKey, variables::Misc::keybindsKeyMode, tog, was);
+    return Gate(variables::Misc::spotifyKey, variables::Misc::spotifyKeyMode, tog, was);
 }
+
+inline bool KeybindsOn() { return variables::Misc::keybinds; }
 }

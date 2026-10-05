@@ -266,21 +266,6 @@ bool IsGloveSkin(const std::string& skin) {
     return FindModelRecursive(GlovesCatalogRoot(), skin).Addr != 0;
 }
 
-bool IsWeaponSkin(const std::string& skin) {
-    if (skin.empty() || skin == "Default")
-        return false;
-    const RBX::RbxInstance root = WeaponCatalogRoot();
-    if (!root.Addr)
-        return false;
-    for (const auto& weaponFolder : root.GetChildList()) {
-        const std::string weapon = weaponFolder.GetName();
-        if (!weapon.empty() &&
-            weaponFolder.FindChild((weapon + "_" + skin).c_str()).Addr)
-            return true;
-    }
-    return false;
-}
-
 std::uint64_t Rq(std::uintptr_t address) {
     return address ? memory->read<std::uint64_t>(address) : 0;
 }
@@ -381,23 +366,6 @@ void SetStatus(const std::string& status) {
     std::lock_guard<std::mutex> lock(g_stateMutex);
     if (g_status != status)
         g_status = status;
-}
-
-void RestoreBeforeBuild() {
-    for (auto& rec : g_records) {
-        if (!rec.dirty)
-            continue;
-        RestoreCore(rec);
-        rec.active = false;
-        rec.dirty = false;
-    }
-    for (auto& rec : g_gloveRecords) {
-        if (!rec.dirty)
-            continue;
-        RestoreCore(rec);
-        rec.active = false;
-        rec.dirty = false;
-    }
 }
 
 bool BuildRecord(const std::string& weapon, const std::string& liveName,
@@ -575,28 +543,6 @@ bool ApplySwapCore(SwapRecord& rec, std::string& error) {
     return true;
 }
 
-bool ApplySwap(SwapRecord& rec, std::string& error) {
-    std::lock_guard<std::mutex> lock(g_swapMutex);
-    ProcessSuspend guard;
-    if (!guard.ok()) {
-        error = "could not suspend the Roblox process: " + guard.reason();
-        return false;
-    }
-    return ApplySwapCore(rec, error);
-}
-
-bool RestoreSwap(SwapRecord& rec, std::string& error) {
-    std::lock_guard<std::mutex> lock(g_swapMutex);
-    ProcessSuspend guard;
-    if (!guard.ok()) {
-        error = "could not suspend the Roblox process: " + guard.reason();
-        return false;
-    }
-    RestoreCore(rec);
-    rec.dirty = false;
-    return true;
-}
-
 bool ValidateSwapped(const SwapRecord& rec) {
     if (Rq(rec.live + Offsets::Instance::ChildrenStart) != rec.sourceVec)
         return false;
@@ -611,52 +557,6 @@ bool ValidateSwapped(const SwapRecord& rec) {
             return false;
     }
     return true;
-}
-
-bool StripPartMotor(const RBX::RbxInstance& part) {
-    if (!part.Addr)
-        return false;
-    const std::uintptr_t vecObj = Rq(part.Addr + Offsets::Instance::ChildrenStart);
-    if (!vecObj)
-        return false;
-    const std::uintptr_t begin = Rq(vecObj);
-    const std::uintptr_t end = Rq(vecObj + Offsets::Instance::ChildrenEnd);
-    if (!begin || !end || end < begin)
-        return false;
-    constexpr std::uintptr_t kStride = Offsets::Instance::ChildrenStride;
-    const std::size_t count = (end - begin) / kStride;
-    std::size_t hole = SIZE_MAX;
-    for (std::size_t i = 0; i < count; ++i) {
-        const std::uintptr_t entry = Rq(begin + i * kStride);
-        if (!entry)
-            continue;
-        if (RBX::RbxInstance(entry).GetClass() == "Motor6D") {
-            hole = i;
-            break;
-        }
-    }
-    if (hole == SIZE_MAX)
-        return false;
-    const std::uintptr_t holeAddr = begin + hole * kStride;
-    const std::uintptr_t tailSrc = holeAddr + kStride;
-    const std::size_t tailBytes = end - tailSrc;
-    if (tailBytes) {
-        std::vector<std::uint8_t> tail(tailBytes);
-        if (!memory->read_raw(tailSrc, tail.data(), tailBytes))
-            return false;
-        if (!memory->write_raw(holeAddr, tail.data(), tailBytes))
-            return false;
-    }
-    Wq(vecObj + Offsets::Instance::ChildrenEnd, end - kStride);
-    return true;
-}
-
-void StripSwappedGloveMotors(const SwapRecord& rec) {
-    for (const std::uintptr_t addr : rec.sourceChildren) {
-        const RBX::RbxInstance part(addr);
-        if (part.GetClass() == "MeshPart" || part.GetClass() == "Part")
-            StripPartMotor(part);
-    }
 }
 
 std::atomic<bool> g_gloveWatcherRun{false};
@@ -794,12 +694,6 @@ SwapRecord* FindRecord(const std::string& weapon) {
         if (rec.weapon == weapon)
             return &rec;
     }
-    return nullptr;
-}
-
-SwapRecord* FindGloveRecord() {
-    if (!g_gloveRecords.empty())
-        return &g_gloveRecords.front();
     return nullptr;
 }
 
@@ -1263,108 +1157,6 @@ bool ApplyGloveVisuals(const std::string& selected, std::string& error) {
     return true;
 }
 
-bool ReparentGloveModelCore(const std::string& selected, std::string& error,
-                            bool& changed) {
-    const RBX::RbxInstance rs = FindServiceInstance("ReplicatedStorage");
-    const RBX::RbxInstance vm = FindPath(rs, {"Models", "Viewmodel"});
-    const RBX::RbxInstance tmpl = FindPath(rs, {"Models", "Viewmodel", "ArmModel"});
-    if (!vm.Addr || !tmpl.Addr) {
-        error = "Viewmodel template not found";
-        changed = false;
-        return false;
-    }
-    const std::string bare = selected == "S1S1bow" ? "S1S1" : selected;
-    RBX::RbxInstance src;
-    if (g_activeGloveSkin == selected && g_activeGloveModel)
-        src = RBX::RbxInstance(g_activeGloveModel);
-    if (!src.Addr)
-        src = FindModelRecursive(GlovesCatalogRoot(), bare);
-    if (!src.Addr) {
-        const RBX::RbxInstance gl = WeaponCatalogRoot().FindChild("Gloves");
-        if (gl.Addr)
-            src = ResolveCatalogModel(gl, "Gloves_" + selected);
-    }
-    if (!src.Addr) {
-        error = "catalog is missing " + selected;
-        changed = false;
-        return false;
-    }
-    const RBX::RbxInstance left = src.FindChild("LeftGlove");
-    const RBX::RbxInstance right = src.FindChild("RightGlove");
-    if (!left.Addr || !right.Addr ||
-        !left.FindChildByClass("Motor6D").Addr ||
-        !right.FindChildByClass("Motor6D").Addr) {
-        error = "special gloves need a native joint; kept stock gloves";
-        changed = false;
-        return false;
-    }
-
-    if (src.GetParent().Addr == tmpl.Addr) {
-        g_activeGloveSkin = selected;
-        g_activeGloveModel = src.Addr;
-        changed = false;
-        return true;
-    }
-
-    RBX::RbxInstance resident;
-    for (const auto& child : tmpl.GetChildList()) {
-        if (child.GetClass() != "Model" || child.Addr == src.Addr)
-            continue;
-        if (child.FindChild("LeftGlove").Addr || child.FindChild("RightGlove").Addr) {
-            resident = child;
-            break;
-        }
-    }
-
-    if (resident.Addr && resident.Addr == src.Addr) {
-        g_activeGloveSkin = selected;
-        g_activeGloveModel = src.Addr;
-        changed = false;
-        return true;
-    }
-
-    if (g_activeGloveModel && g_activeGloveModel != src.Addr &&
-        g_activeGloveHome) {
-        const bool wasResident = resident.Addr == g_activeGloveModel;
-        std::string restoreError;
-        if (!Reparent(g_activeGloveModel, g_activeGloveHome, restoreError)) {
-            error = "could not restore the previous glove: " + restoreError;
-            return false;
-        }
-        g_activeGloveModel = 0;
-        g_activeGloveSkin.clear();
-        if (wasResident)
-            resident = {};
-    }
-    const std::uintptr_t sourceHome = src.GetParent().Addr;
-    if (!sourceHome) {
-        error = "selected glove has no catalog parent";
-        return false;
-    }
-
-    if (resident.Addr && !Reparent(resident.Addr, vm.Addr, error))
-        return false;
-    if (resident.Addr && resident.GetName() == "Default")
-        g_parkedStockModel = resident.Addr;
-
-    if (!Reparent(src.Addr, tmpl.Addr, error)) {
-        if (resident.Addr)
-            Reparent(resident.Addr, tmpl.Addr, error);
-        return false;
-    }
-    changed = true;
-    g_activeGloveSkin = selected;
-    g_activeGloveModel = src.Addr;
-    g_activeGloveHome = sourceHome;
-
-    if (src.GetName() != bare) {
-        const std::uintptr_t nameContainer = Rq(src.Addr + Offsets::Instance::NameContainer);
-        if (nameContainer)
-            RBX::WriteString(nameContainer + Offsets::Instance::Name, bare);
-    }
-    return true;
-}
-
 bool RestoreStockGloves(std::string& error) {
     const bool hadVisuals = g_gloveAssembly.dirty || !g_gloveArmLinks.empty() || !g_gloveVisualSwaps.empty() ||
         !g_gloveMeshChanges.empty() || !g_gloveSizeChanges.empty() || !g_gloveJointChanges.empty();
@@ -1728,17 +1520,6 @@ void ApplySelectedSkin(const RBX::RbxInstance& armModel,
             ++active;
     g_appliedGloves = std::to_string(active) + " record" +
         (active == 1 ? "" : "s") + " armed";
-}
-
-std::string GuessWeaponFromName(const std::string& liveName) {
-    const std::size_t cut = liveName.rfind('_');
-    if (cut == std::string::npos)
-        return {};
-    const std::string weapon = liveName.substr(0, cut);
-    const RBX::RbxInstance root = WeaponCatalogRoot();
-    if (root.Addr && root.FindChild(weapon.c_str()).Addr)
-        return weapon;
-    return {};
 }
 
 bool ApplySelectionFromUi() {
