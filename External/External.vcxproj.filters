@@ -496,5 +496,8 @@
     <ResourceCompile Include="assets.rc">
       <Filter>Resource Files</Filter>
     </ResourceCompile>
+    <Image Include="app_icon.ico">
+      <Filter>Resource Files</Filter>
+    </Image>
   </ItemGroup>
 </Project>

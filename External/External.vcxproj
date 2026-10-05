@@ -161,6 +161,7 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup>
+    <TargetName>goatgoatgoatgoat</TargetName>
     <IntDir>$(ProjectDir)..\build\$(Platform)\$(Configuration)\obj\</IntDir>
     <OutDir>$(ProjectDir)..\build\$(Platform)\$(Configuration)\</OutDir>
   </PropertyGroup>
@@ -228,6 +229,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ResourceCompile Include="assets.rc" />
+    <Image Include="app_icon.ico" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
