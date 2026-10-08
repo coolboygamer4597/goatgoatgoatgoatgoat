@@ -20,6 +20,7 @@
 #include "../globals/globals.h"
 #include "../tp_handler/tp_handler.h"
 #include "../functions/aim/aim.h"
+#include "../functions/aim/recoil.h"
 #include "../functions/aim/raycast_silent.h"
 #include "../functions/skins/skins.h"
 #include "../../render/render.h"
@@ -610,6 +611,7 @@ std::int32_t Run() {
         }
         menuKeyWasDown = menuKeyDown;
 
+        Recoil::Tick();
         apply_game_fps_limit();
         if (!Globals::renderEngine.Addr || !Globals::players.Addr || !Globals::localPlayer.Addr) {
             std::this_thread::sleep_for(std::chrono::milliseconds(50));
@@ -700,6 +702,7 @@ std::int32_t Run() {
                 nextFrame = nowFrame + std::chrono::microseconds(periodUs);
         }
     }
+    Recoil::Stop();
     UiAssets::Shutdown();
     Cheat::Features::RaycastSilent::SetActive(false);
     Cheat::Features::RaycastSilent::Remove();

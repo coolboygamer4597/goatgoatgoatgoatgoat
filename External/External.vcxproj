@@ -28,6 +28,7 @@
     <ClCompile Include="main.cpp" />
     <ClCompile Include="src\core\app\app.cpp" />
     <ClCompile Include="src\core\functions\aim\aim.cpp" />
+    <ClCompile Include="src\core\functions\aim\recoil.cpp" />
     <ClCompile Include="src\core\functions\aim\raycast_silent.cpp" />
     <ClCompile Include="src\core\functions\aim\silent_fov_center.cpp" />
     <ClCompile Include="src\core\functions\aim\silent_nearest_point.cpp" />
@@ -68,6 +69,8 @@
     <ClInclude Include="src\core\app\app.h" />
     <ClInclude Include="src\core\app\RuntimePaths.h" />
     <ClInclude Include="src\core\functions\aim\aim.h" />
+    <ClInclude Include="src\core\functions\aim\recoil.h" />
+    <ClInclude Include="src\core\functions\aim\recoil_model.h" />
     <ClInclude Include="src\core\functions\mics\mics.h" />
     <ClInclude Include="src\core\keys\keys.h" />
     <ClInclude Include="src\core\functions\settings\settings.h" />

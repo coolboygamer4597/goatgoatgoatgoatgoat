@@ -22,6 +22,11 @@ template<class T> void Add(std::vector<Field>& fields,int tab,const std::string&
  [&value](const std::string& text){T next{};std::istringstream s(text);if(s>>next && s.eof() && std::isfinite(static_cast<double>(next)))value=next;}});
 }
 inline std::vector<Field>& Fields(){static auto fields=[] {std::vector<Field> out;
+        Add(out,0,"Aimbot.recoilEnabled",variables::Aimbot::recoilEnabled);
+        Add(out,0,"Aimbot.recoilStrength",variables::Aimbot::recoilStrength);
+        Add(out,0,"Aimbot.recoilPull",variables::Aimbot::recoilPull);
+        Add(out,0,"Aimbot.recoilGlockStrength",variables::Aimbot::recoilGlockStrength);
+        Add(out,0,"Aimbot.recoilGlockPull",variables::Aimbot::recoilGlockPull);
         Add(out,0,"Aimbot.silentEnabled",variables::Aimbot::silentEnabled);
         Add(out,0,"Aimbot.silentMethod",variables::Aimbot::silentMethod);
         Add(out,0,"Aimbot.silentKey",variables::Aimbot::silentKey);
@@ -215,6 +220,10 @@ inline void Apply(const std::string& text){
  variables::Theme::preset=(std::max)(0,(std::min)(16,variables::Theme::preset));
  variables::Theme::sadblobStyle=(std::max)(0,(std::min)(6,variables::Theme::sadblobStyle));
  variables::menuKey=variables::menuKey>0&&variables::menuKey<1024?variables::menuKey:VK_INSERT;
+ variables::Aimbot::recoilStrength=std::clamp(variables::Aimbot::recoilStrength,0.f,1.f);
+ variables::Aimbot::recoilPull=std::clamp(variables::Aimbot::recoilPull,0.f,1200.f);
+ variables::Aimbot::recoilGlockStrength=std::clamp(variables::Aimbot::recoilGlockStrength,0.f,1.f);
+ variables::Aimbot::recoilGlockPull=std::clamp(variables::Aimbot::recoilGlockPull,0.f,160.f);
  variables::Aimbot::silentMethod=(std::max)(1,(std::min)(2,variables::Aimbot::silentMethod));
  variables::Aimbot::aimTarget=(std::max)(0,(std::min)(7,variables::Aimbot::aimTarget));
  variables::Aimbot::silentFovRadius=(std::max)(5.f,(std::min)(600.f,variables::Aimbot::silentFovRadius));

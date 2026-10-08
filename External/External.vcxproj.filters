@@ -195,6 +195,9 @@
     <ClCompile Include="src\core\functions\aim\aim.cpp">
       <Filter>Source Files\src\core\functions\aim</Filter>
     </ClCompile>
+    <ClCompile Include="src\core\functions\aim\recoil.cpp">
+      <Filter>Source Files\src\core\functions\aim</Filter>
+    </ClCompile>
     <ClCompile Include="src\core\functions\aim\raycast_silent.cpp">
       <Filter>Source Files\src\core\functions\aim</Filter>
     </ClCompile>
@@ -309,6 +312,12 @@
       <Filter>Header Files\src\core\app</Filter>
     </ClInclude>
     <ClInclude Include="src\core\functions\aim\aim.h">
+      <Filter>Header Files\src\core\functions\aim</Filter>
+    </ClInclude>
+    <ClInclude Include="src\core\functions\aim\recoil.h">
+      <Filter>Header Files\src\core\functions\aim</Filter>
+    </ClInclude>
+    <ClInclude Include="src\core\functions\aim\recoil_model.h">
       <Filter>Header Files\src\core\functions\aim</Filter>
     </ClInclude>
     <ClInclude Include="src\core\functions\mics\mics.h">

@@ -3157,9 +3157,24 @@ uintptr_t occl_flag()
 		return 0;
 	const auto& module = remote_module_range(L"RobloxPlayerBeta.exe");
     if(!module.ok() || module.base!=base)return 0;
-    const auto addr=NativeOcclusion::resolve(base,module.end-module.base,[](std::uint64_t at,void* out,std::size_t n){
-        return memory->ReadRaw(at,out,n)==n;
-    });
+    struct Lookup {DWORD pid=0;std::uint64_t base=0,size=0,address=0;ULONGLONG retry=0;NativeOcclusion::Layout layout{};};
+    static Lookup lookup;
+    const auto size=module.end-module.base;
+    const auto pid=memory->get_process_id();
+    if(lookup.pid!=pid || lookup.base!=base || lookup.size!=size)lookup={pid,base,size,0,0};
+    auto read=[](std::uint64_t at,void* out,std::size_t n){return memory->ReadRaw(at,out,n)==n;};
+    if(lookup.address && !NativeOcclusion::namedFlag(base,size,lookup.address,read,lookup.layout))lookup.address=0;
+    if(!lookup.address) {
+        const auto now=GetTickCount64();
+        if(now<lookup.retry)return 0;
+        lookup.retry=now+10000;
+        const NativeOcclusion::Layout dumped{Offsets::NativeOcclusion::NameOffset,Offsets::NativeOcclusion::NameLengthOffset};
+        const auto hint=Offsets::NativeOcclusion::FlagRva<size?base+Offsets::NativeOcclusion::FlagRva:0;
+        const auto resolved=NativeOcclusion::resolve(base,size,read,dumped);
+        if(hint && resolved==hint) {lookup.address=hint;lookup.layout=dumped;}
+        else if(resolved) {lookup.address=resolved;lookup.layout=dumped;}
+    }
+    const auto addr=lookup.address;
     if(!addr)return 0;
 	MEMORY_BASIC_INFORMATION mbi{};
 	if (!VirtualQueryEx(memory->GetHandle(), (void*)addr, &mbi, sizeof(mbi)))
@@ -3207,11 +3222,15 @@ void apply_occlusion(bool off)
 	const std::uintptr_t addr = occl_flag();
 	if (!addr)
 	{
-		occl_note("occlusion flag not found (stale offset) - hidden targets stay hidden");
+		occl_note("named culling flag unavailable or ambiguous - through-wall Native is unavailable");
 		return;
 	}
-	const std::uint8_t saved = memory->Read<std::uint8_t>(addr);
-	memory->Write<std::uint8_t>(addr, 0);
+	std::uint8_t saved=0xff,actual=0xff;
+    if(memory->ReadRaw(addr,&saved,1)!=1 || saved>1 || !memory->Write<std::uint8_t>(addr,0) ||
+       memory->ReadRaw(addr,&actual,1)!=1 || actual!=0) {
+        occl_note("named culling flag could not be disabled - through-wall Native is unavailable");
+        return;
+    }
 	g.occl_addr = addr;
 	g.occl = saved;
 	g.occl_reverts = 0;

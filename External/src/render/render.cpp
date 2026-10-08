@@ -552,7 +552,7 @@ constexpr PrimTabDef kTabs[]={{"AIM",""},{"VISUALS",""},{"SYSTEM",""},{"SKINS","
 constexpr int kTabCount=4;
 struct PrimSubTabDef {const char* label;const char* desc;};
 constexpr PrimSubTabDef kSubTabs[kTabCount][6]={
-    {{"Silent Aim",""},{"Checks",""},{"",""},{"",""}},
+    {{"Silent Aim",""},{"Checks",""},{"Recoil",""},{"",""}},
     {{"Mesh",""},{"Native",""},{"Target checks",""}},
     {{"General",""},{"Players",""},{"Appearance",""},{"",""}},
     {{"Skin Changer",""},{"Custom skin\noverlay",""},{"Skin editor",""}}
@@ -655,9 +655,12 @@ void OverlayWindow::RenderMenu() {
         if (sub == 0)
             PrimContent("aim_main", "Silent Aim", childPos, childSize,
                 [] { Settings::RenderAimMain(); });
-        else
+        else if(sub==1)
             PrimContent("aim_checks", "Checks", childPos, childSize,
                 [] { Settings::RenderAimChecks(); });
+        else
+            PrimContent("aim_recoil", "Recoil dampening", childPos, childSize,
+                [] { Settings::RenderRecoil(); });
         break;
     }
     case 1: {
@@ -674,7 +677,11 @@ void OverlayWindow::RenderMenu() {
                     imGuiCustom::Checkbox("Unlimited distance",unlimited,ImVec2(317,51));
                     if(!*unlimited)imGuiCustom::SliderFloat("draw_distance",distance,1,1000000,ImVec2(317,82+imGuiCustom::SliderTop()),360,"Draw Distance (studs)","%.0f");
                     dl->AddText(base+ImVec2(317,155),PrimText(),"Applies to loaded characters.");
-                    if(sub==1)dl->AddText(base+ImVec2(317,184),PrimText(),Cheat::Visuals::NativeChams::StartupStatus());
+                    if(sub==1){
+                        dl->AddText(base+ImVec2(317,184),PrimText(),Cheat::Visuals::NativeChams::StartupStatus());
+                        const auto note=Cheat::Visuals::NativeChams::OcclusionNote();
+                        if(note && *note)dl->AddText(ImGui::GetFont(),13,base+ImVec2(317,215),PrimText(),note,nullptr,360);
+                    }
                 }
                 if (sub == 0) {
                     float ly = 51.0f;

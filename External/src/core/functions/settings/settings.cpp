@@ -5,6 +5,7 @@
 #include "../../variables/variables.h"
 #include "../../../render/menu/library.h"
 #include <algorithm>
+#include "../aim/recoil.h"
 
 namespace Settings {
 void RenderAimMain() {
@@ -33,6 +34,22 @@ void RenderAimMain() {
     imGuiCustom::SliderFloat("silent_fov", &variables::Aimbot::silentFovRadius, 5.0f, 600.0f, ImVec2(12.0f, ay + imGuiCustom::SliderTop()), 272.0f, "FOV Radius", "%.0f");
     ay += imGuiCustom::SliderStep();
     imGuiCustom::Checkbox("Nearest Point", &variables::Aimbot::silentNearestPoint, ImVec2(12.0f, ay));
+}
+
+void RenderRecoil() {
+    imGuiCustom::Checkbox("Recoil dampening",&variables::Aimbot::recoilEnabled,ImVec2(12,46));
+    static int profile=0;const char* weapons[]={"AR-15","Glock 19"};
+    imGuiCustom::Combo("recoil_profile",&profile,weapons,2,ImVec2(12,94),272,"Weapon settings:");
+    auto& strength=profile?variables::Aimbot::recoilGlockStrength:variables::Aimbot::recoilStrength;
+    auto& pull=profile?variables::Aimbot::recoilGlockPull:variables::Aimbot::recoilPull;
+    float percent=strength*100.f;
+    imGuiCustom::SliderFloat("recoil_strength",&percent,0,100,ImVec2(12,150),272,"Strength","%.0f%%");
+    strength=percent/100.f;
+    imGuiCustom::SliderFloat("recoil_pull",&pull,0,profile?160.f:1200.f,ImVec2(12,206),272,profile?"Vertical pull per shot":"Vertical pull per second","%.0f");
+    ImGui::SetCursorPos(ImVec2(12,265));ImGui::TextUnformatted("Switches automatically with your equipped weapon.");
+    ImGui::SetCursorPos(ImVec2(12,290));ImGui::TextUnformatted("If aim moves down, lower strength or vertical pull.");
+    ImGui::SetCursorPos(ImVec2(12,315));ImGui::TextUnformatted(profile?"Glock: one short pulse per click.":"AR-15: release shoot between bursts over 3.5 seconds.");
+    ImGui::SetCursorPos(ImVec2(12,340));ImGui::TextUnformatted(Recoil::Status());
 }
 
 void RenderAimChecks() {

@@ -10,6 +10,12 @@ inline int menuKey = VK_INSERT;
 inline int selectedTab = 0;
 
 namespace Aimbot {
+inline bool recoilEnabled=false;
+inline bool recoilActive=false;
+inline float recoilStrength=.5f;
+inline float recoilPull=400.f;
+inline float recoilGlockStrength=.5f;
+inline float recoilGlockPull=60.f;
 inline bool silentEnabled = false;
 inline bool silentActive = false;
 inline int silentMethod = 1;
