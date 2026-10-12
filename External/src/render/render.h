@@ -10,6 +10,8 @@ class OverlayWindow {
 private:
     HWND windowHandle;
     WNDCLASSEXW windowClass;
+    wchar_t windowClassName[64]{};
+    void CloseWindow();
     ID3D11Device* d3dDevice;
     ID3D11DeviceContext* d3dContext;
     IDXGISwapChain* swapChain;

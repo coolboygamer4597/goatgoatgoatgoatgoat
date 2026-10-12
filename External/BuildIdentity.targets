@@ -1,0 +1,31 @@
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <DisableFastUpToDateCheck>true</DisableFastUpToDateCheck>
+  </PropertyGroup>
+  <ItemGroup>
+    <ResourceCompile Include="$(IntDir)BuildIdentity.rc">
+      <ResourceOutputFileName>$(IntDir)BuildIdentity.res</ResourceOutputFileName>
+    </ResourceCompile>
+  </ItemGroup>
+  <Target Name="GenerateBuildIdentity" BeforeTargets="ResourceCompile" Condition="'$(DesignTimeBuild)' != 'true'">
+    <PropertyGroup>
+      <BuildId>$([System.Guid]::NewGuid().ToString())</BuildId>
+      <BuildCreated>$([System.DateTime]::UtcNow.ToString('o'))</BuildCreated>
+    </PropertyGroup>
+    <MakeDir Directories="$(IntDir)" />
+    <WriteLinesToFile File="$(IntDir)BuildIdentity.rc" Lines="207 RCDATA { &quot;$(BuildId)&quot; }" Overwrite="true" Encoding="ASCII" />
+    <ItemGroup>
+      <FileWrites Include="$(IntDir)BuildIdentity.rc;$(IntDir)BuildIdentity.res" />
+    </ItemGroup>
+  </Target>
+  <Target Name="RecordBuildIdentity" AfterTargets="Build" Condition="'$(BuildId)' != '' and Exists('$(TargetPath)')">
+    <GetFileHash Files="$(TargetPath)" Algorithm="SHA256">
+      <Output TaskParameter="Items" ItemName="BuildHash" />
+    </GetFileHash>
+    <WriteLinesToFile File="$(TargetPath).build.json" Lines="{ &quot;build_id&quot;: &quot;$(BuildId)&quot;, &quot;sha256&quot;: &quot;%(BuildHash.FileHash)&quot;, &quot;created_utc&quot;: &quot;$(BuildCreated)&quot;, &quot;executable&quot;: &quot;$(TargetFileName)&quot;, &quot;configuration&quot;: &quot;$(Configuration)&quot;, &quot;platform&quot;: &quot;$(Platform)&quot; }" Overwrite="true" Encoding="UTF-8" />
+    <ItemGroup>
+      <FileWrites Include="$(TargetPath).build.json" />
+    </ItemGroup>
+    <Message Importance="high" Text="Build ID: $(BuildId)" />
+  </Target>
+</Project>

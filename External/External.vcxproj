@@ -53,6 +53,7 @@
     <ClCompile Include="src\core\features\spotify\player\svg_path.cpp" />
     <ClCompile Include="src\memory\memory.cpp" />
     <ClCompile Include="src\render\render.cpp" />
+    <ClCompile Include="src\render\WindowIdentity.cpp" />
     <ClCompile Include="src\render\SadblobVideo.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -81,6 +82,7 @@
     <ClInclude Include="src\memory\memory.h" />
     <ClInclude Include="src\render\menu\library.h" />
     <ClInclude Include="src\render\render.h" />
+    <ClInclude Include="src\render\WindowIdentity.h" />
     <ClInclude Include="src\render\LaunchPrivacy.h" />
     <ClInclude Include="src\render\PackedPreview.h" />
     <ClInclude Include="src\render\CaptureProtection.h" />
@@ -235,6 +237,7 @@
     <Image Include="app_icon.ico" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <Import Project="BuildIdentity.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>
   <ItemGroup>

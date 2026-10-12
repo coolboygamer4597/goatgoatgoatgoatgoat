@@ -2,6 +2,7 @@
 #define IMGUI_DEFINE_MATH_OPERATORS
 #endif
 #include "render.h"
+#include "WindowIdentity.h"
 #include "../core/app/RuntimePaths.h"
 #include "RetroUi.h"
 #include "MenuMotion.h"
@@ -421,20 +422,33 @@ void OverlayWindow::ResizeSwapChain(int width, int height) {
     }
 }
 
+void OverlayWindow::CloseWindow() {
+    if (windowHandle) {
+        DestroyWindow(windowHandle);
+        windowHandle = nullptr;
+    }
+    if (windowClass.lpszClassName) {
+        UnregisterClassW(windowClass.lpszClassName, windowClass.hInstance);
+        windowClass = {};
+    }
+}
+
 bool OverlayWindow::Initialize() {
-    WNDCLASSEXW wc = { sizeof(wc), CS_CLASSDC, OverlayWndProc, 0L, 0L, GetModuleHandleW(nullptr), nullptr, nullptr, nullptr, nullptr, L"ExternalOverlay", nullptr };
+    WindowIdentity::Generate(windowClassName);
+    WNDCLASSEXW wc = { sizeof(wc), CS_CLASSDC, OverlayWndProc, 0L, 0L, GetModuleHandleW(nullptr), nullptr, nullptr, nullptr, nullptr, windowClassName, nullptr };
     windowClass = wc;
-    RegisterClassExW(&windowClass);
+    if (!RegisterClassExW(&windowClass)) { windowClass = {}; return false; }
+    const auto fail = [this] { CleanupD3D11(); CloseWindow(); return false; };
     windowHandle = CreateWindowExW(WS_EX_TOPMOST | WS_EX_LAYERED | WS_EX_TRANSPARENT | WS_EX_TOOLWINDOW,
         windowClass.lpszClassName, L"", WS_POPUP, 0, 0, 100, 100, nullptr, nullptr, windowClass.hInstance, nullptr);
     if (!windowHandle || !CaptureProtection::Apply(windowHandle, StartupLoader::StreamproofEnabled()))
-        return false;
+        return fail();
 
     ShowWindow(windowHandle, SW_SHOW);
 
     UpdateWindow(windowHandle);
     SetupD3D11(windowHandle);
-    if (!d3dDevice || !d3dContext || !swapChain || !renderTarget) return false;
+    if (!d3dDevice || !d3dContext || !swapChain || !renderTarget) return fail();
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO();
@@ -447,8 +461,15 @@ bool OverlayWindow::Initialize() {
     auto& fonts=imGuiCustom::GetFontsMutable();
     fonts.InterMedium=fonts.InterSmall=fonts.InterSemiBold=fonts.InterBold=fonts.InterSemiBoldSmall=menuFont;
     imGuiCustom::Initialize(menuFont);
-    ImGui_ImplWin32_Init(windowHandle);
-    ImGui_ImplDX11_Init(d3dDevice,d3dContext);
+    if (!ImGui_ImplWin32_Init(windowHandle)) {
+        ImGui::DestroyContext();
+        return fail();
+    }
+    if (!ImGui_ImplDX11_Init(d3dDevice,d3dContext)) {
+        ImGui_ImplWin32_Shutdown();
+        ImGui::DestroyContext();
+        return fail();
+    }
     UiText::Load(); Preferences::Load();
     LaunchPrivacy::ApplyToSettings();
     CaptureProtection::Apply(windowHandle, variables::Misc::streamProof);
@@ -976,9 +997,5 @@ void OverlayWindow::Cleanup() {
     ImGui_ImplWin32_Shutdown();
     ImGui::DestroyContext();
     CleanupD3D11();
-    if (windowHandle) {
-        DestroyWindow(windowHandle);
-        windowHandle = nullptr;
-    }
-    UnregisterClassW(windowClass.lpszClassName, windowClass.hInstance);
+    CloseWindow();
 }

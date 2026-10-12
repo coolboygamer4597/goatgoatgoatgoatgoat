@@ -9,6 +9,7 @@ Release/
 *.obj
 *.pdb
 *.exe
+*.exe.build.json
 *.dll
 *.ilk
 *.log

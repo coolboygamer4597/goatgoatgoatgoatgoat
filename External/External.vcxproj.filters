@@ -509,4 +509,12 @@
       <Filter>Resource Files</Filter>
     </Image>
   </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="src\render\WindowIdentity.cpp">
+      <Filter>Source Files\src\render</Filter>
+    </ClCompile>
+    <ClInclude Include="src\render\WindowIdentity.h">
+      <Filter>Header Files\src\render</Filter>
+    </ClInclude>
+  </ItemGroup>
 </Project>
