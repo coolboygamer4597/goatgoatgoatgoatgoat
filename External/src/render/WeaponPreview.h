@@ -9,6 +9,8 @@
 #include "menu/library.h"
 #include "../core/functions/skins/skins.h"
 #include "PackedPreview.h"
+#include "PreviewCache.h"
+#include "PreviewThumbnail.h"
 #include <d3dcompiler.h>
 #include <d3d11.h>
 #include <wrl/client.h>
@@ -137,6 +139,7 @@ inline Snapshot Bundled(const std::string& weapon){
     auto bytes=LockResource(LoadResource(module,resource));
     PackedPreview::Decode(bytes,size,s.vertices);return s;
 }
+using SkinThumbnail=PreviewCache::Thumbnail;
 constexpr const char* vertexSource=R"HLSL(
 cbuffer PreviewView : register(b12) {float yaw;float pitch;float zoom;float orbit;};
 struct Input {float3 p:POSITION;float3 local:TEXCOORD0;float4 tint:COLOR0;float seed:TEXCOORD1;};
@@ -172,7 +175,7 @@ public:
     ComPtr<ID3D11RenderTargetView> rtv;ComPtr<ID3D11ShaderResourceView> srv;
     ComPtr<ID3D11DepthStencilView> dsv;ComPtr<ID3D11RasterizerState> raster;
     ComPtr<ID3D11DepthStencilState> depthState;
-    bool started=false,dirty=false,failed=false;float phase=0,thumbnailCrop=.5f;std::string error,requestedKey,pendingKey;
+    bool started=false,dirty=false,failed=false;float phase=0,thumbnailCrop=.5f;std::string error,requestedKey,pendingKey,attemptedKey;
     float yaw=.35f,pitch=0,zoom=1;
     void Orbit(float dx,float dy){yaw=std::remainder(yaw+dx*.012f,6.2831853f);pitch=std::clamp(pitch+dy*.012f,-1.5f,1.5f);}
     void Zoom(float wheel){zoom=std::clamp(zoom*std::pow(1.12f,wheel),.5f,2.f);}
@@ -206,8 +209,8 @@ public:
                 snapshot=std::move(fresh);dirty=true;
             }
         }
-        if(!pending.valid()&&now>=next&&(snapshot.vertices.empty()||!snapshot.status.empty())){
-            next=now+std::chrono::seconds(2);pendingKey=key;
+        if(!pending.valid()&&now>=next&&(attemptedKey!=key||snapshot.vertices.empty()||!snapshot.status.empty())){
+            next=now+std::chrono::seconds(2);pendingKey=key;attemptedKey=key;
             pending=std::async(std::launch::async,[weapon,skin]{return Skins::CapturePreview(weapon,skin);});
         }
     }
@@ -276,20 +279,31 @@ public:
 inline std::unique_ptr<Viewer> viewer;
 inline std::unique_ptr<Viewer> skinViewers[2];
 inline std::unique_ptr<Viewer> avatarViewer;
-inline void Shutdown(){viewer.reset();avatarViewer.reset();for(auto& v:skinViewers)v.reset();}
+inline std::unique_ptr<SkinThumbnail> skinThumbnails[2];
+inline void Shutdown(){viewer.reset();avatarViewer.reset();for(auto& v:skinViewers)v.reset();for(auto& t:skinThumbnails)t.reset();}
 inline void DrawSkins(ID3D11Device* device,ID3D11DeviceContext* context,const std::string& selection){
     const auto base=ImGui::GetWindowPos();auto dl=ImGui::GetWindowDrawList();
     for(int i=0;i<2;++i){
         if(!skinViewers[i])skinViewers[i]=std::make_unique<Viewer>();auto& v=*skinViewers[i];
-        v.Poll(i?"Glock 19":"AR-15",selection.empty()?"Default":selection);v.Render(device,context,0,true);
+        const std::string weapon=i?"Glock 19":"AR-15",skin=selection.empty()?"Default":selection;
+        if(!skinThumbnails[i])skinThumbnails[i]=std::make_unique<SkinThumbnail>();auto& thumbnail=*skinThumbnails[i];
+        thumbnail.Poll(device,weapon,skin);
+        if(thumbnail.Unavailable()){v.Poll(weapon,skin);v.Render(device,context,0,true);}
         auto min=base+ImVec2(315,64+i*190.f),max=min+ImVec2(386,180);
         dl->AddRect(min,max,imGuiCustom::ColorU32(imGuiCustom::GetTheme().Accent));
 
         const float crop=v.thumbnailCrop;
         const float width=(std::min)(362.f,132.f/(crop*2)),height=width*crop*2;
-        if(v.srv)dl->AddImage((ImTextureID)v.srv.Get(),min+ImVec2((386-width)*.5f,30),min+ImVec2((386+width)*.5f,30+height),ImVec2(0,.5f-crop),ImVec2(1,.5f+crop));
-        dl->AddText(min+ImVec2(12,8),imGuiCustom::ColorU32(imGuiCustom::GetTheme().Text),v.snapshot.name.c_str());
-        if(!v.snapshot.status.empty())dl->AddText(min+ImVec2(12,157),imGuiCustom::ColorU32(imGuiCustom::GetTheme().Text),v.snapshot.status.c_str());
+        if(thumbnail.srv){
+            const float imageWidth=(std::min)(362.f,132.f*thumbnail.width/thumbnail.height),imageHeight=imageWidth*thumbnail.height/thumbnail.width;
+            dl->AddImage((ImTextureID)thumbnail.srv.Get(),min+ImVec2((386-imageWidth)*.5f,30+(132-imageHeight)*.5f),min+ImVec2((386+imageWidth)*.5f,30+(132+imageHeight)*.5f));
+        }else if(thumbnail.Unavailable()&&v.srv)dl->AddImage((ImTextureID)v.srv.Get(),min+ImVec2((386-width)*.5f,30),min+ImVec2((386+width)*.5f,30+height),ImVec2(0,.5f-crop),ImVec2(1,.5f+crop));
+        const auto label=weapon+" / "+skin;
+        dl->AddText(min+ImVec2(12,8),imGuiCustom::ColorU32(imGuiCustom::GetTheme().Text),label.c_str());
+        if(!thumbnail.srv){
+            const char* status=thumbnail.Unavailable()?v.snapshot.status.c_str():"Loading saved preview...";
+            if(status[0])dl->AddText(min+ImVec2(12,157),imGuiCustom::ColorU32(imGuiCustom::GetTheme().Text),status);
+        }
     }
 }
 

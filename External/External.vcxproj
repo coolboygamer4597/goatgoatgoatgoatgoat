@@ -268,8 +268,16 @@
     <ClInclude Include="src\render\RetroUi.h" />
     <ClInclude Include="src\render\StartupLoader.h" />
     <ClInclude Include="src\render\UiAssets.h" />
+    <ClInclude Include="src\render\PreviewCache.h" />
+    <ClInclude Include="src\render\PreviewThumbnail.h" />
     <ClInclude Include="src\render\WeaponPreview.h" />
     <ClInclude Include="src\render\floating_panels.h" />
     <ClInclude Include="src\render\menu\UiText.h" />
   </ItemGroup>
+  <ItemGroup>
+    <PreviewCacheFile Include="$(ProjectDir)..\preview-cache\**\*" />
+  </ItemGroup>
+  <Target Name="CopyPreviewCache" AfterTargets="Build">
+    <Copy SourceFiles="@(PreviewCacheFile)" DestinationFolder="$(OutDir)preview-cache\%(RecursiveDir)" SkipUnchangedFiles="true" />
+  </Target>
 </Project>

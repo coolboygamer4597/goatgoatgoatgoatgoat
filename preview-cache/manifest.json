@@ -1,0 +1,2100 @@
+{
+  "AR-15 / Gold(old)": {
+    "status": "ready",
+    "geometry": "models/dee1d4f58249a8af6c54b9f3f71cadd86d3bc9ded8bc85057f93986a9ffa2d1e.bin",
+    "reference": "0db5b8934e8c46d8.ref",
+    "thumbnail": "0db5b8934e8c46d8.png",
+    "textured_batches": 0,
+    "vertices": 349173,
+    "geometry_bytes": 951418
+  },
+  "AR-15 / Anniversary(OLD)": {
+    "status": "ready",
+    "geometry": "models/a09761594f3014e6f723c0361b63491ce08ee5efb0a05fed94730a17dea610d2.bin",
+    "reference": "59790e6057030c50.ref",
+    "thumbnail": "59790e6057030c50.png",
+    "textured_batches": 0,
+    "vertices": 343893,
+    "geometry_bytes": 926282
+  },
+  "AR-15 / Planker": {
+    "status": "ready",
+    "geometry": "models/e53b06453e55c971ff0cb78fcb14b2f743fe416135321c1dbde9a8cb497824a4.bin",
+    "reference": "114e8cca0f8bf0fd.ref",
+    "thumbnail": "114e8cca0f8bf0fd.png",
+    "textured_batches": 2,
+    "vertices": 278400,
+    "geometry_bytes": 777782
+  },
+  "AR-15 / Default": {
+    "status": "ready",
+    "geometry": "models/2ae667a66288aec391d706e5861a38fe0da2f792ad520b52d0a3882c967b2b07.bin",
+    "reference": "45553c991dbdbc03.ref",
+    "thumbnail": "45553c991dbdbc03.png",
+    "textured_batches": 5,
+    "vertices": 341826,
+    "geometry_bytes": 937240
+  },
+  "AR-15 / Animated": {
+    "status": "incomplete",
+    "missing": [
+      "7716210022",
+      "7716209855",
+      "7716209853",
+      "7716211123",
+      "7716209851",
+      "17476934344",
+      "17476928694"
+    ]
+  },
+  "AR-15 / Warden": {
+    "status": "ready",
+    "geometry": "models/3fbbb4adf6cc4c3cf588e3db14180d908d0bccd6af30139e8bc2fc5d2e33f822.bin",
+    "reference": "ab469b070b1ebf83.ref",
+    "thumbnail": "ab469b070b1ebf83.png",
+    "textured_batches": 15,
+    "vertices": 243333,
+    "geometry_bytes": 640288
+  },
+  "AR-15 / Feilong": {
+    "status": "ready",
+    "geometry": "models/9e0b79ad301dc4d818a1bcafd4b0d36f554c9dfe612a6998a6e6013967f52420.bin",
+    "reference": "d2a9fe8941d79ed4.ref",
+    "thumbnail": "d2a9fe8941d79ed4.png",
+    "textured_batches": 9,
+    "vertices": 169698,
+    "geometry_bytes": 431628
+  },
+  "AR-15 / Shogun": {
+    "status": "ready",
+    "geometry": "models/371d3996e96bcc4155c7339006022ce40e6184d8eee38a9dce5e00af2229dbfb.bin",
+    "reference": "3d51a2ca28081014.ref",
+    "thumbnail": "3d51a2ca28081014.png",
+    "textured_batches": 34,
+    "vertices": 160545,
+    "geometry_bytes": 435748
+  },
+  "AR-15 / Fury": {
+    "status": "ready",
+    "geometry": "models/253ee6a796762f2659ae02fb5a642cdce93e19eb15e0417ad9fe7bf7a1249472.bin",
+    "reference": "83eeb29e56c20482.ref",
+    "thumbnail": "83eeb29e56c20482.png",
+    "textured_batches": 11,
+    "vertices": 240375,
+    "geometry_bytes": 676932
+  },
+  "AR-15 / Dispatch": {
+    "status": "ready",
+    "geometry": "models/756d31e2ab530bb4f048c80c22572d97c22d87103105ef3fe74d5804664d0ed9.bin",
+    "reference": "4932b76bd23b6268.ref",
+    "thumbnail": "4932b76bd23b6268.png",
+    "textured_batches": 10,
+    "vertices": 203112,
+    "geometry_bytes": 554084
+  },
+  "AR-15 / Dove": {
+    "status": "ready",
+    "geometry": "models/aa21bca8f84b25ee7d591334a70fb2c468c0e888921d3b81e5fe2511469fe244.bin",
+    "reference": "c91440af977dfd4e.ref",
+    "thumbnail": "c91440af977dfd4e.png",
+    "textured_batches": 0,
+    "vertices": 336441,
+    "geometry_bytes": 921546
+  },
+  "AR-15 / Frigid": {
+    "status": "ready",
+    "geometry": "models/556491beacbea44d1539b4b4542da6fc9efd1f313e823b42f01fd47966788ca8.bin",
+    "reference": "c2c79bb390955fbb.ref",
+    "thumbnail": "c2c79bb390955fbb.png",
+    "textured_batches": 0,
+    "vertices": 333174,
+    "geometry_bytes": 921030
+  },
+  "AR-15 / Frost": {
+    "status": "ready",
+    "geometry": "models/6fbef89e7ee8950a109371fa25e64cedb4b0bb512668e697212866883213a3cb.bin",
+    "reference": "4e485ff51c1f961c.ref",
+    "thumbnail": "4e485ff51c1f961c.png",
+    "textured_batches": 0,
+    "vertices": 265806,
+    "geometry_bytes": 703514
+  },
+  "AR-15 / Fuchsia": {
+    "status": "ready",
+    "geometry": "models/b59e337ef516537d55d89d674721bc266676867f807815031a956186b0f0c47e.bin",
+    "reference": "8b811099d445fad7.ref",
+    "thumbnail": "8b811099d445fad7.png",
+    "textured_batches": 24,
+    "vertices": 316743,
+    "geometry_bytes": 980680
+  },
+  "AR-15 / Phantom": {
+    "status": "ready",
+    "geometry": "models/ed795b0667c5801709727dd4dc1fd906bc0ee971c8c5a8016a21e17a2e9fe447.bin",
+    "reference": "6c810cc019a092c7.ref",
+    "thumbnail": "6c810cc019a092c7.png",
+    "textured_batches": 0,
+    "vertices": 370629,
+    "geometry_bytes": 1023320
+  },
+  "AR-15 / Gobbler": {
+    "status": "ready",
+    "geometry": "models/10d12607e2523eedb32d4f0c9fda4844ac3b3c8b0a04c807dab072fb67fcba3c.bin",
+    "reference": "b050f01b232b26bb.ref",
+    "thumbnail": "b050f01b232b26bb.png",
+    "textured_batches": 1,
+    "vertices": 311307,
+    "geometry_bytes": 870968
+  },
+  "AR-15 / Anniversary": {
+    "status": "ready",
+    "geometry": "models/94925fefb93c864da7201e09261bf33fbdfa51b62b7ddeec50cf9e3c50bcd177.bin",
+    "reference": "4f5d9260abc729a4.ref",
+    "thumbnail": "4f5d9260abc729a4.png",
+    "textured_batches": 40,
+    "vertices": 339774,
+    "geometry_bytes": 926226
+  },
+  "AR-15 / Grave": {
+    "status": "ready",
+    "geometry": "models/20c99002221e6681feca01991988c076024dd935eb6c35ac2383a2726d13bae3.bin",
+    "reference": "eae21b31e905c067.ref",
+    "thumbnail": "eae21b31e905c067.png",
+    "textured_batches": 0,
+    "vertices": 341826,
+    "geometry_bytes": 936794
+  },
+  "AR-15 / HellSpawn": {
+    "status": "ready",
+    "geometry": "models/0329368a6e0387e0b23410e2fedb1e9f8b58c0b654aa10a3f4d6307916cfcab0.bin",
+    "reference": "5d60c715ef12c5b8.ref",
+    "thumbnail": "5d60c715ef12c5b8.png",
+    "textured_batches": 0,
+    "vertices": 366897,
+    "geometry_bytes": 993400
+  },
+  "AR-15 / Imperial": {
+    "status": "ready",
+    "geometry": "models/af40be1eda56cc4fc11d9410926326274aa22732df6af563667de8989485cde7.bin",
+    "reference": "2ae816c0271aa1ef.ref",
+    "thumbnail": "2ae816c0271aa1ef.png",
+    "textured_batches": 0,
+    "vertices": 791562,
+    "geometry_bytes": 2056464
+  },
+  "AR-15 / Independence": {
+    "status": "ready",
+    "geometry": "models/63b606406178ea7b653c9aeb42de1751e312dd25dadb4a964467dcd86d7cda97.bin",
+    "reference": "346465d8669855ac.ref",
+    "thumbnail": "346465d8669855ac.png",
+    "textured_batches": 21,
+    "vertices": 216867,
+    "geometry_bytes": 632004
+  },
+  "AR-15 / Ion": {
+    "status": "ready",
+    "geometry": "models/93e4b7138dc1e0c56aff4efabc48c6d0f9b9a48c1b40d8a066a5fb67dee83784.bin",
+    "reference": "8972eb45cb1e9b00.ref",
+    "thumbnail": "8972eb45cb1e9b00.png",
+    "textured_batches": 0,
+    "vertices": 125724,
+    "geometry_bytes": 335998
+  },
+  "AR-15 / Jolly": {
+    "status": "ready",
+    "geometry": "models/586dcd3671982a755160bf7953d72ae6063d06f02c4a4b52b1e200efba858e75.bin",
+    "reference": "316cc4a86fc05b10.ref",
+    "thumbnail": "316cc4a86fc05b10.png",
+    "textured_batches": 9,
+    "vertices": 779133,
+    "geometry_bytes": 2217440
+  },
+  "AR-15 / Kitty": {
+    "status": "ready",
+    "geometry": "models/2647e95787ea35d600ee931a10733368a57e975a731ef1b69788e16661d94be9.bin",
+    "reference": "7b6ffdab59aa13d1.ref",
+    "thumbnail": "7b6ffdab59aa13d1.png",
+    "textured_batches": 12,
+    "vertices": 347133,
+    "geometry_bytes": 981546
+  },
+  "AR-15 / Lapis": {
+    "status": "ready",
+    "geometry": "models/e4c2500bd8a8b487d4ae877c770e9265580ef9e64bea476df28266f512edf04c.bin",
+    "reference": "1c7f6a9245acfbc3.ref",
+    "thumbnail": "1c7f6a9245acfbc3.png",
+    "textured_batches": 7,
+    "vertices": 327561,
+    "geometry_bytes": 940434
+  },
+  "AR-15 / Liliac": {
+    "status": "ready",
+    "geometry": "models/372643e0f95104521c556d77eeaa81ae00cac28eb945b30b85725d48c2318429.bin",
+    "reference": "b4219deda270aafa.ref",
+    "thumbnail": "b4219deda270aafa.png",
+    "textured_batches": 0,
+    "vertices": 254514,
+    "geometry_bytes": 694220
+  },
+  "AR-15 / Lockdown": {
+    "status": "ready",
+    "geometry": "models/626ac881f04040b803b6c2ae4fd3ed1694247e18ff9a905a0271f40c82bbee75.bin",
+    "reference": "261849e6ece9dc09.ref",
+    "thumbnail": "261849e6ece9dc09.png",
+    "textured_batches": 63,
+    "vertices": 403281,
+    "geometry_bytes": 1114172
+  },
+  "AR-15 / Lumberjack": {
+    "status": "ready",
+    "geometry": "models/590e5a1ed86c496f25d7e7e13c2b264afba8ef043218e5b716f56afbf04bea56.bin",
+    "reference": "a1260c6eef072922.ref",
+    "thumbnail": "a1260c6eef072922.png",
+    "textured_batches": 0,
+    "vertices": 430734,
+    "geometry_bytes": 1264500
+  },
+  "AR-15 / Magma": {
+    "status": "ready",
+    "geometry": "models/05654d3853deb1e198a785eb83d1f23d71e70d455119597fe366d714c07102ae.bin",
+    "reference": "07cc9883e07dca33.ref",
+    "thumbnail": "07cc9883e07dca33.png",
+    "textured_batches": 30,
+    "vertices": 359709,
+    "geometry_bytes": 980284
+  },
+  "AR-15 / Maple": {
+    "status": "ready",
+    "geometry": "models/ea4892440b544202f605dc8085c6367a8f335b8be3a127f9cf91e1800a9f3089.bin",
+    "reference": "418b1d837079823b.ref",
+    "thumbnail": "418b1d837079823b.png",
+    "textured_batches": 0,
+    "vertices": 493974,
+    "geometry_bytes": 1388852
+  },
+  "AR-15 / Catalyst": {
+    "status": "ready",
+    "geometry": "models/986b1b9873956f5aed078fe41ecd3eac153805f9bef8dd1efe0a27dd1c79c26b.bin",
+    "reference": "90463ef398bb13c5.ref",
+    "thumbnail": "90463ef398bb13c5.png",
+    "textured_batches": 0,
+    "vertices": 327789,
+    "geometry_bytes": 907256
+  },
+  "AR-15 / Mythical": {
+    "status": "ready",
+    "geometry": "models/ab2d882a8433a0c4854a63504a7275849be4037b76da9ae86958bbf75a559893.bin",
+    "reference": "4be6b01befd9a8f9.ref",
+    "thumbnail": "4be6b01befd9a8f9.png",
+    "textured_batches": 0,
+    "vertices": 339681,
+    "geometry_bytes": 942832
+  },
+  "AR-15 / Operative": {
+    "status": "ready",
+    "geometry": "models/964b24feb22168011ee463814a18ced0fe8dddd99117d2922016ec597acb4fd2.bin",
+    "reference": "a7df590b01476c73.ref",
+    "thumbnail": "a7df590b01476c73.png",
+    "textured_batches": 6,
+    "vertices": 219717,
+    "geometry_bytes": 605306
+  },
+  "AR-15 / Opulent": {
+    "status": "ready",
+    "geometry": "models/31bfea0479111efb7942bbf3021173130d6c8d0237d3a23bcbc7ecddeea57228.bin",
+    "reference": "bb4c49827ee6499d.ref",
+    "thumbnail": "bb4c49827ee6499d.png",
+    "textured_batches": 13,
+    "vertices": 182487,
+    "geometry_bytes": 480850
+  },
+  "AR-15 / Pathogen": {
+    "status": "image-only",
+    "geometry": null,
+    "reference": null,
+    "thumbnail": "cf07cb8eb45a1c2c.png",
+    "textured_batches": 1,
+    "vertices": 1268658,
+    "geometry_bytes": 0
+  },
+  "AR-15 / Gold": {
+    "status": "ready",
+    "geometry": "models/5dcbcaea4a925d8990fbf0a58a532ac1a7683b46f4f8b4b1c922230390473eb8.bin",
+    "reference": "b1d64ba9d2bc8a5c.ref",
+    "thumbnail": "b1d64ba9d2bc8a5c.png",
+    "textured_batches": 54,
+    "vertices": 265281,
+    "geometry_bytes": 684194
+  },
+  "AR-15 / Sinister": {
+    "status": "ready",
+    "geometry": "models/dd72a92a9fc8d57660ea03f12faea88e5ffcdf9273b1954dd266436b4e55f5fa.bin",
+    "reference": "b26514756b63c7d7.ref",
+    "thumbnail": "b26514756b63c7d7.png",
+    "textured_batches": 0,
+    "vertices": 345390,
+    "geometry_bytes": 950806
+  },
+  "AR-15 / Plasma": {
+    "status": "ready",
+    "geometry": "models/fe0cb1f634b8a7e0255299257e23ea9a6ed93ce771ef963b90f9bf860479d5a8.bin",
+    "reference": "e433f353cd2a93c8.ref",
+    "thumbnail": "e433f353cd2a93c8.png",
+    "textured_batches": 0,
+    "vertices": 345420,
+    "geometry_bytes": 949304
+  },
+  "AR-15 / Pulsar": {
+    "status": "ready",
+    "geometry": "models/fb811177f275cab74016be78afd19740ad801044ee344934357fd275293b7fa9.bin",
+    "reference": "4c77d1094c271e13.ref",
+    "thumbnail": "4c77d1094c271e13.png",
+    "textured_batches": 0,
+    "vertices": 86319,
+    "geometry_bytes": 242814
+  },
+  "AR-15 / Rose": {
+    "status": "ready",
+    "geometry": "models/eda836f085671f5f8314de5e227b7aaf7b201f6262f02ab67cdd3588fff5e44d.bin",
+    "reference": "09a3103db5379a79.ref",
+    "thumbnail": "09a3103db5379a79.png",
+    "textured_batches": 0,
+    "vertices": 341826,
+    "geometry_bytes": 932714
+  },
+  "AR-15 / Royal": {
+    "status": "ready",
+    "geometry": "models/6494212d9fb65898691d73d1fc99f67749e613ca48448eeea50d3101b1682994.bin",
+    "reference": "cadba7db0a3d8c15.ref",
+    "thumbnail": "cadba7db0a3d8c15.png",
+    "textured_batches": 14,
+    "vertices": 267894,
+    "geometry_bytes": 717018
+  },
+  "AR-15 / Rusted": {
+    "status": "ready",
+    "geometry": "models/8a58e436ba680dd1942e003329b22887287ebfa8612ed95d200fa99adf35aacb.bin",
+    "reference": "b53eb914d59ae09d.ref",
+    "thumbnail": "b53eb914d59ae09d.png",
+    "textured_batches": 1,
+    "vertices": 117414,
+    "geometry_bytes": 333870
+  },
+  "AR-15 / Scythe": {
+    "status": "ready",
+    "geometry": "models/31e907308f59aa5c49df150d5e44835f199d6cb69595c7ad89586f90350c3c6e.bin",
+    "reference": "00c775bfff2a5afa.ref",
+    "thumbnail": "00c775bfff2a5afa.png",
+    "textured_batches": 0,
+    "vertices": 143769,
+    "geometry_bytes": 427482
+  },
+  "AR-15 / Sicilia": {
+    "status": "ready",
+    "geometry": "models/e7182c1683288ef3e45f3c45fafd71a1380d88050b075f5869f649536a1423fc.bin",
+    "reference": "1c189a3f81fa646c.ref",
+    "thumbnail": "1c189a3f81fa646c.png",
+    "textured_batches": 0,
+    "vertices": 375318,
+    "geometry_bytes": 1042066
+  },
+  "AR-15 / Molten": {
+    "status": "ready",
+    "geometry": "models/6e1720b067e7ac36efb86a35dcb7881e5f0de1773c89bae79170193105c7dc7a.bin",
+    "reference": "fbf097d6dddb7169.ref",
+    "thumbnail": "fbf097d6dddb7169.png",
+    "textured_batches": 0,
+    "vertices": 335058,
+    "geometry_bytes": 922412
+  },
+  "AR-15 / Sprinter": {
+    "status": "ready",
+    "geometry": "models/01a5b9f34d9f817a56fffc4dce2ad4e679c9273016cb34e07fabb2bd0a9b5c62.bin",
+    "reference": "b514c146ec82ffd9.ref",
+    "thumbnail": "b514c146ec82ffd9.png",
+    "textured_batches": 0,
+    "vertices": 307107,
+    "geometry_bytes": 865866
+  },
+  "AR-15 / Toxic": {
+    "status": "ready",
+    "geometry": "models/adf36cbd9e43c475c0e25839ffec99e80d83646fedbf87fc0a362a28a0a579ed.bin",
+    "reference": "a72036e26b8fbca1.ref",
+    "thumbnail": "a72036e26b8fbca1.png",
+    "textured_batches": 0,
+    "vertices": 425805,
+    "geometry_bytes": 1173092
+  },
+  "AR-15 / Tsunami": {
+    "status": "ready",
+    "geometry": "models/fd97f47f99c44279b641694332c5669b6c68f8b7fdf90832131dd4f9bb801592.bin",
+    "reference": "0a13599f943c1c91.ref",
+    "thumbnail": "0a13599f943c1c91.png",
+    "textured_batches": 0,
+    "vertices": 336441,
+    "geometry_bytes": 920392
+  },
+  "AR-15 / Visionary": {
+    "status": "ready",
+    "geometry": "models/ce0ebef82e229f44e8972d2f4694480448762c832087b19ce3953eb365205fbc.bin",
+    "reference": "63f8f7f10564ded4.ref",
+    "thumbnail": "63f8f7f10564ded4.png",
+    "textured_batches": 0,
+    "vertices": 184251,
+    "geometry_bytes": 519742
+  },
+  "AR-15 / Wyvern": {
+    "status": "ready",
+    "geometry": "models/021668eb7eb056799944b1f36b5be388a16d0e2aee222664362f247ea0283690.bin",
+    "reference": "2e5ec37ce43be55b.ref",
+    "thumbnail": "2e5ec37ce43be55b.png",
+    "textured_batches": 0,
+    "vertices": 474018,
+    "geometry_bytes": 1457266
+  },
+  "AR-15 / Boundless": {
+    "status": "ready",
+    "geometry": "models/3647bb8ed4dca08b6297047f14ea0d75afa42111e5ae3b960c99b2899063f9fa.bin",
+    "reference": "e8b5573ea922a12f.ref",
+    "thumbnail": "e8b5573ea922a12f.png",
+    "textured_batches": 11,
+    "vertices": 369873,
+    "geometry_bytes": 847478
+  },
+  "AR-15 / Blossom": {
+    "status": "ready",
+    "geometry": "models/6ade12b054336ae2028a5d856ebbf5f6b9558b172925ffe063e7668842e34df4.bin",
+    "reference": "34401f51d072d3eb.ref",
+    "thumbnail": "34401f51d072d3eb.png",
+    "textured_batches": 10,
+    "vertices": 308625,
+    "geometry_bytes": 839790
+  },
+  "AR-15 / Blizzard": {
+    "status": "ready",
+    "geometry": "models/01e241c5c998ee6d472ab98830f58ce5a20f4d356637058460c32a244fc150c7.bin",
+    "reference": "422bd4b7bf5d0808.ref",
+    "thumbnail": "422bd4b7bf5d0808.png",
+    "textured_batches": 11,
+    "vertices": 308625,
+    "geometry_bytes": 837960
+  },
+  "AR-15 / Blackice": {
+    "status": "ready",
+    "geometry": "models/0fa5437254484fa7fb26c214fd31bc439aa352d63c675b13f80ca9ca2109cdfa.bin",
+    "reference": "d97ecc9086b65c54.ref",
+    "thumbnail": "d97ecc9086b65c54.png",
+    "textured_batches": 22,
+    "vertices": 388104,
+    "geometry_bytes": 1042298
+  },
+  "AR-15 / Smaug": {
+    "status": "ready",
+    "geometry": "models/1b67854ff415b053f1453f1795480e659ed58ba7dd7934aa840f33c4402797b9.bin",
+    "reference": "84eaedcd9818fb4d.ref",
+    "thumbnail": "84eaedcd9818fb4d.png",
+    "textured_batches": 16,
+    "vertices": 292869,
+    "geometry_bytes": 745922
+  },
+  "AR-15 / 0416": {
+    "status": "ready",
+    "geometry": "models/64f91fb1f1d9f62ca3955ceb2b51043a77bcd7fb475490a6fdc3005eaceeb7af.bin",
+    "reference": "92ae1d2d13fdcc45.ref",
+    "thumbnail": "92ae1d2d13fdcc45.png",
+    "textured_batches": 30,
+    "vertices": 372915,
+    "geometry_bytes": 1063408
+  },
+  "AR-15 / Man": {
+    "status": "ready",
+    "geometry": "models/aca5f887ed6aa39d6de4c40f961a3e19fabf4e75847e19e0c16d25d039de254c.bin",
+    "reference": "65066745b5fd1382.ref",
+    "thumbnail": "65066745b5fd1382.png",
+    "textured_batches": 6,
+    "vertices": 19749,
+    "geometry_bytes": 57916
+  },
+  "AR-15 / X5": {
+    "status": "ready",
+    "geometry": "models/7b31d8bb79caa4224f2a280f8afb7d838335882856653aa715f552ea269e5729.bin",
+    "reference": "21ae9c1f59ba4885.ref",
+    "thumbnail": "21ae9c1f59ba4885.png",
+    "textured_batches": 12,
+    "vertices": 297453,
+    "geometry_bytes": 860384
+  },
+  "AR-15 / Fade": {
+    "status": "ready",
+    "geometry": "models/8181d7ccc86d58c0262c9ec09bbec5dfc9b83ac640c160aee2e02643212392f4.bin",
+    "reference": "d68e8e9df48451a8.ref",
+    "thumbnail": "d68e8e9df48451a8.png",
+    "textured_batches": 7,
+    "vertices": 274791,
+    "geometry_bytes": 787058
+  },
+  "AR-15 / S2": {
+    "status": "ready",
+    "geometry": "models/9ab3a0830526f691a34e39c7632c59f4ea99fa034ffdb0cb0f82f6c4cd1e682d.bin",
+    "reference": "21c61f1f59ce05ff.ref",
+    "thumbnail": "21c61f1f59ce05ff.png",
+    "textured_batches": 0,
+    "vertices": 759306,
+    "geometry_bytes": 2234218
+  },
+  "AR-15 / F5": {
+    "status": "ready",
+    "geometry": "models/1f6e36596570fd647b1ee9f2b91907709691180c87765e412450523179b6df54.bin",
+    "reference": "21eba81f59ee0b07.ref",
+    "thumbnail": "21eba81f59ee0b07.png",
+    "textured_batches": 18,
+    "vertices": 247635,
+    "geometry_bytes": 645206
+  },
+  "AR-15 / D5": {
+    "status": "ready",
+    "geometry": "models/f4766becf76f5459d090aec78ad4314e149c7d83b5ea2196344e6155a4020d06.bin",
+    "reference": "21f2ac1f59f43081.ref",
+    "thumbnail": "21f2ac1f59f43081.png",
+    "textured_batches": 18,
+    "vertices": 248115,
+    "geometry_bytes": 647566
+  },
+  "AR-15 / C5": {
+    "status": "ready",
+    "geometry": "models/a4d8dd7ade59bac06dd3852e1195d10fcabfc0238e1ad85faed967fd34a8384a.bin",
+    "reference": "21fc9c1f59fc69d6.ref",
+    "thumbnail": "21fc9c1f59fc69d6.png",
+    "textured_batches": 19,
+    "vertices": 255324,
+    "geometry_bytes": 669710
+  },
+  "AR-15 / B5": {
+    "status": "ready",
+    "geometry": "models/85a30c4c52c7cc9f5bd652e64107569941037b9b4e127bd067548343bbca1bb4.bin",
+    "reference": "21f9181f59f953b3.ref",
+    "thumbnail": "21f9181f59f953b3.png",
+    "textured_batches": 50,
+    "vertices": 286065,
+    "geometry_bytes": 750300
+  },
+  "AR-15 / Orion": {
+    "status": "ready",
+    "geometry": "models/fc8538eab5e18cffb96424ff3b6061d20ce3d75b8ce353f0fa72ab649c402055.bin",
+    "reference": "4bd3b5ec9cc558b7.ref",
+    "thumbnail": "4bd3b5ec9cc558b7.png",
+    "textured_batches": 5,
+    "vertices": 257922,
+    "geometry_bytes": 694888
+  },
+  "AR-15 / X3": {
+    "status": "ready",
+    "geometry": "models/ea481d781a8e04ab188d738a563c97396b8aa667f8b663365513b6544a32faad.bin",
+    "reference": "21ae961f59ba3e53.ref",
+    "thumbnail": "21ae961f59ba3e53.png",
+    "textured_batches": 7,
+    "vertices": 59433,
+    "geometry_bytes": 158386
+  },
+  "AR-15 / N5": {
+    "status": "ready",
+    "geometry": "models/a52ef6bcee24a8a477121ff40bc09cd0fdddf3c1eac38ec3fd071ce08c1a4f32.bin",
+    "reference": "21d0981f59d7281f.ref",
+    "thumbnail": "21d0981f59d7281f.png",
+    "textured_batches": 11,
+    "vertices": 426222,
+    "geometry_bytes": 1103236
+  },
+  "AR-15 / A5": {
+    "status": "ready",
+    "geometry": "models/20e7a98e631f4d91ee4fd5fbf9a7c98c1112808f60320ce4a8ddb305a54d8522.bin",
+    "reference": "2203a81f5a029ce8.ref",
+    "thumbnail": "2203a81f5a029ce8.png",
+    "textured_batches": 41,
+    "vertices": 337014,
+    "geometry_bytes": 858334
+  },
+  "AR-15 / MV2": {
+    "status": "ready",
+    "geometry": "models/99ab9fa5a1d97a984856c2974b64c729d72f597994b6f618389b68ab03695c90.bin",
+    "reference": "65c12545b69b968d.ref",
+    "thumbnail": "65c12545b69b968d.png",
+    "textured_batches": 0,
+    "vertices": 86610,
+    "geometry_bytes": 295314
+  },
+  "AR-15 / Champ": {
+    "status": "ready",
+    "geometry": "models/3134dbb83a816a546f606a866a65bc3c3d6a45b04a91d5cec2e2d238e7fd5f37.bin",
+    "reference": "63fa4773f9e35451.ref",
+    "thumbnail": "63fa4773f9e35451.png",
+    "textured_batches": 7,
+    "vertices": 253296,
+    "geometry_bytes": 692750
+  },
+  "AR-15 / Staff": {
+    "status": "ready",
+    "geometry": "models/db924d9210a5a04bb0d2a4a9215691e4bcf44647c4cbfa43b1fa6fcc0dea4993.bin",
+    "reference": "4080000f0b343904.ref",
+    "thumbnail": "4080000f0b343904.png",
+    "textured_batches": 1,
+    "vertices": 350775,
+    "geometry_bytes": 962366
+  },
+  "AR-15 / X4": {
+    "status": "ready",
+    "geometry": "models/a5c99c7ff653d4080a8a655dc864a20cc08d404c62175bc01a6434c74c8ce0f5.bin",
+    "reference": "21ae9b1f59ba46d2.ref",
+    "thumbnail": "21ae9b1f59ba46d2.png",
+    "textured_batches": 3,
+    "vertices": 77388,
+    "geometry_bytes": 244600
+  },
+  "AR-15 / S5": {
+    "status": "ready",
+    "geometry": "models/7b22b9871521f032151b0859c2239ebfe62537c403ff77e5cf4b509a6dafb72a.bin",
+    "reference": "21c61c1f59ce00e6.ref",
+    "thumbnail": "21c61c1f59ce00e6.png",
+    "textured_batches": 14,
+    "vertices": 264081,
+    "geometry_bytes": 724302
+  },
+  "AR-15 / Manny": {
+    "status": "ready",
+    "geometry": "models/4208f222f8379500eedea61db3f0324481820f33c77b58387451ebc9996e9915.bin",
+    "reference": "bbd94783b60b4267.ref",
+    "thumbnail": "bbd94783b60b4267.png",
+    "textured_batches": 8,
+    "vertices": 452100,
+    "geometry_bytes": 1312522
+  },
+  "AR-15 / N2": {
+    "status": "ready",
+    "geometry": "models/c30cabbdc3792460b440f9233a61e3ff68c55d0fb728792135b82f1aec4db4a2.bin",
+    "reference": "21d0951f59d72306.ref",
+    "thumbnail": "21d0951f59d72306.png",
+    "textured_batches": 0,
+    "vertices": 759306,
+    "geometry_bytes": 2235550
+  },
+  "AR-15 / Coordinator": {
+    "status": "ready",
+    "geometry": "models/8cbca7930b0f62e9d709e5c71e31ae0bcf6cd9b32124ba531c7c28faf47f25ca.bin",
+    "reference": "88182152c9ca9c84.ref",
+    "thumbnail": "88182152c9ca9c84.png",
+    "textured_batches": 6,
+    "vertices": 79104,
+    "geometry_bytes": 217650
+  },
+  "AR-15 / F2": {
+    "status": "ready",
+    "geometry": "models/8a91f89d3f5eac89e822f6bc2630cea367526d84f1c6017bb982ac207a5697b6.bin",
+    "reference": "21eba51f59ee05ee.ref",
+    "thumbnail": "21eba51f59ee05ee.png",
+    "textured_batches": 0,
+    "vertices": 759306,
+    "geometry_bytes": 2232142
+  },
+  "AR-15 / D2": {
+    "status": "ready",
+    "geometry": "models/74487f4dbd8d15d1b498bf41cc3253eda99e5aa91fab6535b8956a698bf07704.bin",
+    "reference": "21f2ad1f59f43234.ref",
+    "thumbnail": "21f2ad1f59f43234.png",
+    "textured_batches": 0,
+    "vertices": 759306,
+    "geometry_bytes": 2234966
+  },
+  "AR-15 / Coord": {
+    "status": "ready",
+    "geometry": "models/7d755964dd8ad6f9ca22303edd74ad8cc64b2baa2179f27fd44fb73a2a31e299.bin",
+    "reference": "82218d3d4b7a2df3.ref",
+    "thumbnail": "82218d3d4b7a2df3.png",
+    "textured_batches": 24,
+    "vertices": 312978,
+    "geometry_bytes": 850912
+  },
+  "AR-15 / C2": {
+    "status": "ready",
+    "geometry": "models/3db82c35ffe542fd7dc555b110e38237e8ed87cb2466be45c3ae2f0167178700.bin",
+    "reference": "21fc9f1f59fc6eef.ref",
+    "thumbnail": "21fc9f1f59fc6eef.png",
+    "textured_batches": 0,
+    "vertices": 759306,
+    "geometry_bytes": 2233332
+  },
+  "AR-15 / Ghost": {
+    "status": "incomplete",
+    "missing": [
+      "127793241527365",
+      "106470413509849",
+      "84476466045458",
+      "132385456558760",
+      "74425365737473",
+      "114192431592577",
+      "137591846843680",
+      "73258315281807",
+      "140620662560508",
+      "139361404665010",
+      "72131661026033",
+      "121343702491164",
+      "71791321728670",
+      "84973727631748",
+      "119924507435859",
+      "71491214556604",
+      "81026052212172",
+      "81702580109402",
+      "73918156532701",
+      "89635937955306",
+      "121593629386274",
+      "104857038186469",
+      "90966641392889",
+      "97929240730697"
+    ]
+  },
+  "AR-15 / B2": {
+    "status": "ready",
+    "geometry": "models/505af3136e1a4f64216c055288923fcd5aa16156eab44332a1543d11d2d82991.bin",
+    "reference": "21f91d1f59f95c32.ref",
+    "thumbnail": "21f91d1f59f95c32.png",
+    "textured_batches": 0,
+    "vertices": 759306,
+    "geometry_bytes": 2233568
+  },
+  "AR-15 / A2": {
+    "status": "ready",
+    "geometry": "models/d030e0a2ca8f645c4edb2eab5bd488a1840ecf540f9c50d3ee3b4f73755319df.bin",
+    "reference": "2203af1f5a02a8cd.ref",
+    "thumbnail": "2203af1f5a02a8cd.png",
+    "textured_batches": 0,
+    "vertices": 759306,
+    "geometry_bytes": 2236210
+  },
+  "AR-15 / Sales": {
+    "status": "ready",
+    "geometry": "models/e657792d5e482741d0a80bc877169ef0a0bb8425e98fa93bf1552c408078f6f8.bin",
+    "reference": "bbeaccaeebae9b6a.ref",
+    "thumbnail": "bbeaccaeebae9b6a.png",
+    "textured_batches": 7,
+    "vertices": 288840,
+    "geometry_bytes": 836442
+  },
+  "AR-15 / Onyx": {
+    "status": "incomplete",
+    "missing": [
+      "131770043210984",
+      "78837646967031",
+      "109486317467958",
+      "140103043815884",
+      "103202724312158"
+    ]
+  },
+  "AR-15 / S4": {
+    "status": "incomplete",
+    "missing": [
+      "105382393347398",
+      "433464642",
+      "110377974420378",
+      "72629121295482",
+      "128583215032636",
+      "102794111433330",
+      "105534237279446",
+      "116837082982612",
+      "75388148420510",
+      "127935669490520",
+      "93327491309920",
+      "130802673579612",
+      "83782018420908",
+      "102883603707092",
+      "92548279234768",
+      "88385902768542",
+      "135054330770630",
+      "106145057260340",
+      "95180020875657",
+      "106627631707771",
+      "136261480818442",
+      "88440721649919",
+      "119321122368034",
+      "78197664358725",
+      "94725283426818",
+      "88526388584655",
+      "117813870756464",
+      "83202528092281",
+      "113572264972572",
+      "95075732919600"
+    ]
+  },
+  "AR-15 / Pride": {
+    "status": "ready",
+    "geometry": "models/72543fcc146e92193a83b1ed421f17d97e731aaf96ec3b8523645e5fd0f4e38d.bin",
+    "reference": "5bfd4329c40af970.ref",
+    "thumbnail": "5bfd4329c40af970.png",
+    "textured_batches": 2,
+    "vertices": 344613,
+    "geometry_bytes": 970794
+  },
+  "AR-15 / X2": {
+    "status": "incomplete",
+    "missing": [
+      "15128859159",
+      "77020371106983",
+      "6779065106",
+      "14698103472",
+      "97319127880658",
+      "15428710883",
+      "14698094177",
+      "14495017206",
+      "3265178869",
+      "110850036566760",
+      "13341790761",
+      "14698097124",
+      "15315057205",
+      "77001371784682",
+      "15315057205",
+      "14698095254",
+      "14698101088",
+      "14698101409",
+      "14698097435",
+      "137671284479442",
+      "3681960779",
+      "14698094856",
+      "3265178529",
+      "3265178869",
+      "3265178921",
+      "3265178755",
+      "3265178815",
+      "3265178921",
+      "3265178423",
+      "3265178529",
+      "3265178869",
+      "3265178921",
+      "3265178755",
+      "3265178815",
+      "3265178921",
+      "3265178423",
+      "3265178869",
+      "6335458656",
+      "130266572611154",
+      "3265176598",
+      "3265177092",
+      "3265177684",
+      "3265177517",
+      "3265176832",
+      "3265176540",
+      "3265177951",
+      "3265177951",
+      "3265176540",
+      "3265176832",
+      "3265177517",
+      "3265177684",
+      "130266572611154",
+      "3265177092",
+      "3265176598",
+      "3248354888",
+      "14698102166"
+    ]
+  },
+  "AR-15 / S1S1new": {
+    "status": "incomplete",
+    "missing": [
+      "7560730192",
+      "17545596080",
+      "7716209851",
+      "7716209853",
+      "7716209855",
+      "7716210014",
+      "7716209899",
+      "7716211123",
+      "7716210022",
+      "4344192629",
+      "7716210045",
+      "9233981099",
+      "8375086195"
+    ]
+  },
+  "AR-15 / X1": {
+    "status": "ready",
+    "geometry": "models/e2855d00bd1f286bf88fd6ddf9d07d7482917031b0f70e541565406b66e6f256.bin",
+    "reference": "21ae981f59ba41b9.ref",
+    "thumbnail": "21ae981f59ba41b9.png",
+    "textured_batches": 7,
+    "vertices": 83493,
+    "geometry_bytes": 263718
+  },
+  "AR-15 / N3": {
+    "status": "incomplete",
+    "missing": [
+      "3255211969",
+      "3255212542",
+      "111742643371027",
+      "3658122762",
+      "118886110525778",
+      "74055795357899",
+      "75966294043484",
+      "111430225768124",
+      "72169164195954",
+      "98089294872938",
+      "122352691851758",
+      "87025625054930",
+      "87025625054930",
+      "87025625054930",
+      "5376458835",
+      "87025625054930",
+      "3255213577",
+      "3255211152"
+    ]
+  },
+  "AR-15 / S1S1": {
+    "status": "incomplete",
+    "missing": [
+      "97743079729213",
+      "72585387629329",
+      "85715712750030",
+      "72642017191748",
+      "82801316569376",
+      "108567470134886",
+      "78949547796071",
+      "113361041301483",
+      "77043838628474",
+      "96055135407993",
+      "122080562778125",
+      "97048321491404",
+      "140692339141984",
+      "125746626289399",
+      "103334266232385",
+      "131853838303775",
+      "140488956908540",
+      "118429309799015",
+      "98980032962783",
+      "113781013860786",
+      "121233149656521",
+      "125772441806027",
+      "138774447857969",
+      "128775829426736",
+      "105994857793187",
+      "111091305383142",
+      "106014240654272",
+      "135551787309513",
+      "110469801593973",
+      "125978545569903",
+      "89408845099430",
+      "131127979746790",
+      "135033011805900",
+      "102486637034681",
+      "87716531606638",
+      "102464741711010"
+    ]
+  },
+  "AR-15 / 10KK": {
+    "status": "ready",
+    "geometry": "models/bba8d5b41d3765f4a80fbff7e8318c3d12b9b6e9d8a14ecb3bd389297561cff7.bin",
+    "reference": "cf72aa337eb8f7ed.ref",
+    "thumbnail": "cf72aa337eb8f7ed.png",
+    "textured_batches": 36,
+    "vertices": 348291,
+    "geometry_bytes": 906300
+  },
+  "AR-15 / N1": {
+    "status": "incomplete",
+    "missing": [
+      "14996035518",
+      "14996035946",
+      "14996049599"
+    ]
+  },
+  "AR-15 / Creativename": {
+    "status": "incomplete",
+    "missing": [
+      "138945792400198",
+      "140599280251712",
+      "72984018539211",
+      "103294328066325",
+      "122100241669719",
+      "130291443266159",
+      "75940380361963",
+      "110806751262423",
+      "131305928809316",
+      "122135408978221",
+      "75520788481823",
+      "93866263043691",
+      "118934012441197",
+      "129517670601454",
+      "77654224520252"
+    ]
+  },
+  "AR-15 / 1KHR": {
+    "status": "ready",
+    "geometry": "models/ff0c3fe951fa405d0190bad2be26bb1437d1d771139cb43146756f593498f71a.bin",
+    "reference": "084232330de8b544.ref",
+    "thumbnail": "084232330de8b544.png",
+    "textured_batches": 36,
+    "vertices": 261501,
+    "geometry_bytes": 662540
+  },
+  "AR-15 / Blueberry": {
+    "status": "ready",
+    "geometry": "models/12a20a8fbb9c0c1c81ec52f72131f2aa07f81201f96c0cd6c5eb66563c3eb2fc.bin",
+    "reference": "9026b1e57b542736.ref",
+    "thumbnail": "9026b1e57b542736.png",
+    "textured_batches": 0,
+    "vertices": 269301,
+    "geometry_bytes": 746746
+  },
+  "AR-15 / S1S1bow": {
+    "status": "incomplete",
+    "missing": [
+      "94839311315687",
+      "89122534658596",
+      "81470155168914",
+      "100138372050949"
+    ]
+  },
+  "AR-15 / TJ": {
+    "status": "incomplete",
+    "missing": [
+      "4740001754",
+      "2222079218"
+    ]
+  },
+  "AR-15 / Shorei": {
+    "status": "ready",
+    "geometry": "models/3adfd285019aa0073491f15396c38052f62a70d398e7a8fee2ce14a59aceaa7d.bin",
+    "reference": "e054acca83eb2196.ref",
+    "thumbnail": "e054acca83eb2196.png",
+    "textured_batches": 34,
+    "vertices": 160545,
+    "geometry_bytes": 435834
+  },
+  "AR-15 / S1Champ": {
+    "status": "incomplete",
+    "missing": [
+      "3255273740",
+      "137107924057017",
+      "105884704116828",
+      "4868588260"
+    ]
+  },
+  "AR-15 / Offwhite": {
+    "status": "ready",
+    "geometry": "models/e12ea88ef875936c65987dff2bf6451f35860dff32a8551ba2d2fa5edf548c28.bin",
+    "reference": "6b26df98e0037bf4.ref",
+    "thumbnail": "6b26df98e0037bf4.png",
+    "textured_batches": 0,
+    "vertices": 367962,
+    "geometry_bytes": 1165684
+  },
+  "AR-15 / Booster": {
+    "status": "ready",
+    "geometry": "models/52246baa602f7041bb1d41650ef4a411525fa7de7d7f8b0efddb7bf15b9ed002.bin",
+    "reference": "25d5558cefb86dae.ref",
+    "thumbnail": "25d5558cefb86dae.png",
+    "textured_batches": 0,
+    "vertices": 349173,
+    "geometry_bytes": 956696
+  },
+  "AR-15 / ARNY": {
+    "status": "ready",
+    "geometry": "models/31c3aa13019468175abbb719c917eeabaf5f937dcb2c58d6e534631ccc950223.bin",
+    "reference": "dff0c5d941517ca0.ref",
+    "thumbnail": "dff0c5d941517ca0.png",
+    "textured_batches": 16,
+    "vertices": 292869,
+    "geometry_bytes": 746154
+  },
+  "AR-15 / AKNY": {
+    "status": "ready",
+    "geometry": "models/c3cc3ac894d9df079e2a735a707e18cdf377fdf05e7ab985ad92ad322b1a5fb1.bin",
+    "reference": "07a7ccd8c6e37bb7.ref",
+    "thumbnail": "07a7ccd8c6e37bb7.png",
+    "textured_batches": 9,
+    "vertices": 169698,
+    "geometry_bytes": 432234
+  },
+  "Glock 19 / Gold(old)": {
+    "status": "ready",
+    "geometry": "models/f56b80d3a77a0e74a2fd934d8f9c13e78d6723cb7aa218778a4cc72333f0b75e.bin",
+    "reference": "86b2cc8174bfab42.ref",
+    "thumbnail": "86b2cc8174bfab42.png",
+    "textured_batches": 0,
+    "vertices": 29598,
+    "geometry_bytes": 81628
+  },
+  "Glock 19 / Anniversary(OLD)": {
+    "status": "ready",
+    "geometry": "models/542266fac70f97ce084e00188480e8b22bed301d8899d812768ae82a2c3a0566.bin",
+    "reference": "f0372896ecfd5d5e.ref",
+    "thumbnail": "f0372896ecfd5d5e.png",
+    "textured_batches": 0,
+    "vertices": 29598,
+    "geometry_bytes": 81918
+  },
+  "Glock 19 / Animated": {
+    "status": "ready",
+    "geometry": "models/a51ba8f4a579a57ab36adbf6cee78a7676575137d4e9b2dd206eefc5c7d79b69.bin",
+    "reference": "b1d40eeae13537e1.ref",
+    "thumbnail": "b1d40eeae13537e1.png",
+    "textured_batches": 6,
+    "vertices": 29598,
+    "geometry_bytes": 81584
+  },
+  "Glock 19 / Planker": {
+    "status": "ready",
+    "geometry": "models/c071f872cc2c7883bdcb90073c600e599553cb09ead920438b24de48fa9f3d3e.bin",
+    "reference": "76437428a9c0b707.ref",
+    "thumbnail": "76437428a9c0b707.png",
+    "textured_batches": 1,
+    "vertices": 126267,
+    "geometry_bytes": 342286
+  },
+  "Glock 19 / MCAO": {
+    "status": "incomplete",
+    "missing": [
+      "85128986911648",
+      "105382393347398",
+      "72629121295482",
+      "128583215032636",
+      "102794111433330",
+      "110377974420378"
+    ]
+  },
+  "Glock 19 / Default": {
+    "status": "ready",
+    "geometry": "models/c3924a2e168c26a71b2d0261879cf2278b2999d4d9575c3e180e9be80755e473.bin",
+    "reference": "306c5e20cf60b0a5.ref",
+    "thumbnail": "306c5e20cf60b0a5.png",
+    "textured_batches": 0,
+    "vertices": 29598,
+    "geometry_bytes": 81854
+  },
+  "Glock 19 / Warden": {
+    "status": "ready",
+    "geometry": "models/52b5d9c7735b7102231fa100d7848cea83cf17562072b94b6b26363b5caca994.bin",
+    "reference": "7e82ef17ae14de61.ref",
+    "thumbnail": "7e82ef17ae14de61.png",
+    "textured_batches": 8,
+    "vertices": 99438,
+    "geometry_bytes": 290646
+  },
+  "Glock 19 / Gold": {
+    "status": "ready",
+    "geometry": "models/4b4e2e2eccde91e8955b94105e6c744e6539d9fc58649bf7574d18b7b92416d5.bin",
+    "reference": "63cf3c3cf35db73e.ref",
+    "thumbnail": "63cf3c3cf35db73e.png",
+    "textured_batches": 0,
+    "vertices": 34578,
+    "geometry_bytes": 98258
+  },
+  "Glock 19 / Independence": {
+    "status": "ready",
+    "geometry": "models/9c6e1a54abdad9f7fbb974f2ed8840ab8b6a7f41a70ffa33925637314300dd9d.bin",
+    "reference": "4d730b6bef51f10e.ref",
+    "thumbnail": "4d730b6bef51f10e.png",
+    "textured_batches": 9,
+    "vertices": 34578,
+    "geometry_bytes": 98048
+  },
+  "Glock 19 / Feilong": {
+    "status": "ready",
+    "geometry": "models/c1b302e2890a063859e583ff40f55527f8227f26effbde8b815e8c270a9b601a.bin",
+    "reference": "a609ceccf1ebb2da.ref",
+    "thumbnail": "a609ceccf1ebb2da.png",
+    "textured_batches": 4,
+    "vertices": 58842,
+    "geometry_bytes": 154986
+  },
+  "Glock 19 / Visionary": {
+    "status": "ready",
+    "geometry": "models/ed82af3d4708504a9dd521267a691fec84776d0876d3207d288a12709daf8e86.bin",
+    "reference": "07ed0af7f91efb6e.ref",
+    "thumbnail": "07ed0af7f91efb6e.png",
+    "textured_batches": 0,
+    "vertices": 48933,
+    "geometry_bytes": 139970
+  },
+  "Glock 19 / Tsunami": {
+    "status": "ready",
+    "geometry": "models/0e9788ac2e9bb7226f912a44a59b17a2d29ebb0603c36f08db74b4652a180ac0.bin",
+    "reference": "6435763fcb1ef157.ref",
+    "thumbnail": "6435763fcb1ef157.png",
+    "textured_batches": 0,
+    "vertices": 34983,
+    "geometry_bytes": 101484
+  },
+  "Glock 19 / Toxic": {
+    "status": "ready",
+    "geometry": "models/926050486f24dcc9154c6998834625d1b5d92809bb34ff4abb74bcb74a5bbbf7.bin",
+    "reference": "882b363ac83f65cf.ref",
+    "thumbnail": "882b363ac83f65cf.png",
+    "textured_batches": 0,
+    "vertices": 29598,
+    "geometry_bytes": 81872
+  },
+  "Glock 19 / Sprinter": {
+    "status": "ready",
+    "geometry": "models/b5209c0bacd34c7a477daaabf9ee7afe76ff6f3f751136aff10105d11f526adc.bin",
+    "reference": "2f8e5a9686d7055b.ref",
+    "thumbnail": "2f8e5a9686d7055b.png",
+    "textured_batches": 0,
+    "vertices": 29598,
+    "geometry_bytes": 81874
+  },
+  "Glock 19 / Sinister": {
+    "status": "ready",
+    "geometry": "models/be3035a6566ce25751238c965a6df067f96ab6a010315daab42900e614c214e4.bin",
+    "reference": "435c9091654dc0a1.ref",
+    "thumbnail": "435c9091654dc0a1.png",
+    "textured_batches": 0,
+    "vertices": 29598,
+    "geometry_bytes": 81870
+  },
+  "Glock 19 / Sicilia": {
+    "status": "ready",
+    "geometry": "models/d65670d2832c62232d8df6fec4a1f049181b43cea18606e2ad2adb1c7b133079.bin",
+    "reference": "3d3f6cb34dca6aaa.ref",
+    "thumbnail": "3d3f6cb34dca6aaa.png",
+    "textured_batches": 0,
+    "vertices": 43701,
+    "geometry_bytes": 119636
+  },
+  "Glock 19 / Scythe": {
+    "status": "ready",
+    "geometry": "models/45a7b3e7ef8c10dde22a0307d149214560e912ea0dcc45ae3649e9d36cfeeb72.bin",
+    "reference": "776ce671b25d43e4.ref",
+    "thumbnail": "776ce671b25d43e4.png",
+    "textured_batches": 0,
+    "vertices": 129012,
+    "geometry_bytes": 373672
+  },
+  "Glock 19 / Rusted": {
+    "status": "ready",
+    "geometry": "models/32b5f632d908d5ab17a65195a5347e487b884422154b2b45044191750e1b41c7.bin",
+    "reference": "47a50061dd60a3a7.ref",
+    "thumbnail": "47a50061dd60a3a7.png",
+    "textured_batches": 6,
+    "vertices": 39180,
+    "geometry_bytes": 108014
+  },
+  "Glock 19 / Royal": {
+    "status": "ready",
+    "geometry": "models/640f7d534f7f20feea4c44d1cf5f4f9f64d3316cb4d874147bf833e3d4f48b0f.bin",
+    "reference": "f8ba5b8052a8b053.ref",
+    "thumbnail": "f8ba5b8052a8b053.png",
+    "textured_batches": 10,
+    "vertices": 102249,
+    "geometry_bytes": 319350
+  },
+  "Glock 19 / Rose": {
+    "status": "ready",
+    "geometry": "models/abc7839ff707861df5bc4dd41a2d23b4950541ca856635fadbf6c8f35b042254.bin",
+    "reference": "878a099b1251c0ff.ref",
+    "thumbnail": "878a099b1251c0ff.png",
+    "textured_batches": 0,
+    "vertices": 29598,
+    "geometry_bytes": 81930
+  },
+  "Glock 19 / Pulsar": {
+    "status": "ready",
+    "geometry": "models/3bcb11c0207f1547db699ea6bdce1659f282e9970ac386ce21795188ee0d5e29.bin",
+    "reference": "a8a09743153e66f5.ref",
+    "thumbnail": "a8a09743153e66f5.png",
+    "textured_batches": 0,
+    "vertices": 31152,
+    "geometry_bytes": 78286
+  },
+  "Glock 19 / Plasma": {
+    "status": "ready",
+    "geometry": "models/51879e848c138429a7095593bb36e9da9f27cff215eaf3648b2799504ed9d149.bin",
+    "reference": "94df5d04fd8a4bf6.ref",
+    "thumbnail": "94df5d04fd8a4bf6.png",
+    "textured_batches": 0,
+    "vertices": 29598,
+    "geometry_bytes": 81908
+  },
+  "Glock 19 / Wyvern": {
+    "status": "ready",
+    "geometry": "models/5f92c87242e08afb38c93b78c50888dde77eed93b377eb003e8cdd3effc72222.bin",
+    "reference": "29f6a03f5840c665.ref",
+    "thumbnail": "29f6a03f5840c665.png",
+    "textured_batches": 0,
+    "vertices": 222912,
+    "geometry_bytes": 723618
+  },
+  "Glock 19 / Phantom": {
+    "status": "ready",
+    "geometry": "models/911ba43498220b8573e73e758e0ec2d42ecd8b953ce4a3ad5c1ca1193eb03eb3.bin",
+    "reference": "1e33cc7486dc1d4d.ref",
+    "thumbnail": "1e33cc7486dc1d4d.png",
+    "textured_batches": 0,
+    "vertices": 73773,
+    "geometry_bytes": 195150
+  },
+  "Glock 19 / Pathogen": {
+    "status": "ready",
+    "geometry": "models/888288ba0d7b02e74239284b5568c5699e9fac7104f3d7af7a0e00d7d62d73b6.bin",
+    "reference": "562637184ce8947a.ref",
+    "thumbnail": "562637184ce8947a.png",
+    "textured_batches": 0,
+    "vertices": 798360,
+    "geometry_bytes": 2109584
+  },
+  "Glock 19 / Opulent": {
+    "status": "ready",
+    "geometry": "models/d3b0bf01c27b73e7319c153f9db03666f6eb0d0ffe3ab53cfe60cfc6d8b1481c.bin",
+    "reference": "4d39e855e3089fd3.ref",
+    "thumbnail": "4d39e855e3089fd3.png",
+    "textured_batches": 3,
+    "vertices": 20712,
+    "geometry_bytes": 54170
+  },
+  "Glock 19 / Operative": {
+    "status": "ready",
+    "geometry": "models/75282cd41785a8501672b15469670670f6b4c1de6540a6d64921dad68580e310.bin",
+    "reference": "7e096f54d048b0ed.ref",
+    "thumbnail": "7e096f54d048b0ed.png",
+    "textured_batches": 0,
+    "vertices": 53994,
+    "geometry_bytes": 153610
+  },
+  "Glock 19 / Mythical": {
+    "status": "ready",
+    "geometry": "models/ca46baab8a30451878cd80ac4ada30ea9e56d3d6a62532e86f2c82dba950ce7f.bin",
+    "reference": "ab1983837de14abf.ref",
+    "thumbnail": "ab1983837de14abf.png",
+    "textured_batches": 0,
+    "vertices": 43701,
+    "geometry_bytes": 119764
+  },
+  "Glock 19 / Anniversary": {
+    "status": "ready",
+    "geometry": "models/93ee5f19867f76142e72d98381795877074e380988a01f953ff94f82468592a7.bin",
+    "reference": "3f7a1f1f2e636dba.ref",
+    "thumbnail": "3f7a1f1f2e636dba.png",
+    "textured_batches": 6,
+    "vertices": 29598,
+    "geometry_bytes": 81888
+  },
+  "Glock 19 / Maple": {
+    "status": "ready",
+    "geometry": "models/b143a6f143f7bba10f08616e3255f8de31389acb2937f3d3a4538eea29b1cf2d.bin",
+    "reference": "33fc833cd84ccdc9.ref",
+    "thumbnail": "33fc833cd84ccdc9.png",
+    "textured_batches": 0,
+    "vertices": 29598,
+    "geometry_bytes": 81832
+  },
+  "Glock 19 / Magma": {
+    "status": "ready",
+    "geometry": "models/51d4cac2ed874ffa7287de9a6bca2b3aacc2132a33779eb07865f6bb791a3ad0.bin",
+    "reference": "d99da23d3669ae6d.ref",
+    "thumbnail": "d99da23d3669ae6d.png",
+    "textured_batches": 0,
+    "vertices": 27288,
+    "geometry_bytes": 73466
+  },
+  "Glock 19 / Lumberjack": {
+    "status": "ready",
+    "geometry": "models/c37572e161625b89e3bec60d51936a150ed7e19033b09cc0bc746f95718e650e.bin",
+    "reference": "e491d0793af022b8.ref",
+    "thumbnail": "e491d0793af022b8.png",
+    "textured_batches": 0,
+    "vertices": 27423,
+    "geometry_bytes": 76190
+  },
+  "Glock 19 / Lockdown": {
+    "status": "ready",
+    "geometry": "models/feda44eb871e9af54b40b898fbaf5f2fd73a722f174143ebea6231cdcf2cb14d.bin",
+    "reference": "e5700e58b3f2ec2b.ref",
+    "thumbnail": "e5700e58b3f2ec2b.png",
+    "textured_batches": 18,
+    "vertices": 38526,
+    "geometry_bytes": 108128
+  },
+  "Glock 19 / Liliac": {
+    "status": "ready",
+    "geometry": "models/5fc650343aa9ffa04e5819db64c8fe062f8651a35a7831e356069b0ccd68d785.bin",
+    "reference": "94f9b50a6b07e1b0.ref",
+    "thumbnail": "94f9b50a6b07e1b0.png",
+    "textured_batches": 0,
+    "vertices": 29598,
+    "geometry_bytes": 81982
+  },
+  "Glock 19 / Lapis": {
+    "status": "ready",
+    "geometry": "models/ee4ee67443060f458cbcce89e037195cf945d6ba928f446bce05facef1cee929.bin",
+    "reference": "662ee238950f6ef5.ref",
+    "thumbnail": "662ee238950f6ef5.png",
+    "textured_batches": 0,
+    "vertices": 39756,
+    "geometry_bytes": 108010
+  },
+  "Glock 19 / Kitty": {
+    "status": "ready",
+    "geometry": "models/e8dd443cad3216ba11121c1799984e7ca75b04a2f63d1544267b5d0ec9e57764.bin",
+    "reference": "6b27a290ede78a63.ref",
+    "thumbnail": "6b27a290ede78a63.png",
+    "textured_batches": 0,
+    "vertices": 43701,
+    "geometry_bytes": 119956
+  },
+  "Glock 19 / Jolly": {
+    "status": "ready",
+    "geometry": "models/4f7096813fce80125fea8982eb8ed4f018f4f39b3ba47e44a6b27b81de15ad82.bin",
+    "reference": "213bb7e02efd6fb6.ref",
+    "thumbnail": "213bb7e02efd6fb6.png",
+    "textured_batches": 0,
+    "vertices": 43701,
+    "geometry_bytes": 118990
+  },
+  "Glock 19 / Ion": {
+    "status": "ready",
+    "geometry": "models/cbecf13d6eb9f9217b7b55606dcac8312806af8634bc66a9627368eb3d18e111.bin",
+    "reference": "e8b3bd51ae3e63ee.ref",
+    "thumbnail": "e8b3bd51ae3e63ee.png",
+    "textured_batches": 0,
+    "vertices": 32694,
+    "geometry_bytes": 88578
+  },
+  "Glock 19 / Shogun": {
+    "status": "ready",
+    "geometry": "models/6812e60f11aba4e4c442f3cd2198156628e972d713bdedcd09d0a3f6c7faac59.bin",
+    "reference": "5d2bd3a5a4f98f26.ref",
+    "thumbnail": "5d2bd3a5a4f98f26.png",
+    "textured_batches": 9,
+    "vertices": 29358,
+    "geometry_bytes": 82718
+  },
+  "Glock 19 / Imperial": {
+    "status": "ready",
+    "geometry": "models/af2e5cafffeec195999411e3b042bd6a0037f1a8c0be7af1f9d7b77d3caed63b.bin",
+    "reference": "bd0c5c67d8fd770d.ref",
+    "thumbnail": "bd0c5c67d8fd770d.png",
+    "textured_batches": 0,
+    "vertices": 38289,
+    "geometry_bytes": 84442
+  },
+  "Glock 19 / HellSpawn": {
+    "status": "ready",
+    "geometry": "models/1bf6458b552bed91e74dca7cb302d4944669395cf5f4822c35cec60e6234c567.bin",
+    "reference": "fd7c8cf5fdbae11a.ref",
+    "thumbnail": "fd7c8cf5fdbae11a.png",
+    "textured_batches": 0,
+    "vertices": 29598,
+    "geometry_bytes": 81888
+  },
+  "Glock 19 / Grave": {
+    "status": "ready",
+    "geometry": "models/8dd1019cf1562380a544680584cd4d80c2ffa0e5c34e0fa3aede666e643a06c5.bin",
+    "reference": "1416f779a57a3119.ref",
+    "thumbnail": "1416f779a57a3119.png",
+    "textured_batches": 0,
+    "vertices": 29598,
+    "geometry_bytes": 81894
+  },
+  "Glock 19 / Molten": {
+    "status": "ready",
+    "geometry": "models/2ac9ebfbf74ad42aed870111d846c9da14c200dd3b13daf9a6b777a96f51d6b8.bin",
+    "reference": "54189c264c780e43.ref",
+    "thumbnail": "54189c264c780e43.png",
+    "textured_batches": 0,
+    "vertices": 29598,
+    "geometry_bytes": 81550
+  },
+  "Glock 19 / Gobbler": {
+    "status": "ready",
+    "geometry": "models/a800066389624fe4026a6155d679a2ed008549be505a82f942206cb0e7f9ebbe.bin",
+    "reference": "99fea5a0eb3bd015.ref",
+    "thumbnail": "99fea5a0eb3bd015.png",
+    "textured_batches": 0,
+    "vertices": 29598,
+    "geometry_bytes": 81794
+  },
+  "Glock 19 / Fury": {
+    "status": "ready",
+    "geometry": "models/890fd672c9ea91077901fa2800f5c9a4294ace60b1fd143832530d48ff4826d8.bin",
+    "reference": "03924f36744ff9bc.ref",
+    "thumbnail": "03924f36744ff9bc.png",
+    "textured_batches": 3,
+    "vertices": 42333,
+    "geometry_bytes": 121382
+  },
+  "Glock 19 / Fuchsia": {
+    "status": "ready",
+    "geometry": "models/da3788088a066005b498072e12d26cfe5f7a96fc63efd815db59390b2071ea11.bin",
+    "reference": "434eac7314902c29.ref",
+    "thumbnail": "434eac7314902c29.png",
+    "textured_batches": 6,
+    "vertices": 69861,
+    "geometry_bytes": 193510
+  },
+  "Glock 19 / Frost": {
+    "status": "ready",
+    "geometry": "models/69f76437597f587d8994db264afa81fbb00e8203fea3de9bf9a5f9007a1c5d80.bin",
+    "reference": "dd3fb0509a0abb02.ref",
+    "thumbnail": "dd3fb0509a0abb02.png",
+    "textured_batches": 0,
+    "vertices": 73332,
+    "geometry_bytes": 200388
+  },
+  "Glock 19 / Frigid": {
+    "status": "ready",
+    "geometry": "models/4295c5c0ab82566e133b880a17da9fac9118c2c4bae65a53d8e65edb6ec53c67.bin",
+    "reference": "5caffcc0f6bb2b51.ref",
+    "thumbnail": "5caffcc0f6bb2b51.png",
+    "textured_batches": 0,
+    "vertices": 34983,
+    "geometry_bytes": 101348
+  },
+  "Glock 19 / Dove": {
+    "status": "ready",
+    "geometry": "models/6cc98d0c2d601ae9e67cc9987fa7a8c0e0b6aa61a37f5bc54c1115331ae1eb90.bin",
+    "reference": "222709244b0ec720.ref",
+    "thumbnail": "222709244b0ec720.png",
+    "textured_batches": 0,
+    "vertices": 29598,
+    "geometry_bytes": 81866
+  },
+  "Glock 19 / Dispatch": {
+    "status": "ready",
+    "geometry": "models/9c42b6d00b095d04eadc075e6bdc1f430b2fb6986b2e28e75fb586b74d52c83c.bin",
+    "reference": "df1001dfa22a2c8a.ref",
+    "thumbnail": "df1001dfa22a2c8a.png",
+    "textured_batches": 6,
+    "vertices": 173952,
+    "geometry_bytes": 512608
+  },
+  "Glock 19 / Catalyst": {
+    "status": "ready",
+    "geometry": "models/a3d06548c9b5b475f53c3cb0bc29841fea35017c343cd99abd32c6c2b0ed9473.bin",
+    "reference": "630b3907d55c17ef.ref",
+    "thumbnail": "630b3907d55c17ef.png",
+    "textured_batches": 0,
+    "vertices": 43701,
+    "geometry_bytes": 119580
+  },
+  "Glock 19 / Boundless": {
+    "status": "ready",
+    "geometry": "models/a060fbbe0979fc0d78a1b1dcfcd436a0fac0c2e458ccd8db40a7683924517fb8.bin",
+    "reference": "4c8def06b920a229.ref",
+    "thumbnail": "4c8def06b920a229.png",
+    "textured_batches": 7,
+    "vertices": 196263,
+    "geometry_bytes": 435622
+  },
+  "Glock 19 / Blossom": {
+    "status": "ready",
+    "geometry": "models/ecd2512bc78b9b492784498bbae3668fb06f09aa14383b0ee123162fb930071f.bin",
+    "reference": "34c1f2e346f2c075.ref",
+    "thumbnail": "34c1f2e346f2c075.png",
+    "textured_batches": 1,
+    "vertices": 30747,
+    "geometry_bytes": 82722
+  },
+  "Glock 19 / Blizzard": {
+    "status": "ready",
+    "geometry": "models/f54868a3a8d95b60dbd821c8eefb2719eb1456cabde4885209b0f20113b26bed.bin",
+    "reference": "73590f80f6ed8d22.ref",
+    "thumbnail": "73590f80f6ed8d22.png",
+    "textured_batches": 1,
+    "vertices": 30747,
+    "geometry_bytes": 82802
+  },
+  "Glock 19 / Blackice": {
+    "status": "ready",
+    "geometry": "models/510249f922942d0f288f9fb5f7aaafd0bef1eefbc0606434420f7bc2bba7fe45.bin",
+    "reference": "f5ca89a08ded12ae.ref",
+    "thumbnail": "f5ca89a08ded12ae.png",
+    "textured_batches": 7,
+    "vertices": 47040,
+    "geometry_bytes": 128686
+  },
+  "Glock 19 / Smaug": {
+    "status": "ready",
+    "geometry": "models/530435834d2334d144beef40e16d10c1412d32a23472f3e386f0be35df1110a2.bin",
+    "reference": "5de6ec47faf31f5b.ref",
+    "thumbnail": "5de6ec47faf31f5b.png",
+    "textured_batches": 3,
+    "vertices": 54372,
+    "geometry_bytes": 138174
+  },
+  "Glock 19 / Man": {
+    "status": "ready",
+    "geometry": "models/be437a0cad67513f3cfbb3b866719cc31c39ce9e1eb5174548b1cf7491d676ad.bin",
+    "reference": "09846151c04f695c.ref",
+    "thumbnail": "09846151c04f695c.png",
+    "textured_batches": 4,
+    "vertices": 17556,
+    "geometry_bytes": 45928
+  },
+  "Glock 19 / 0416": {
+    "status": "ready",
+    "geometry": "models/3b33498479c9b719ba5444eef0e49d9054b788e3705e0fdea189bdd3d52cb9f8.bin",
+    "reference": "3a720a949491cecb.ref",
+    "thumbnail": "3a720a949491cecb.png",
+    "textured_batches": 4,
+    "vertices": 143847,
+    "geometry_bytes": 414866
+  },
+  "Glock 19 / X5": {
+    "status": "ready",
+    "geometry": "models/ad764bdc5eda4c673cb1cf8390ffcfe71832b9b7a3eb6598fc0ba954a4a53a35.bin",
+    "reference": "f63b92cec10249df.ref",
+    "thumbnail": "f63b92cec10249df.png",
+    "textured_batches": 9,
+    "vertices": 35952,
+    "geometry_bytes": 82146
+  },
+  "Glock 19 / Fade": {
+    "status": "ready",
+    "geometry": "models/e63bd3c52228a33c6ac6ad55f1ce76f051cbfb62d87c40a1c4b16e2ae466aaaa.bin",
+    "reference": "56251336120793be.ref",
+    "thumbnail": "56251336120793be.png",
+    "textured_batches": 6,
+    "vertices": 100140,
+    "geometry_bytes": 272226
+  },
+  "Glock 19 / X4": {
+    "status": "ready",
+    "geometry": "models/5817d72bdef5bfcd0e0b2b6a420f355f487367ec47b9fd086cb2132603884d98.bin",
+    "reference": "f63b91cec102482c.ref",
+    "thumbnail": "f63b91cec102482c.png",
+    "textured_batches": 3,
+    "vertices": 48504,
+    "geometry_bytes": 163366
+  },
+  "Glock 19 / F5": {
+    "status": "ready",
+    "geometry": "models/cf9db622b107c6d10014d9da63f29100fc8d9abf6872c5c2ae9205b43948a027.bin",
+    "reference": "f634a6cec0fc4d2d.ref",
+    "thumbnail": "f634a6cec0fc4d2d.png",
+    "textured_batches": 5,
+    "vertices": 68106,
+    "geometry_bytes": 189570
+  },
+  "Glock 19 / D5": {
+    "status": "ready",
+    "geometry": "models/015e00d55adbdb32bbefa0ec9ec3baaf49b08a6be1b2dac330bfab8213fe7121.bin",
+    "reference": "f62e12cec0f6e603.ref",
+    "thumbnail": "f62e12cec0f6e603.png",
+    "textured_batches": 5,
+    "vertices": 68586,
+    "geometry_bytes": 189596
+  },
+  "Glock 19 / C5": {
+    "status": "ready",
+    "geometry": "models/19d06ebe4c9357fef9844da538985aeed6b848802d46692c201809fbe74f57ba.bin",
+    "reference": "f62a92cec0f3d6ac.ref",
+    "thumbnail": "f62a92cec0f3d6ac.png",
+    "textured_batches": 5,
+    "vertices": 68655,
+    "geometry_bytes": 191634
+  },
+  "Glock 19 / B5": {
+    "status": "ready",
+    "geometry": "models/36eb20a9edc088e9d6389b7e746db62680c4cf67b9acf449003ef49d5e5ebc36.bin",
+    "reference": "f62726cec0f0e951.ref",
+    "thumbnail": "f62726cec0f0e951.png",
+    "textured_batches": 9,
+    "vertices": 99102,
+    "geometry_bytes": 270018
+  },
+  "Glock 19 / A5": {
+    "status": "ready",
+    "geometry": "models/a43abf23929d3bfe96da3573a0ed674889a68bf207be44466833f5df99ec9d86.bin",
+    "reference": "f623a6cec0edd9fa.ref",
+    "thumbnail": "f623a6cec0edd9fa.png",
+    "textured_batches": 14,
+    "vertices": 52755,
+    "geometry_bytes": 144966
+  },
+  "Glock 19 / Staff": {
+    "status": "ready",
+    "geometry": "models/f44da365cb4eac7222c83116839807e685df51bdeb6703568b1af05bde211598.bin",
+    "reference": "4095ef956c8f4f66.ref",
+    "thumbnail": "4095ef956c8f4f66.png",
+    "textured_batches": 0,
+    "vertices": 43701,
+    "geometry_bytes": 119716
+  },
+  "Glock 19 / S5": {
+    "status": "ready",
+    "geometry": "models/24412a05984deb1b318d34a23b2151cc45a128f75b017e49c4bda0b1a0bfb388.bin",
+    "reference": "f66112cec1223f9c.ref",
+    "thumbnail": "f66112cec1223f9c.png",
+    "textured_batches": 7,
+    "vertices": 145353,
+    "geometry_bytes": 418574
+  },
+  "Glock 19 / Coord": {
+    "status": "ready",
+    "geometry": "models/eac7e307cc7597a09b7e931a85dc5cbbce0d94ea2ffba0ffcb9b2fba4baff28a.bin",
+    "reference": "f17fe6de443b1559.ref",
+    "thumbnail": "f17fe6de443b1559.png",
+    "textured_batches": 6,
+    "vertices": 55473,
+    "geometry_bytes": 142178
+  },
+  "Glock 19 / Coordinator": {
+    "status": "ready",
+    "geometry": "models/157113334f8f88cb72a1546120f22893827d386d39bd1a3fce4d2347c3860ffd.bin",
+    "reference": "ddb0a14c00ce2d96.ref",
+    "thumbnail": "ddb0a14c00ce2d96.png",
+    "textured_batches": 6,
+    "vertices": 30603,
+    "geometry_bytes": 86244
+  },
+  "Glock 19 / Champ": {
+    "status": "ready",
+    "geometry": "models/df537300ed49c4916b9f402c8c689bc51c2bb08a6d829ffedcbf7fbbc5ce8b14.bin",
+    "reference": "f3eaf4b4a885444b.ref",
+    "thumbnail": "f3eaf4b4a885444b.png",
+    "textured_batches": 4,
+    "vertices": 52533,
+    "geometry_bytes": 163796
+  },
+  "Glock 19 / MV2": {
+    "status": "ready",
+    "geometry": "models/c5c80ea80241ccdb3664f07899ab2355c8c787a102acbc29fe81aa64891bdd0a.bin",
+    "reference": "08d09751bfb6f09b.ref",
+    "thumbnail": "08d09751bfb6f09b.png",
+    "textured_batches": 0,
+    "vertices": 72696,
+    "geometry_bytes": 226006
+  },
+  "Glock 19 / X3": {
+    "status": "ready",
+    "geometry": "models/045cb02e03e6e1b397f15ba568b14a5f5e8f66d48f1b3e724bd69a560ee6277c.bin",
+    "reference": "f63b90cec1024679.ref",
+    "thumbnail": "f63b90cec1024679.png",
+    "textured_batches": 5,
+    "vertices": 110550,
+    "geometry_bytes": 293734
+  },
+  "Glock 19 / S2": {
+    "status": "ready",
+    "geometry": "models/4eed681301b27480af5ef0e15c5e018158df6852443015d0e4f5bef44d266c9c.bin",
+    "reference": "f66111cec1223de9.ref",
+    "thumbnail": "f66111cec1223de9.png",
+    "textured_batches": 0,
+    "vertices": 67431,
+    "geometry_bytes": 184836
+  },
+  "Glock 19 / Sales": {
+    "status": "ready",
+    "geometry": "models/fefecf83272e8879b7e30faeaa3f1e3b9f20ac8bca007b6ccc8c67f4a2e11cbd.bin",
+    "reference": "127442e2ebe212c0.ref",
+    "thumbnail": "127442e2ebe212c0.png",
+    "textured_batches": 4,
+    "vertices": 110013,
+    "geometry_bytes": 300646
+  },
+  "Glock 19 / N2": {
+    "status": "ready",
+    "geometry": "models/3a8cb4e7627a19c435fd5ae8dbf1cd7ae8976142d168ed0ba659101724602955.bin",
+    "reference": "f6198fcec0e55e60.ref",
+    "thumbnail": "f6198fcec0e55e60.png",
+    "textured_batches": 0,
+    "vertices": 67431,
+    "geometry_bytes": 185190
+  },
+  "Glock 19 / F2": {
+    "status": "ready",
+    "geometry": "models/52dc89b059cb94de2e5e86472a281c58faa935367eed8f3b87b6d9ef8e64c118.bin",
+    "reference": "f6349fcec0fc4148.ref",
+    "thumbnail": "f6349fcec0fc4148.png",
+    "textured_batches": 0,
+    "vertices": 67431,
+    "geometry_bytes": 185210
+  },
+  "Glock 19 / Orion": {
+    "status": "ready",
+    "geometry": "models/9c2b8817c187055909eb6db745a90debe41c71b855f1a4b962df24a580d18622.bin",
+    "reference": "cbc4be2f716aab9d.ref",
+    "thumbnail": "cbc4be2f716aab9d.png",
+    "textured_batches": 1,
+    "vertices": 106920,
+    "geometry_bytes": 317216
+  },
+  "Glock 19 / D2": {
+    "status": "ready",
+    "geometry": "models/970e8804029930d6de323172626d9fec45339af1a621f508a828b0bc710de0a7.bin",
+    "reference": "f62e17cec0f6ee82.ref",
+    "thumbnail": "f62e17cec0f6ee82.png",
+    "textured_batches": 0,
+    "vertices": 67431,
+    "geometry_bytes": 184844
+  },
+  "Glock 19 / N5": {
+    "status": "ready",
+    "geometry": "models/21eb6b9f1fd68bbc227bf918eee5d72f0f050f8bdd899ff99437d5ad3bad931a.bin",
+    "reference": "f61996cec0e56a45.ref",
+    "thumbnail": "f61996cec0e56a45.png",
+    "textured_batches": 6,
+    "vertices": 75108,
+    "geometry_bytes": 220060
+  },
+  "Glock 19 / C2": {
+    "status": "ready",
+    "geometry": "models/2621f52411daec9bfaa28ad464e3e34b9e6f4d356d278494ea77326013fa6d95.bin",
+    "reference": "f62a91cec0f3d4f9.ref",
+    "thumbnail": "f62a91cec0f3d4f9.png",
+    "textured_batches": 0,
+    "vertices": 67431,
+    "geometry_bytes": 185058
+  },
+  "Glock 19 / Ghost": {
+    "status": "incomplete",
+    "missing": [
+      "4541073074",
+      "93185765552119",
+      "6779065106",
+      "15128859159",
+      "77020371106983",
+      "12899238890",
+      "12899238656",
+      "12899238569",
+      "12899238737",
+      "12899238719",
+      "79986119398106",
+      "12899238743"
+    ]
+  },
+  "Glock 19 / B2": {
+    "status": "ready",
+    "geometry": "models/2a9324d69003362cff4a3c7d003906e4eda48b98108216e8fa81b3d0b414fd72.bin",
+    "reference": "f62727cec0f0eb04.ref",
+    "thumbnail": "f62727cec0f0eb04.png",
+    "textured_batches": 0,
+    "vertices": 67431,
+    "geometry_bytes": 184862
+  },
+  "Glock 19 / A2": {
+    "status": "ready",
+    "geometry": "models/9baf7a96d1156914d200efde8625f46e84f1bb0a16f969796c95e63cc7dd861e.bin",
+    "reference": "f623a1cec0edd17b.ref",
+    "thumbnail": "f623a1cec0edd17b.png",
+    "textured_batches": 0,
+    "vertices": 67431,
+    "geometry_bytes": 185056
+  },
+  "Glock 19 / Manny": {
+    "status": "ready",
+    "geometry": "models/7d5274417e47a75e1cad54d8b2249b611977bce5a5016a7f07f585e24391b865.bin",
+    "reference": "8aa2193d09627ffd.ref",
+    "thumbnail": "8aa2193d09627ffd.png",
+    "textured_batches": 0,
+    "vertices": 29598,
+    "geometry_bytes": 81818
+  },
+  "Glock 19 / X1": {
+    "status": "ready",
+    "geometry": "models/ab79051d980ef38893a0043bb411fee9d30aab0f5e23221f53f4462648bc3dfb.bin",
+    "reference": "f63b8ecec1024313.ref",
+    "thumbnail": "f63b8ecec1024313.png",
+    "textured_batches": 6,
+    "vertices": 110874,
+    "geometry_bytes": 344274
+  },
+  "Glock 19 / S1S1new": {
+    "status": "ready",
+    "geometry": "models/7cd3b5c53d95ee11e8d5d1967394784a849a048606933bbfbc0493d5f224933d.bin",
+    "reference": "a0227d0d6e5e5b16.ref",
+    "thumbnail": "a0227d0d6e5e5b16.png",
+    "textured_batches": 0,
+    "vertices": 43701,
+    "geometry_bytes": 118982
+  },
+  "Glock 19 / Onyx": {
+    "status": "incomplete",
+    "missing": [
+      "134438405270517",
+      "101013325288500",
+      "122370169615099",
+      "129012493372010",
+      "94525425061813"
+    ]
+  },
+  "Glock 19 / S4": {
+    "status": "incomplete",
+    "missing": [
+      "135246892331949",
+      "121248432615777",
+      "91589361690580",
+      "127935669490520",
+      "95075732919600",
+      "129852220097799",
+      "98206411797009",
+      "87086762398447",
+      "98117566618388",
+      "89279004542784"
+    ]
+  },
+  "Glock 19 / Creativename": {
+    "status": "incomplete",
+    "missing": [
+      "140317074139523",
+      "105566715194033",
+      "120990049519434",
+      "83133197384677",
+      "130357781271958",
+      "139250300053613"
+    ]
+  },
+  "Glock 19 / S1S1": {
+    "status": "incomplete",
+    "missing": [
+      "114695987990340",
+      "125723736746238",
+      "93753001431657",
+      "114243348423652"
+    ]
+  },
+  "Glock 19 / Blueberry": {
+    "status": "ready",
+    "geometry": "models/17aeedead7c530b488e04efe9b97e6b007d6432531c4167c29178730ce56961a.bin",
+    "reference": "2eea5f977e6ab774.ref",
+    "thumbnail": "2eea5f977e6ab774.png",
+    "textured_batches": 0,
+    "vertices": 34983,
+    "geometry_bytes": 100996
+  },
+  "Glock 19 / X2": {
+    "status": "incomplete",
+    "missing": [
+      "4541073074",
+      "93185765552119",
+      "6779065106",
+      "15128859159",
+      "77020371106983",
+      "12899238890",
+      "12899238656",
+      "12899238569",
+      "12899238737",
+      "12899238719",
+      "79986119398106",
+      "12899238743"
+    ]
+  },
+  "Glock 19 / N3": {
+    "status": "incomplete",
+    "missing": [
+      "107941613916005",
+      "13643719674",
+      "3265337172",
+      "3265337172",
+      "13643719674",
+      "107941613916005",
+      "7050539768",
+      "15934744",
+      "4345471421",
+      "4345470555",
+      "7050576274",
+      "7050376875"
+    ]
+  },
+  "Glock 19 / Booster": {
+    "status": "ready",
+    "geometry": "models/b864b09b371f2898f97037ad2828d6c8c9a290aa8d556dfa24fd47caec2e7c90.bin",
+    "reference": "d2d76f9d2666b070.ref",
+    "thumbnail": "d2d76f9d2666b070.png",
+    "textured_batches": 0,
+    "vertices": 29598,
+    "geometry_bytes": 81788
+  },
+  "Glock 19 / Shorei": {
+    "status": "ready",
+    "geometry": "models/62bfd9e36dac8dd487b0e9ba21a9efd74dcc73ef6442d121f9b266b304978acb.bin",
+    "reference": "03afe1a603d6982c.ref",
+    "thumbnail": "03afe1a603d6982c.png",
+    "textured_batches": 9,
+    "vertices": 29358,
+    "geometry_bytes": 82760
+  },
+  "Glock 19 / S1Champ": {
+    "status": "incomplete",
+    "missing": [
+      "3255274105",
+      "3255274105",
+      "137107924057017",
+      "18694833489",
+      "18694833460",
+      "18689106656",
+      "18947126882",
+      "18694571629"
+    ]
+  },
+  "Glock 19 / N1": {
+    "status": "ready",
+    "geometry": "models/cbeb7148e4c7770f916436f9c6e8963d08a2ee2b68a259a2b2868936b9ede7c8.bin",
+    "reference": "f61992cec0e56379.ref",
+    "thumbnail": "f61992cec0e56379.png",
+    "textured_batches": 0,
+    "vertices": 43701,
+    "geometry_bytes": 118994
+  },
+  "Glock 19 / Pride": {
+    "status": "ready",
+    "geometry": "models/a1f3bfdb40ed999772c5bcd0be9732de34ab69deacbd068b18c7bfa2767db6a8.bin",
+    "reference": "2615ef170a255222.ref",
+    "thumbnail": "2615ef170a255222.png",
+    "textured_batches": 0,
+    "vertices": 32778,
+    "geometry_bytes": 96158
+  },
+  "Glock 19 / TJ": {
+    "status": "incomplete",
+    "missing": [
+      "2027989253",
+      "170939831",
+      "12692011503",
+      "12692013325",
+      "12692015411",
+      "12692017520",
+      "6571349341",
+      "1374148"
+    ]
+  },
+  "Glock 19 / Offwhite": {
+    "status": "ready",
+    "geometry": "models/dca46121f5a3cf57bc0cb4c0b450c55046b07c86478139729bab1f45e1eb71eb.bin",
+    "reference": "a06e418ee986aefe.ref",
+    "thumbnail": "a06e418ee986aefe.png",
+    "textured_batches": 0,
+    "vertices": 132486,
+    "geometry_bytes": 497008
+  },
+  "Glock 19 / ARNY": {
+    "status": "ready",
+    "geometry": "models/b8f5bf77a3ff44fb13d1260a1a068710dfb78ab9297f93238bdd640f66adfd2c.bin",
+    "reference": "be07c60d41733442.ref",
+    "thumbnail": "be07c60d41733442.png",
+    "textured_batches": 3,
+    "vertices": 54372,
+    "geometry_bytes": 137976
+  },
+  "Glock 19 / AKNY": {
+    "status": "ready",
+    "geometry": "models/c1b302e2890a063859e583ff40f55527f8227f26effbde8b815e8c270a9b601a.bin",
+    "reference": "e5bebd0cc7051829.ref",
+    "thumbnail": "e5bebd0cc7051829.png",
+    "textured_batches": 4,
+    "vertices": 58842,
+    "geometry_bytes": 154986
+  },
+  "Glock 19 / 1KHR": {
+    "status": "ready",
+    "geometry": "models/218bd9841b6d94295bdb6910372bfc4f2a5308e7ccefcc7de6658c0212c720cc.bin",
+    "reference": "e2f7a39cef959b2e.ref",
+    "thumbnail": "e2f7a39cef959b2e.png",
+    "textured_batches": 0,
+    "vertices": 29598,
+    "geometry_bytes": 81832
+  },
+  "Glock 19 / 10KK": {
+    "status": "ready",
+    "geometry": "models/adc1fdf2020fd2e78ea2b66c44bc7c00e875ee6d4d838c052267eb9b7a35dadf.bin",
+    "reference": "79d0679b01826b7f.ref",
+    "thumbnail": "79d0679b01826b7f.png",
+    "textured_batches": 0,
+    "vertices": 29598,
+    "geometry_bytes": 81750
+  }
+}

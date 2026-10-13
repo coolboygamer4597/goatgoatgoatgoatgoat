@@ -23,6 +23,7 @@
 #include <cmath>
 #include <map>
 #include <mutex>
+#include <optional>
 #include <string>
 #include <thread>
 #include <chrono>
@@ -39,6 +40,9 @@ constexpr std::uintptr_t kMotorGloveLink = 0x128;
 std::mutex g_stateMutex;
 std::vector<std::string> g_catalog;
 std::string g_selected;
+
+
+std::optional<std::string> g_queuedSelection;
 bool g_editorActive=false;
 SkinMix::Choices g_editorChoices;
 std::map<std::string,std::vector<std::string>> g_slotCatalog;
@@ -1314,14 +1318,19 @@ void ApplySelectedSkin(const RBX::RbxInstance& armModel,
                 nativeName = it->second;
         }
         if (nativeName.empty()) {
-            std::lock_guard<std::mutex> lock(g_stateMutex);
-            const auto it = g_ingamePick.find(weapon.weapon);
-            if (it != g_ingamePick.end()) {
+            std::string inGamePick;
+            {
+                std::lock_guard<std::mutex> lock(g_stateMutex);
+                const auto it = g_ingamePick.find(weapon.weapon);
+                if (it != g_ingamePick.end()) inGamePick = it->second;
+            }
+
+            if (!inGamePick.empty()) {
                 const RBX::RbxInstance folder =
                     WeaponCatalogRoot().FindChild(weapon.weapon.c_str());
                 if (folder.Addr &&
-                    ResolveCatalogModel(folder, it->second).Addr)
-                    nativeName = it->second;
+                    ResolveCatalogModel(folder, inGamePick).Addr)
+                    nativeName = inGamePick;
             }
         }
         if (nativeName.empty())
@@ -1898,26 +1907,49 @@ bool ReleaseRequests(std::string& error){
 }
 
 void SetSelection(const std::string& skin, bool) {
+    std::lock_guard<std::mutex> lock(g_stateMutex);
+    g_queuedSelection = skin;
+    g_status = "Queued skin: " + skin;
+}
+
+bool ProcessQueuedSelection() {
     {
-        std::lock_guard<std::mutex> serial(g_swapMutex);std::string error;
-        if(!ReleaseRequests(error)){SetStatus(error);return;}
         std::lock_guard<std::mutex> lock(g_stateMutex);
-        g_selected = skin;g_editorActive=false;g_editorChoices={};
-        g_status = skin == "Default"
+        if (!g_queuedSelection) return true;
+    }
+
+    std::lock_guard<std::mutex> serial(g_swapMutex);
+    {
+        std::lock_guard<std::mutex> lock(g_stateMutex);
+        if (!g_queuedSelection) return true;
+    }
+    std::string error;
+    if (!ReleaseRequests(error)) { SetStatus(error); return false; }
+    {
+        std::lock_guard<std::mutex> lock(g_stateMutex);
+
+
+        if (!g_queuedSelection) return true;
+        g_selected = std::move(*g_queuedSelection);
+        g_queuedSelection.reset();
+        g_editorActive = false;
+        g_editorChoices = {};
+        g_status = g_selected == "Default"
             ? "Restoring the original catalog children vectors..."
-            : "Swapping catalog children vectors for " + skin + "...";
+            : "Swapping catalog children vectors for " + g_selected + "...";
     }
     g_pendingGlove.store(false, std::memory_order_relaxed);
     g_gloveUnsupported.store(false, std::memory_order_relaxed);
     g_pendingRevision.fetch_add(1, std::memory_order_relaxed);
-
-    ApplySelectionFromUi();
+    return true;
 }
 
 }
 
 namespace Skins {
 WeaponPreview::Snapshot CapturePreview(const std::string& weapon,const std::string& skin){
+    WeaponPreview::Snapshot offline;offline.name=weapon+" / "+skin;
+    if(PreviewCache::LoadModel(weapon,skin,offline.vertices))return offline;
     std::unique_lock<std::mutex> lock(g_swapMutex);
     auto root=Globals::dataModel.FindChildByClass("ReplicatedStorage").FindChild("Models").FindChild("Weapons");
     auto model=ResolveCatalogModel(root.FindChild(weapon),weapon+"_"+skin);
@@ -1930,15 +1962,20 @@ WeaponPreview::Snapshot CapturePreview(const std::string& weapon,const std::stri
     lock.unlock();
     return WeaponPreview::CaptureRoot(model,weapon+" / "+skin,&parts);
 }
-std::string PreviewSelection(const std::string& weapon){return WeaponSelection(weapon,SavedSelection());}
+std::string PreviewSelection(const std::string& weapon) {
+    std::lock_guard<std::mutex> lock(g_stateMutex);
+    if (g_queuedSelection) return *g_queuedSelection;
+    if (!g_editorActive) return g_selected;
+    return weapon == "AR-15" ? g_editorChoices.ar :
+        weapon == "Glock 19" ? g_editorChoices.glock : "Default";
+}
 std::string SavedSelection() {
     std::lock_guard<std::mutex> lock(g_stateMutex);
-    return g_selected;
+    return g_queuedSelection ? *g_queuedSelection : g_selected;
 }
 void RestoreSelection(const std::string& skin) {
     if(skin.empty() || skin.size()>128) return;
-    { std::lock_guard<std::mutex> lock(g_stateMutex); g_selected=skin; }
-    g_pendingRevision.fetch_add(1,std::memory_order_relaxed);
+    SetSelection(skin, false);
 }
 
 void Tick() {
@@ -1947,6 +1984,7 @@ void Tick() {
     static auto nextApply = Clock::time_point{};
     const auto now = Clock::now();
 
+    if (!ProcessQueuedSelection()) return;
     if (g_pendingRevision.load(std::memory_order_relaxed) != 0)
         ApplySelectionFromUi();
 
@@ -1975,7 +2013,7 @@ bool ApplyEditor(const SkinMix::Choices& draft,std::string& status){
         }
         for(const auto& gloves:{draft.arGloves,draft.glockGloves})if(gloves!="Default"&&!IsGloveSkin(gloves)){status="This selection has no glove model: "+gloves;return false;}
         status.clear();if(!ReleaseRequests(status))return false;
-        std::lock_guard<std::mutex> lock(g_stateMutex);g_editorChoices=draft;g_editorActive=true;g_selected.clear();
+        std::lock_guard<std::mutex> lock(g_stateMutex);g_queuedSelection.reset();g_editorChoices=draft;g_editorActive=true;g_selected.clear();
     }
     g_gloveUnsupported.store(false);g_pendingRevision.fetch_add(1);
     const bool applied=ApplySelectionFromUi();
@@ -1986,7 +2024,7 @@ bool UnloadEditor(std::string& status){
     {
         std::lock_guard<std::mutex> serial(g_swapMutex);
         status.clear();if(!ReleaseRequests(status))return false;
-        std::lock_guard<std::mutex> lock(g_stateMutex);g_editorActive=false;g_editorChoices={};g_selected="Default";
+        std::lock_guard<std::mutex> lock(g_stateMutex);g_queuedSelection.reset();g_editorActive=false;g_editorChoices={};g_selected="Default";
     }
     g_gloveUnsupported.store(false);g_pendingRevision.fetch_add(1);
     const bool restored=ApplySelectionFromUi();
@@ -2057,7 +2095,7 @@ void RenderMenu() {
     {
         std::lock_guard<std::mutex> lock(g_stateMutex);
         catalog = g_catalog;
-        selected = g_selected;
+        selected = g_queuedSelection ? *g_queuedSelection : g_selected;
     }
 
     static char search[96]{};
@@ -2120,6 +2158,7 @@ void Shutdown() {
         }
     }
     std::lock_guard<std::mutex> lock(g_stateMutex);
+    g_queuedSelection.reset();
     g_appliedSkin = "None";
     g_appliedGloves = "-";
     g_currentWeapon = "None";

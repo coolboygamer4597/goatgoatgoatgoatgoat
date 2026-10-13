@@ -15,3 +15,4 @@ for offsets and updates https://discord.gg/SjTdwhDG9M
 
 based on jatos base
 
+Skin previews use the `preview-cache` folder. Visual Studio builds copy it beside the executable. Include that folder when sharing the executable; without it, previews use the existing live-game fallback.

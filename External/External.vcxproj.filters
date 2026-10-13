@@ -525,4 +525,8 @@
     <ClInclude Include="src\sdk\OffsetUpdates.h"><Filter>Header Files\src\sdk</Filter></ClInclude>
     <ClInclude Include="src\render\OffsetSourceUi.h"><Filter>Header Files\src\render</Filter></ClInclude>
   </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="src\render\PreviewCache.h"><Filter>Header Files\src\render</Filter></ClInclude>
+    <ClInclude Include="src\render\PreviewThumbnail.h"><Filter>Header Files\src\render</Filter></ClInclude>
+  </ItemGroup>
 </Project>
