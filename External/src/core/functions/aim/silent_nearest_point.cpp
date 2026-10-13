@@ -2,7 +2,7 @@
 #include "../../globals/globals.h"
 #include "../../variables/variables.h"
 #include "../../../memory/memory.h"
-#include "../../../sdk/offsets.h"
+#include "../../../sdk/RuntimeOffsets.h"
 #include "../../../sdk/w2s.h"
 #include <algorithm>
 #include <cmath>

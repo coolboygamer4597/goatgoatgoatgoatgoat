@@ -8,7 +8,7 @@
 #include "../mesh/shader/MeshDxShader.h"
 
 #include "../../../memory/memory.h"
-#include "../../../sdk/offsets.h"
+#include "../../../sdk/RuntimeOffsets.h"
 #include "../../cache/cache.h"
 #include "../WeaponVisuals.h"
 #include "../mesh/parser/MeshParser.h"

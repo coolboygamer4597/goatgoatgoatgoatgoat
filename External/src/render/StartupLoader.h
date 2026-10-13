@@ -13,6 +13,7 @@
 #include "RetroUi.h"
 #include "LaunchPrivacy.h"
 #include "CaptureProtection.h"
+#include "OffsetSourceUi.h"
 #include <future>
 #include <functional>
 #pragma comment(lib,"d3d11.lib")
@@ -59,7 +60,7 @@ inline LRESULT CALLBACK WndProc(HWND hwnd,UINT msg,WPARAM w,LPARAM l){
  if(retained)return DefWindowProcW(hwnd,msg,w,l);
  if(ImGui::GetCurrentContext() && ImGui_ImplWin32_WndProcHandler(hwnd,msg,w,l))return 1;
  if(msg==WM_CLOSE){cancelled=true;return 0;}
- if(msg==WM_NCHITTEST){POINT p{static_cast<short>(LOWORD(l)),static_cast<short>(HIWORD(l))};ScreenToClient(hwnd,&p);if(p.y<35*uiScale && p.x<610*uiScale)return HTCAPTION;}
+ if(msg==WM_NCHITTEST && (!ImGui::GetCurrentContext() || !ImGui::IsPopupOpen(nullptr,ImGuiPopupFlags_AnyPopupId|ImGuiPopupFlags_AnyPopupLevel))){POINT p{static_cast<short>(LOWORD(l)),static_cast<short>(HIWORD(l))};ScreenToClient(hwnd,&p);if(p.y<35*uiScale && p.x<610*uiScale)return HTCAPTION;}
  if(msg==WM_SYSCOMMAND && (w&0xfff0)==SC_KEYMENU)return 0;
  return DefWindowProcW(hwnd,msg,w,l);
 }
@@ -85,7 +86,11 @@ inline void Draw(LoadState& state,bool detected,ImFont* titleFont,ImFont* smallF
  }
  ImGui::SetCursorPos(Scaled(35,264));ImGui::BeginDisabled(!detected||state.loading);
  bool click=RetroUi::Choice(state.loading?"LOADING...":"LOAD",detected,Scaled(275,46));
- ImGui::EndDisabled();state.Update(detected,click,t);
+ ImGui::EndDisabled();
+ ImGui::SetCursorPos(Scaled(55,211));ImGui::BeginDisabled(!detected||state.loading);
+ const auto offsetsLabel=OffsetSourceUi::LoaderLabel();
+ bool chooseSource=RetroUi::Choice(offsetsLabel.c_str(),false,Scaled(250,26));
+ ImGui::EndDisabled();click=OffsetSourceUi::LoadClick(click,uiScale,LaunchPrivacy::streamproof,chooseSource);state.Update(detected,click,t);
  ImGui::SetCursorPos(Scaled(369,264));if(RetroUi::Choice("QUIT",false,Scaled(275,46)))cancelled=true;
  for(int i=0;i<30;++i){ImVec2 p=Scaled(36+i*20.f,331);d->AddRectFilled(p,ImVec2(p.x+16*uiScale,p.y+8*uiScale),i<int(state.Progress(t)*30)?RetroUi::Gold:IM_COL32(40,40,49,255));}
  ImGui::End();

@@ -9,7 +9,7 @@
 #include <vector>
 #include "../../globals/globals.h"
 #include "../../../memory/memory.h"
-#include "../../../sdk/offsets.h"
+#include "../../../sdk/RuntimeOffsets.h"
 #include "../../../../ext/imgui/imgui.h"
 #include <cmath>
 #include <chrono>

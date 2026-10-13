@@ -4,7 +4,7 @@
 #include <windows.h>
 #include "../globals/globals.h"
 #include "../../memory/memory.h"
-#include "../../sdk/offsets.h"
+#include "../../sdk/RuntimeOffsets.h"
 #include "../../sdk/sdk.h"
 
 namespace {

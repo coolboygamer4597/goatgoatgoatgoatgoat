@@ -39,7 +39,7 @@
 #include "../../src/core/features/spotify/music_player_ui.h"
 #include "../../src/core/features/spotify/media.h"
 #include "../../src/core/cache/cache.h"
-#include "../../src/sdk/offsets.h"
+#include "../../src/sdk/RuntimeOffsets.h"
 #include <chrono>
 #include <ctime>
 #include <cstdio>

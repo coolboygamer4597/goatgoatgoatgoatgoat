@@ -1,5 +1,5 @@
 #pragma once
-#include "../../src/sdk/offsets.h"
+#include "../../src/sdk/RuntimeOffsets.h"
 #include "../../src/sdk/math.h"
 #include "../../src/memory/memory.h"
 #include <string>

@@ -7,7 +7,7 @@
 #include "MeshMath.h"
 
 #include "sdk/sdk.h"
-#include "sdk/offsets.h"
+#include "sdk/RuntimeOffsets.h"
 #include "memory/memory.h"
 
 namespace {

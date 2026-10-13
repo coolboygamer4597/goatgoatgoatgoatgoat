@@ -4,7 +4,7 @@
 #endif
 #include "raycast_silent.h"
 #include "../../../memory/memory.h"
-#include "../../../sdk/offsets.h"
+#include "../../../sdk/RuntimeOffsets.h"
 #include "../../globals/globals.h"
 #include <Windows.h>
 #include <vector>
@@ -44,8 +44,8 @@ namespace Cheat {
         namespace RaycastSilent {
             namespace {
 
-                constexpr std::uintptr_t desc_rva_z = Offsets::WorldRoot::RaycastBoundDesc;
-                constexpr std::uintptr_t bound_fn_offset = Offsets::WorldRoot::RaycastBoundFn;
+                const std::uintptr_t desc_rva_z = Offsets::WorldRoot::RaycastBoundDesc;
+                const std::uintptr_t bound_fn_offset = Offsets::WorldRoot::RaycastBoundFn;
 
 #pragma pack(push, 4)
                 struct RaycastState {

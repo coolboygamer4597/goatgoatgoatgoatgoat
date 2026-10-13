@@ -3,7 +3,7 @@
 #include "../../globals/globals.h"
 #include "../../variables/variables.h"
 #include "../../../memory/memory.h"
-#include "../../../sdk/offsets.h"
+#include "../../../sdk/RuntimeOffsets.h"
 #include <chrono>
 #include <string>
 

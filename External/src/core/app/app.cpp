@@ -14,7 +14,8 @@
 #include <vector>
 #include <unordered_map>
 #include "../../memory/memory.h"
-#include "../../sdk/offsets.h"
+#include "../../sdk/RuntimeOffsets.h"
+#include "../../sdk/OffsetUpdates.h"
 #include "../../sdk/sdk.h"
 #include "../cache/cache.h"
 #include "../globals/globals.h"
@@ -485,6 +486,18 @@ bool init() {
         return false;
     }
     const std::wstring runningVersion = RunningClientVersion();
+    std::string version;
+    for (wchar_t c : runningVersion) {
+        if (c > 127) { startupError=L"Could not identify the Roblox version."; return false; }
+        version+=static_cast<char>(c);
+    }
+    if (!OffsetUpdates::Resolve(version)) {
+        const auto reason = OffsetUpdates::Error();
+        const int count = MultiByteToWideChar(CP_UTF8, 0, reason.data(), static_cast<int>(reason.size()), nullptr, 0);
+        startupError.assign(count, L'\0');
+        if (count) MultiByteToWideChar(CP_UTF8, 0, reason.data(), static_cast<int>(reason.size()), startupError.data(), count);
+        return false;
+    }
     const std::wstring expectedVersion(Offsets::ClientVersion.begin(), Offsets::ClientVersion.end());
     if (!runningVersion.empty() && runningVersion != expectedVersion) {
         startupError = L"Roblox version mismatch. This build expects " + expectedVersion +
@@ -560,6 +573,7 @@ bool init() {
     Globals::camera = Globals::workspace.FindChildByClass("Camera");
     const auto local = memory->read<std::uintptr_t>(Globals::players.Addr + Offsets::Player::LocalPlayer);
     Globals::localPlayer = RBX::RbxInstance{local};
+    OffsetUpdates::RememberSuccessfulLoad(version);
     return true;
 }
 

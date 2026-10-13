@@ -10,7 +10,7 @@
 #endif
 #include "../../globals/globals.h"
 #include "../../../memory/memory.h"
-#include "../../../sdk/offsets.h"
+#include "../../../sdk/RuntimeOffsets.h"
 #include "../../../sdk/sdk.h"
 #include "../../../render/menu/library.h"
 #include <Windows.h>

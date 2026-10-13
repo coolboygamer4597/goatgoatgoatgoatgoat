@@ -12,7 +12,7 @@
 #include <unordered_set>
 #include <vector>
 
-#include "sdk/offsets.h"
+#include "sdk/RuntimeOffsets.h"
 
 namespace Cheat::Visuals::MeshOcclusion {
 namespace {

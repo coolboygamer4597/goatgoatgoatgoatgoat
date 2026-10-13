@@ -7,6 +7,7 @@
 #include "../../keys/keys.h"
 #include "../../../render/menu/library.h"
 #include "../../../render/SadblobVideo.h"
+#include "../../../render/OffsetSourceUi.h"
 #include "../../cache/cache.h"
 #include <cctype>
 #include <commdlg.h>
@@ -233,6 +234,25 @@ void RenderThemeMenu() {
 }
 
 void RenderMiscMenu() {
+    auto selected = OffsetUpdates::GetSelection();
+    int source = static_cast<int>(selected.source);
+    if (imGuiCustom::Combo("offset_source", &source, OffsetSourceUi::names, 3,
+        ImVec2(317, 67), 360, "Offsets source:")) {
+        try { OffsetUpdates::SetSelection(static_cast<OffsetUpdates::Source>(source), selected.file); OffsetSourceUi::error.clear(); }
+        catch (const std::exception& e) { OffsetSourceUi::error=e.what(); }
+    }
+    if (source==2) {
+        ImGui::SetCursorPos(ImVec2(317,109));
+        if (ImGui::Button("Select offsets file...")) {
+            auto file=OffsetSourceUi::Browse(static_cast<HWND>(ImGui::GetMainViewport()->PlatformHandleRaw),Keys::StreamProofOn(),selected.file);
+            if (!file.empty()) try { OffsetUpdates::SetSelection(OffsetUpdates::Source::Local,file); OffsetSourceUi::error.clear(); }
+                catch (const std::exception& e) { OffsetSourceUi::error=e.what(); }
+        }
+        ImGui::SetCursorPos(ImVec2(317,141));ImGui::TextWrapped("%s", selected.file.filename().u8string().c_str());
+    }
+    ImGui::SetCursorPos(ImVec2(317,185));ImGui::TextWrapped("%s",OffsetUpdates::Status().c_str());
+    ImGui::SetCursorPos(ImVec2(317,220));ImGui::TextDisabled("Source changes apply on the next launch.");
+    if (!OffsetSourceUi::error.empty()) { ImGui::SetCursorPos(ImVec2(317,255));ImGui::TextWrapped("%s",OffsetSourceUi::error.c_str()); }
     float ry = 46.0f;
     imGuiCustom::Checkbox("Stream Proof", &variables::Misc::streamProof, ImVec2(12.0f, ry));
     imGuiCustom::Keybind("stream_key", &variables::Misc::streamKey, ImVec2(206.0f, ry - 1.0f), ImVec2(68.0f, 13.0f), &variables::Misc::streamKeyMode);

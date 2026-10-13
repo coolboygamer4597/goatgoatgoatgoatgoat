@@ -25,6 +25,7 @@
     <ClCompile Include="ext\imgui\imgui_impl_win32.cpp" />
     <ClCompile Include="ext\imgui\imgui_tables.cpp" />
     <ClCompile Include="ext\imgui\imgui_widgets.cpp" />
+    <ClCompile Include="src\sdk\OffsetUpdates.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="src\core\app\app.cpp" />
     <ClCompile Include="src\core\functions\aim\aim.cpp" />
@@ -89,6 +90,11 @@
     <ClInclude Include="src\render\ProtectedError.h" />
     <ClInclude Include="src\render\SadblobVideo.h" />
     <ClInclude Include="src\sdk\math.h" />
+    <ClInclude Include="src\sdk\RuntimeOffsets.h" />
+    <ClInclude Include="src\sdk\offset_fields.inc" />
+    <ClInclude Include="src\sdk\OffsetData.h" />
+    <ClInclude Include="src\sdk\OffsetUpdates.h" />
+    <ClInclude Include="src\render\OffsetSourceUi.h" />
     <ClInclude Include="src\sdk\offsets.h" />
     <ClInclude Include="src\sdk\sdk.h" />
     <ClInclude Include="src\sdk\structs.h" />
