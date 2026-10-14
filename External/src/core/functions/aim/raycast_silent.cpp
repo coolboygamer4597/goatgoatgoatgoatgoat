@@ -44,8 +44,8 @@ namespace Cheat {
         namespace RaycastSilent {
             namespace {
 
-                const std::uintptr_t desc_rva_z = Offsets::WorldRoot::RaycastBoundDesc;
-                const std::uintptr_t bound_fn_offset = Offsets::WorldRoot::RaycastBoundFn;
+                const std::uintptr_t& desc_rva_z = Offsets::WorldRoot::RaycastBoundDesc;
+                const std::uintptr_t& bound_fn_offset = Offsets::WorldRoot::RaycastBoundFn;
 
 #pragma pack(push, 4)
                 struct RaycastState {
@@ -74,8 +74,7 @@ namespace Cheat {
                     std::uintptr_t thunk = 0;
                     std::uintptr_t state = 0;
                     std::uintptr_t originalFunction = 0;
-                    std::uintptr_t module_base = 0;
-                    std::uintptr_t descriptor_rva = 0;
+                    std::uintptr_t slot = 0;
                     bool thunk_owned = false;
                     bool installed = false;
                     bool active = false;
@@ -706,12 +705,9 @@ namespace Cheat {
                         const std::uint32_t inactive = 0;
                         w_mem(hook.state, &inactive, sizeof(inactive));
                     }
-                    if (hook.installed && addr_ok(hook.originalFunction) &&
-                        hook.module_base && hook.descriptor_rva) {
-                        const std::uintptr_t slot = hook.module_base +
-                            hook.descriptor_rva + bound_fn_offset;
-                        if (g_Memory.Read<std::uintptr_t>(slot) == hook.thunk)
-                            write_protected(slot, &hook.originalFunction, sizeof(hook.originalFunction));
+                    if (hook.installed && addr_ok(hook.originalFunction) && hook.slot) {
+                        if (g_Memory.Read<std::uintptr_t>(hook.slot) == hook.thunk)
+                            write_protected(hook.slot, &hook.originalFunction, sizeof(hook.originalFunction));
                     }
 
                     hook.installed = false;
@@ -794,8 +790,7 @@ namespace Cheat {
                     if (write_protected(slot, &g_hook.thunk, sizeof(g_hook.thunk)) &&
                         g_Memory.Read<std::uintptr_t>(slot) == g_hook.thunk)
                     {
-                        g_hook.module_base      = base;
-                        g_hook.descriptor_rva   = desc_rva_z;
+                        g_hook.slot             = slot;
                         g_hook.installed        = true;
                         g_hook.active           = false;
                         g_lastFail              = {};
@@ -908,8 +903,7 @@ namespace Cheat {
                     return false;
                 }
 
-                g_hook.module_base      = base;
-                g_hook.descriptor_rva   = desc_rva_z;
+                g_hook.slot             = slot;
                 g_hook.originalFunction = fn;
                 g_hook.thunk            = stub;
                 g_hook.thunk_owned      = owned;

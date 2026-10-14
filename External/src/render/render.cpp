@@ -906,8 +906,7 @@ void OverlayWindow::render(ImDrawList* drawList) {
         const float radius = Aimbot::SilentAimRadius();
         const ImU32 fc = imGuiCustom::ColorU32(variables::Aimbot::silentFovColor);
 
-        drawList->AddCircle(center, radius, IM_COL32(8, 8, 8, 255), 64, 2.0f);
-        drawList->AddCircle(center, radius, fc, 64, 1.0f);
+        Aimbot::DrawFovCircle(drawList, center, radius, fc);
     }
     FloatingPanels::Draw();
     TargetLabels::Draw(drawList);

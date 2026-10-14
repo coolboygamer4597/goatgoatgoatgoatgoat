@@ -690,7 +690,7 @@ std::int32_t Run() {
         if (!Globals::running.load())
             break;
 
-        ImDrawList* dl = ImGui::GetBackgroundDrawList();
+        ImDrawList* dl = ImGui::GetBackgroundDrawList(ImGui::GetMainViewport());
         { Performance::Scope timing(Performance::Overlay); overlay.render(dl); }
         if (variables::ESP::meshChams || Cheat::Visuals::NativeChams::WorldDepthNeeded()) {
             const auto meshView = Globals::renderEngine.GetViewMat();
