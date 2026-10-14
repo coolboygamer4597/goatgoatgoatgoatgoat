@@ -11,8 +11,9 @@ inline int selectedTab = 0;
 
 namespace Aimbot {
 inline bool recoilEnabled=false;
+inline bool recoilHorizontal=true;
 inline bool recoilActive=false;
-inline float recoilStrength=.5f;
+inline float recoilStrength=1.f;
 inline float recoilPull=400.f;
 inline float recoilGlockStrength=.5f;
 inline float recoilGlockPull=60.f;

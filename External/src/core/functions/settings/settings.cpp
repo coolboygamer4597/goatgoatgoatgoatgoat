@@ -46,10 +46,6 @@ void RenderRecoil() {
     imGuiCustom::SliderFloat("recoil_strength",&percent,0,100,ImVec2(12,150),272,"Strength","%.0f%%");
     strength=percent/100.f;
     imGuiCustom::SliderFloat("recoil_pull",&pull,0,profile?160.f:1200.f,ImVec2(12,206),272,profile?"Vertical pull per shot":"Vertical pull per second","%.0f");
-    ImGui::SetCursorPos(ImVec2(12,265));ImGui::TextUnformatted("Switches automatically with your equipped weapon.");
-    ImGui::SetCursorPos(ImVec2(12,290));ImGui::TextUnformatted("If aim moves down, lower strength or vertical pull.");
-    ImGui::SetCursorPos(ImVec2(12,315));ImGui::TextUnformatted(profile?"Glock: one short pulse per click.":"AR-15: release shoot between bursts over 3.5 seconds.");
-    ImGui::SetCursorPos(ImVec2(12,340));ImGui::TextUnformatted(Recoil::Status());
 }
 
 void RenderAimChecks() {
