@@ -534,6 +534,7 @@
     <ClCompile Include="src\core\app\AppUpdates.cpp"><Filter>Source Files\src\core\app</Filter></ClCompile>
     <ClInclude Include="src\core\app\AppVersion.h"><Filter>Header Files\src\core\app</Filter></ClInclude>
     <ClInclude Include="src\core\app\AppUpdateData.h"><Filter>Header Files\src\core\app</Filter></ClInclude>
+    <ClInclude Include="src\core\app\PreviewUpdateData.h"><Filter>Header Files\src\core\app</Filter></ClInclude>
     <ClInclude Include="src\core\app\UpdateTrust.h"><Filter>Header Files\src\core\app</Filter></ClInclude>
     <ClInclude Include="src\core\app\AppUpdates.h"><Filter>Header Files\src\core\app</Filter></ClInclude>
     <ClInclude Include="src\render\AppUpdateUi.h"><Filter>Header Files\src\render</Filter></ClInclude>

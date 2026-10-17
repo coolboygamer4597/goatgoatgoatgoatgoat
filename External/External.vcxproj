@@ -72,6 +72,7 @@
     <ClInclude Include="src\core\app\app.h" />
     <ClInclude Include="src\core\app\AppVersion.h" />
     <ClInclude Include="src\core\app\AppUpdateData.h" />
+    <ClInclude Include="src\core\app\PreviewUpdateData.h" />
     <ClInclude Include="src\core\app\UpdateTrust.h" />
     <ClInclude Include="src\core\app\AppUpdates.h" />
     <ClInclude Include="src\render\AppUpdateUi.h" />

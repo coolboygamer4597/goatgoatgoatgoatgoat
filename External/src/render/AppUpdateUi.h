@@ -9,22 +9,36 @@ inline bool Draw(float scale=1.f,bool permitted=true){
     const bool offer=state.phase==AppUpdates::Phase::Available && (!state.suppressed||state.manual);
     const bool notice=state.manual && (state.phase==AppUpdates::Phase::Error || (state.phase==AppUpdates::Phase::Idle&&!state.message.empty()));
     const bool downloading=state.phase==AppUpdates::Phase::Downloading;
+    const bool preview=(state.previewPhase==AppUpdates::PreviewPhase::Offered||state.previewPhase==AppUpdates::PreviewPhase::Downloading||state.previewPhase==AppUpdates::PreviewPhase::Error)&&(!state.suppressed||state.manual);
+    const bool previewDownloading=state.previewPhase==AppUpdates::PreviewPhase::Downloading;
     if(!permitted)return false;
-    if((offer||notice||downloading)&&!ImGui::IsPopupOpen("Application update"))ImGui::OpenPopup("Application update");
+    if((offer||notice||downloading||preview)&&!ImGui::IsPopupOpen("Application update"))ImGui::OpenPopup("Application update");
     const auto viewport=ImGui::GetWindowViewport();const ImVec2 center(viewport->Pos.x+viewport->Size.x*.5f,viewport->Pos.y+viewport->Size.y*.5f);
     const ImVec2 size(610*scale,300*scale);ImGui::SetNextWindowSize(size,ImGuiCond_Always);ImGui::SetNextWindowPos(center,ImGuiCond_Appearing,ImVec2(.5f,.5f));
     ImGui::PushStyleColor(ImGuiCol_PopupBg,IM_COL32(18,18,23,255));
     if(ImGui::BeginPopupModal("Application update",nullptr,ImGuiWindowFlags_NoDecoration|ImGuiWindowFlags_NoResize|ImGuiWindowFlags_NoMove)){
         auto position=ImGui::GetWindowPos();RetroUi::Frame(ImGui::GetWindowDrawList(),position,ImVec2(position.x+size.x,position.y+size.y));
-        ImGui::SetCursorPos(Scaled(24,20,scale));ImGui::TextUnformatted(downloading?"Downloading update":offer?"An update is available":"Application updates");
+        ImGui::SetCursorPos(Scaled(24,20,scale));ImGui::TextUnformatted(preview?previewDownloading?"Downloading skin previews":"Optional skin previews":downloading?"Downloading update":offer?"An update is available":"Application updates");
         ImGui::SetCursorPos(Scaled(24,52,scale));ImGui::Text("Installed: %s",AppUpdates::CurrentVersion());
         if(offer||downloading){ImGui::SameLine(260*scale);ImGui::Text("Newest: %s",state.version.c_str());}
         ImGui::SetCursorPos(Scaled(24,85,scale));ImGui::BeginChild("update_details",Scaled(562,120,scale));
-        ImGui::TextWrapped("%s",offer?state.notes.c_str():state.message.c_str());
+        if(preview){
+            if(state.previewPhase==AppUpdates::PreviewPhase::Error)ImGui::TextWrapped("%s",state.previewMessage.c_str());
+            else if(previewDownloading)ImGui::TextWrapped("%s",state.previewMessage.c_str());
+            else ImGui::TextWrapped("The preview folder is missing or incomplete. Download skin previews for clearer, more reliable skin-changer previews?\n\nOptional download: %.1f MB. You can continue without it.",state.previewBytes/1000000.0);
+            if(previewDownloading)ImGui::ProgressBar(state.previewProgress,ImVec2(-1,18*scale),nullptr);
+        }else ImGui::TextWrapped("%s",offer?state.notes.c_str():state.message.c_str());
         if(downloading)ImGui::ProgressBar(state.progress,ImVec2(-1,18*scale),nullptr);
         ImGui::EndChild();
         if(!downloading)ImGui::SetCursorPos(Scaled(24,235,scale));
-        if(offer){if(RetroUi::Choice("UPDATE NOW",false,Scaled(270,42,scale)))AppUpdates::Download();ImGui::SameLine(316*scale);if(RetroUi::Choice("SKIP THIS VERSION",false,Scaled(270,42,scale))){AppUpdates::Skip();ImGui::CloseCurrentPopup();}}
+        if(preview){
+            if(previewDownloading){if(RetroUi::Choice("CANCEL DOWNLOAD",false,Scaled(562,42,scale)))AppUpdates::SkipPreviews();}
+            else{
+                if(RetroUi::Choice(state.previewPhase==AppUpdates::PreviewPhase::Error?"RETRY DOWNLOAD":"DOWNLOAD PREVIEWS",false,Scaled(270,42,scale)))AppUpdates::DownloadPreviews();
+                ImGui::SameLine(316*scale);if(RetroUi::Choice("CONTINUE WITHOUT",false,Scaled(270,42,scale))){AppUpdates::SkipPreviews();ImGui::CloseCurrentPopup();}
+            }
+        }
+        else if(offer){if(RetroUi::Choice("UPDATE NOW",false,Scaled(270,42,scale))){if(state.previewsAvailable&&state.previewsMissing)AppUpdates::OfferPreviewsForUpdate();else AppUpdates::Download();}ImGui::SameLine(316*scale);if(RetroUi::Choice("SKIP THIS VERSION",false,Scaled(270,42,scale))){AppUpdates::Skip();ImGui::CloseCurrentPopup();}}
         else if(!downloading){if(RetroUi::Choice("CLOSE",false,Scaled(562,42,scale))){AppUpdates::Skip();ImGui::CloseCurrentPopup();}}
         ImGui::EndPopup();
     }
