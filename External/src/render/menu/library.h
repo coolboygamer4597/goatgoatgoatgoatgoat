@@ -295,7 +295,7 @@ inline bool ColorSquare(const char* id_text, ImVec4* color, const ImVec2& pos)
         if (hexCtx && ImGui::IsMouseClicked(ImGuiMouseButton_Left) && !ImRect(hexPopMin, ImVec2(hexPopMin.x + hexPopW, hexPopMin.y + hexFullH)).Contains(ImGui::GetIO().MousePos))
             hexCtxOpen = 0;
         if (hexCtxAnim > 0.01f) {
-            ImDrawList* hexFg = ImGui::GetForegroundDrawList();
+            ImDrawList* hexFg = ImGui::GetForegroundDrawList(ImGui::GetWindowViewport());
             hexFg->PushClipRect(hexPopMin, ImVec2(hexPopMin.x + hexPopW, hexPopMin.y + hexFullH * hexCtxAnim), true);
             ImVec2 hexBoxMax = ImVec2(hexPopMin.x + hexPopW, hexPopMin.y + hexFullH);
             hexFg->AddRectFilled(hexPopMin, hexBoxMax, ColorU32(ptheme.ControlBg, hexCtxAnim), 0.0f);
@@ -327,8 +327,9 @@ inline bool ColorSquare(const char* id_text, ImVec4* color, const ImVec2& pos)
         ImGui::PopID();
         popPos = ImGui::GetWindowPos();
         popSize = ImGui::GetWindowSize();
+        auto popupViewport = ImGui::GetWindowViewport();
         ImGui::EndPopup();
-        ImDrawList* popFg = ImGui::GetForegroundDrawList();
+        ImDrawList* popFg = ImGui::GetForegroundDrawList(popupViewport);
         popFg->AddRect(popPos, popPos + popSize, OutlineBlack(), 0.0f, 0, 1.0f);
         popFg->AddRect(popPos + ImVec2(1.0f, 1.0f), popPos + popSize - ImVec2(1.0f, 1.0f), OutlineInner(), 0.0f, 0, 1.0f);
     } else {
@@ -531,7 +532,7 @@ inline bool Keybind(const char* label, int* key, const ImVec2& pos, const ImVec2
 
         TrackHandDrawnPopupRect(popup_min.x, popup_min.y,
             popup_min.x + popup_w, popup_min.y + full_height);
-        ImDrawList* overlay = ImGui::GetForegroundDrawList();
+        ImDrawList* overlay = ImGui::GetForegroundDrawList(ImGui::GetWindowViewport());
         overlay->PushClipRect(popup_min, popup_max, true);
         const ImVec2 popup_box_max = ImVec2(popup_min.x + popup_w, popup_min.y + full_height);
         overlay->AddRectFilled(popup_min, popup_box_max, ColorU32(theme.ControlBg, context_anim), 0.0f);
@@ -666,10 +667,12 @@ struct SelectorShared
         const float popup_padding = 3.0f;
         const float content_h = row_height * items_count;
 
-        const float max_popup_h = (std::max)(160.0f, ImGui::GetIO().DisplaySize.y * 0.82f);
+        const auto viewport = ImGui::GetWindowViewport();
+        const float max_popup_h = (std::max)(160.0f, viewport->WorkSize.y * 0.82f);
         const float visible_h = (std::min)(content_h, max_popup_h - popup_padding * 2.0f);
         ImVec2 boxMin(min.x, min.y + size.y + 2.0f);
-        if (boxMin.y + visible_h + popup_padding * 2.0f > ImGui::GetIO().DisplaySize.y && min.y - 2.0f - visible_h >= 0.0f)
+        if (boxMin.y + visible_h + popup_padding * 2.0f > viewport->WorkPos.y + viewport->WorkSize.y &&
+            min.y - 2.0f - visible_h - popup_padding * 2.0f >= viewport->WorkPos.y)
             boxMin.y = min.y - 2.0f - visible_h - popup_padding * 2.0f;
         out_visible_h = visible_h;
         return boxMin;

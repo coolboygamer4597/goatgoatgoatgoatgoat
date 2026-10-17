@@ -1,0 +1,2 @@
+#pragma once
+#define GOAT_APP_VERSION "1.1.1"

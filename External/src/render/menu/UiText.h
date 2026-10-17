@@ -20,6 +20,7 @@ inline const char* Tr(const char* text){
   {"Middle Mouse","Midtre mus"},
   {"Keybind list","Hurtigtaster"},
   {"Performance","Ytelse"},
+  {"Show in taskbar","Vis på oppgavelinjen"},
   {"No enabled keybinds","Ingen aktive hurtigtaster"},
   {"Overlay FPS","Overleggs-FPS"},
   {"CPU ms / frame","CPU ms / bilde"},

@@ -33,6 +33,7 @@ private:
     void SyncToGameWindow();
     void ResizeSwapChain(int width, int height);
     LONG lastExStyle = -1;
+    bool inputWasWanted = false;
 
 public:
     OverlayWindow();
@@ -46,5 +47,3 @@ public:
     HWND GetWindowHandle() const;
     ImVec2 GetClientSize() const;
 };
-
-void DrainOverlayMouseEvents();

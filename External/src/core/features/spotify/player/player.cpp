@@ -1,4 +1,4 @@
-﻿#include "../../../../render/menu/UiText.h"
+#include "../../../../render/menu/UiText.h"
 #include "media.h"
 #include "music_player_host.h"
 #include "music_player_ui.h"
@@ -236,21 +236,6 @@ void DrawMusicPlayer() {
     st.previousMode = mode;
     st.wasWindowFull = windowFull;
 
-    if (!resizing) {
-        ImVec2 clampedPos(
-            std::clamp(wp.x, vp->WorkPos.x + 8.f,
-                std::max(vp->WorkPos.x + 8.f,
-                         vp->WorkPos.x + vp->WorkSize.x - ws.x - 8.f)),
-            std::clamp(wp.y, vp->WorkPos.y + 8.f,
-                std::max(vp->WorkPos.y + 8.f,
-                         vp->WorkPos.y + vp->WorkSize.y - ws.y - 8.f)));
-        if (std::abs(clampedPos.x - wp.x) > 0.5f ||
-            std::abs(clampedPos.y - wp.y) > 0.5f) {
-            ImGui::SetWindowPos(clampedPos);
-            wp = clampedPos;
-        }
-    }
-
     const float dragLeft = detail::Px(fullScreen ? 12.f
         : (artworkView ? 48.f : (compactMode ? 76.f : 74.f)));
 
@@ -264,12 +249,6 @@ void DrawMusicPlayer() {
     if (ImGui::IsItemActive()) {
         const ImVec2 delta = ImGui::GetIO().MouseDelta;
         ImVec2 target(wp.x + delta.x, wp.y + delta.y);
-        target.x = std::clamp(target.x, vp->WorkPos.x + 8.f,
-            std::max(vp->WorkPos.x + 8.f,
-                     vp->WorkPos.x + vp->WorkSize.x - ws.x - 8.f));
-        target.y = std::clamp(target.y, vp->WorkPos.y + 8.f,
-            std::max(vp->WorkPos.y + 8.f,
-                     vp->WorkPos.y + vp->WorkSize.y - ws.y - 8.f));
         ImGui::SetWindowPos(target);
         wp = target;
     }
@@ -318,7 +297,7 @@ void DrawMusicPlayer() {
         wp, ImVec2(wp.x + ws.x, wp.y + ws.y), false);
     const float hover = music_host::animation::Anim(
         ImGui::GetID("##music_card_hover"), hovered, 11.f);
-    music_host::DrawShadow(ImGui::GetBackgroundDrawList(), wp,
+    music_host::DrawShadow(ImGui::GetBackgroundDrawList(ImGui::GetWindowViewport()), wp,
                ImVec2(wp.x + ws.x, wp.y + ws.y),
                16.f + hover * 8.f, 10, 11.f, 0.40f + hover * 0.14f);
     detail::DrawPlayerBackground(dl, wp, ws, playing, showLyrics, artworkView,
@@ -431,7 +410,7 @@ void DrawMusicPlayer() {
 
     const float mattePad = 3.0f;
     const float cardRounding = detail::Px(fullScreen ? 20.f : 15.f);
-    ImGui::GetBackgroundDrawList()->AddRectFilled(
+    ImGui::GetBackgroundDrawList(ImGui::GetWindowViewport())->AddRectFilled(
         ImVec2(g_cardMin.x - mattePad, g_cardMin.y - mattePad),
         ImVec2(g_cardMax.x + mattePad, g_cardMax.y + mattePad),
         IM_COL32(41, 41, 41, 255),

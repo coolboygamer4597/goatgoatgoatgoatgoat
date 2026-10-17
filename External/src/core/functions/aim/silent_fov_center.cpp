@@ -10,6 +10,6 @@ RBX::Vec2 SilentAimCenter() {
 }
 
 float SilentAimRadius() {
-    return (std::max)(5.0f, variables::Aimbot::silentFovRadius);
+    return (std::max)(1.0f, variables::Aimbot::silentFovRadius);
 }
 }

@@ -2,6 +2,8 @@
 #define IMGUI_VERSION_NUM   19270
 #define IMGUI_HAS_TABLE
 #define IMGUI_HAS_TEXTURES
+#define IMGUI_HAS_VIEWPORT
+#define IMGUI_HAS_DOCK
 
 #pragma once
 
@@ -117,6 +119,7 @@ struct ImGuiOnceUponAFrame;
 struct ImGuiPayload;
 struct ImGuiPlatformIO;
 struct ImGuiPlatformImeData;
+struct ImGuiPlatformMonitor;
 struct ImGuiSelectionBasicStorage;
 struct ImGuiSelectionExternalStorage;
 struct ImGuiSelectionRequest;
@@ -129,6 +132,7 @@ struct ImGuiTableColumnSortSpecs;
 struct ImGuiTextBuffer;
 struct ImGuiTextFilter;
 struct ImGuiViewport;
+struct ImGuiWindowClass;
 
 enum ImGuiDir : int;
 enum ImGuiKey : int;
@@ -153,6 +157,7 @@ typedef int ImGuiChildFlags;
 typedef int ImGuiColorEditFlags;
 typedef int ImGuiConfigFlags;
 typedef int ImGuiComboFlags;
+typedef int ImGuiDockNodeFlags;
 typedef int ImGuiDragDropFlags;
 typedef int ImGuiFocusedFlags;
 typedef int ImGuiHoveredFlags;
@@ -280,10 +285,12 @@ namespace ImGui
     IMGUI_API bool          IsWindowFocused(ImGuiFocusedFlags flags=0);
     IMGUI_API bool          IsWindowHovered(ImGuiHoveredFlags flags=0);
     IMGUI_API ImDrawList*   GetWindowDrawList();
+    IMGUI_API float         GetWindowDpiScale();
     IMGUI_API ImVec2        GetWindowPos();
     IMGUI_API ImVec2        GetWindowSize();
     IMGUI_API float         GetWindowWidth();
     IMGUI_API float         GetWindowHeight();
+    IMGUI_API ImGuiViewport*GetWindowViewport();
 
     IMGUI_API void          SetNextWindowPos(const ImVec2& pos, ImGuiCond cond = 0, const ImVec2& pivot = ImVec2(0, 0));
     IMGUI_API void          SetNextWindowSize(const ImVec2& size, ImGuiCond cond = 0);
@@ -293,6 +300,7 @@ namespace ImGui
     IMGUI_API void          SetNextWindowFocus();
     IMGUI_API void          SetNextWindowScroll(const ImVec2& scroll);
     IMGUI_API void          SetNextWindowBgAlpha(float alpha);
+    IMGUI_API void          SetNextWindowViewport(ImGuiID viewport_id);
     IMGUI_API void          SetWindowPos(const ImVec2& pos, ImGuiCond cond = 0);
     IMGUI_API void          SetWindowSize(const ImVec2& size, ImGuiCond cond = 0);
     IMGUI_API void          SetWindowCollapsed(bool collapsed, ImGuiCond cond = 0);
@@ -582,6 +590,13 @@ namespace ImGui
     IMGUI_API bool          TabItemButton(const char* label, ImGuiTabItemFlags flags = 0);
     IMGUI_API void          SetTabItemClosed(const char* tab_or_docked_window_label);
 
+    IMGUI_API ImGuiID       DockSpace(ImGuiID dockspace_id, const ImVec2& size = ImVec2(0, 0), ImGuiDockNodeFlags flags = 0, const ImGuiWindowClass* window_class = NULL);
+    IMGUI_API ImGuiID       DockSpaceOverViewport(ImGuiID dockspace_id = 0, const ImGuiViewport* viewport = NULL, ImGuiDockNodeFlags flags = 0, const ImGuiWindowClass* window_class = NULL);
+    IMGUI_API void          SetNextWindowDockID(ImGuiID dock_id, ImGuiCond cond = 0);
+    IMGUI_API void          SetNextWindowClass(const ImGuiWindowClass* window_class);
+    IMGUI_API ImGuiID       GetWindowDockID();
+    IMGUI_API bool          IsWindowDocked();
+
     IMGUI_API void          LogToTTY(int auto_open_depth = -1);
     IMGUI_API void          LogToFile(int auto_open_depth = -1, const char* filename = NULL);
     IMGUI_API void          LogToClipboard(int auto_open_depth = -1);
@@ -632,8 +647,8 @@ namespace ImGui
 
     IMGUI_API ImGuiViewport* GetMainViewport();
 
-    IMGUI_API ImDrawList*   GetBackgroundDrawList();
-    IMGUI_API ImDrawList*   GetForegroundDrawList();
+    IMGUI_API ImDrawList*   GetBackgroundDrawList(ImGuiViewport* viewport = NULL);
+    IMGUI_API ImDrawList*   GetForegroundDrawList(ImGuiViewport* viewport = NULL);
 
     IMGUI_API bool          IsRectVisible(const ImVec2& size);
     IMGUI_API bool          IsRectVisible(const ImVec2& rect_min, const ImVec2& rect_max);
@@ -704,6 +719,12 @@ namespace ImGui
     IMGUI_API void*         MemAlloc(size_t size);
     IMGUI_API void          MemFree(void* ptr);
 
+    IMGUI_API void          UpdatePlatformWindows();
+    IMGUI_API void          RenderPlatformWindowsDefault(void* platform_render_arg = NULL, void* renderer_render_arg = NULL);
+    IMGUI_API void          DestroyPlatformWindows();
+    IMGUI_API ImGuiViewport* FindViewportByID(ImGuiID viewport_id);
+    IMGUI_API ImGuiViewport* FindViewportByPlatformHandle(void* platform_handle);
+
 }
 
 enum ImGuiWindowFlags_
@@ -728,10 +749,12 @@ enum ImGuiWindowFlags_
     ImGuiWindowFlags_NoNavInputs            = 1 << 16,
     ImGuiWindowFlags_NoNavFocus             = 1 << 17,
     ImGuiWindowFlags_UnsavedDocument        = 1 << 18,
+    ImGuiWindowFlags_NoDocking              = 1 << 19,
     ImGuiWindowFlags_NoNav                  = ImGuiWindowFlags_NoNavInputs | ImGuiWindowFlags_NoNavFocus,
     ImGuiWindowFlags_NoDecoration           = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoCollapse,
     ImGuiWindowFlags_NoInputs               = ImGuiWindowFlags_NoMouseInputs | ImGuiWindowFlags_NoNavInputs | ImGuiWindowFlags_NoNavFocus,
 
+    ImGuiWindowFlags_DockNodeHost           = 1 << 23,
     ImGuiWindowFlags_ChildWindow            = 1 << 24,
     ImGuiWindowFlags_Tooltip                = 1 << 25,
     ImGuiWindowFlags_Popup                  = 1 << 26,
@@ -936,7 +959,7 @@ enum ImGuiFocusedFlags_
     ImGuiFocusedFlags_RootWindow                    = 1 << 1,
     ImGuiFocusedFlags_AnyWindow                     = 1 << 2,
     ImGuiFocusedFlags_NoPopupHierarchy              = 1 << 3,
-
+    ImGuiFocusedFlags_DockHierarchy                 = 1 << 4,
     ImGuiFocusedFlags_RootAndChildWindows           = ImGuiFocusedFlags_RootWindow | ImGuiFocusedFlags_ChildWindows,
 };
 
@@ -947,7 +970,7 @@ enum ImGuiHoveredFlags_
     ImGuiHoveredFlags_RootWindow                    = 1 << 1,
     ImGuiHoveredFlags_AnyWindow                     = 1 << 2,
     ImGuiHoveredFlags_NoPopupHierarchy              = 1 << 3,
-
+    ImGuiHoveredFlags_DockHierarchy                 = 1 << 4,
     ImGuiHoveredFlags_AllowWhenBlockedByPopup       = 1 << 5,
 
     ImGuiHoveredFlags_AllowWhenBlockedByActiveItem  = 1 << 7,
@@ -966,6 +989,24 @@ enum ImGuiHoveredFlags_
     ImGuiHoveredFlags_DelayShort                    = 1 << 15,
     ImGuiHoveredFlags_DelayNormal                   = 1 << 16,
     ImGuiHoveredFlags_NoSharedDelay                 = 1 << 17,
+};
+
+enum ImGuiDockNodeFlags_
+{
+    ImGuiDockNodeFlags_None                         = 0,
+    ImGuiDockNodeFlags_KeepAliveOnly                = 1 << 0,
+
+    ImGuiDockNodeFlags_NoDockingOverCentralNode     = 1 << 2,
+    ImGuiDockNodeFlags_PassthruCentralNode          = 1 << 3,
+    ImGuiDockNodeFlags_NoDockingSplit               = 1 << 4,
+    ImGuiDockNodeFlags_NoResize                     = 1 << 5,
+    ImGuiDockNodeFlags_AutoHideTabBar               = 1 << 6,
+    ImGuiDockNodeFlags_NoUndocking                  = 1 << 7,
+
+#ifndef IMGUI_DISABLE_OBSOLETE_FUNCTIONS
+    ImGuiDockNodeFlags_NoSplit                      = ImGuiDockNodeFlags_NoDockingSplit,
+    ImGuiDockNodeFlags_NoDockingInCentralNode       = ImGuiDockNodeFlags_NoDockingOverCentralNode,
+#endif
 };
 
 enum ImGuiDragDropFlags_
@@ -1163,11 +1204,17 @@ enum ImGuiConfigFlags_
     ImGuiConfigFlags_NoMouseCursorChange    = 1 << 5,
     ImGuiConfigFlags_NoKeyboard             = 1 << 6,
 
+    ImGuiConfigFlags_DockingEnable          = 1 << 7,
+
+    ImGuiConfigFlags_ViewportsEnable        = 1 << 10,
+
     ImGuiConfigFlags_IsSRGB                 = 1 << 20,
     ImGuiConfigFlags_IsTouchScreen          = 1 << 21,
 #ifndef IMGUI_DISABLE_OBSOLETE_FUNCTIONS
     ImGuiConfigFlags_NavEnableSetMousePos   = 1 << 2,
     ImGuiConfigFlags_NavNoCaptureKeyboard   = 1 << 3,
+    ImGuiConfigFlags_DpiEnableScaleFonts    = 1 << 14,
+    ImGuiConfigFlags_DpiEnableScaleViewports= 1 << 15,
 #endif
 };
 
@@ -1179,6 +1226,11 @@ enum ImGuiBackendFlags_
     ImGuiBackendFlags_HasSetMousePos        = 1 << 2,
     ImGuiBackendFlags_RendererHasVtxOffset  = 1 << 3,
     ImGuiBackendFlags_RendererHasTextures   = 1 << 4,
+
+    ImGuiBackendFlags_RendererHasViewports  = 1 << 10,
+    ImGuiBackendFlags_PlatformHasViewports  = 1 << 11,
+    ImGuiBackendFlags_HasMouseHoveredViewport=1 << 12,
+    ImGuiBackendFlags_HasParentViewport     = 1 << 13,
 };
 
 enum ImGuiCol_
@@ -1224,6 +1276,8 @@ enum ImGuiCol_
     ImGuiCol_TabDimmed,
     ImGuiCol_TabDimmedSelected,
     ImGuiCol_TabDimmedSelectedOverline,
+    ImGuiCol_DockingPreview,
+    ImGuiCol_DockingEmptyBg,
     ImGuiCol_PlotLines,
     ImGuiCol_PlotLinesHovered,
     ImGuiCol_PlotHistogram,
@@ -1297,6 +1351,7 @@ enum ImGuiStyleVar_
     ImGuiStyleVar_SeparatorTextBorderSize,
     ImGuiStyleVar_SeparatorTextAlign,
     ImGuiStyleVar_SeparatorTextPadding,
+    ImGuiStyleVar_DockingSeparatorSize,
     ImGuiStyleVar_COUNT
 };
 
@@ -1673,6 +1728,8 @@ struct ImGuiStyle
     ImVec2      SeparatorTextPadding;
     ImVec2      DisplayWindowPadding;
     ImVec2      DisplaySafeAreaPadding;
+    bool        DockingNodeHasCloseButton;
+    float       DockingSeparatorSize;
     float       MouseCursorScale;
     bool        AntiAliasedLines;
     bool        AntiAliasedLinesUseTex;
@@ -1732,6 +1789,21 @@ struct ImGuiIO
     bool        ConfigNavCursorVisibleAuto;
     bool        ConfigNavCursorVisibleAlways;
 
+    bool        ConfigDockingNoSplit;
+    bool        ConfigDockingNoDockingOver;
+    bool        ConfigDockingWithShift;
+    bool        ConfigDockingAlwaysTabBar;
+    bool        ConfigDockingTransparentPayload;
+
+    bool        ConfigViewportsNoAutoMerge;
+    bool        ConfigViewportsNoTaskBarIcon;
+    bool        ConfigViewportsNoDecoration;
+    bool        ConfigViewportsNoDefaultParent;
+    bool        ConfigViewportsPlatformFocusSetsImGuiFocus;
+
+    bool        ConfigDpiScaleFonts;
+    bool        ConfigDpiScaleViewports;
+
     bool        MouseDrawCursor;
     bool        ConfigMacOSXBehaviors;
     bool        ConfigInputTrickleEventQueue;
@@ -1779,6 +1851,7 @@ struct ImGuiIO
     IMGUI_API void  AddMouseButtonEvent(int button, bool down);
     IMGUI_API void  AddMouseWheelEvent(float wheel_x, float wheel_y);
     IMGUI_API void  AddMouseSourceEvent(ImGuiMouseSource source);
+    IMGUI_API void  AddMouseViewportEvent(ImGuiID id);
     IMGUI_API void  AddFocusEvent(bool focused);
     IMGUI_API void  AddInputCharacter(unsigned int c);
     IMGUI_API void  AddInputCharacterUTF16(ImWchar16 c);
@@ -1811,6 +1884,7 @@ struct ImGuiIO
     float       MouseWheel;
     float       MouseWheelH;
     ImGuiMouseSource MouseSource;
+    ImGuiID     MouseHoveredViewport;
     bool        KeyCtrl;
     bool        KeyShift;
     bool        KeyAlt;
@@ -1834,6 +1908,7 @@ struct ImGuiIO
     bool        MouseCtrlLeftAsRightClick;
     float       MouseDownDuration[5];
     float       MouseDownDurationPrev[5];
+    ImVec2      MouseDragMaxDistanceAbs[5];
     float       MouseDragMaxDistanceSqr[5];
     float       PenPressure;
     bool        AppFocusLost;
@@ -1887,6 +1962,21 @@ struct ImGuiSizeCallbackData
     ImVec2  Pos;
     ImVec2  CurrentSize;
     ImVec2  DesiredSize;
+};
+
+struct ImGuiWindowClass
+{
+    ImGuiID             ClassId;
+    ImGuiID             ParentViewportId;
+    ImGuiID             FocusRouteParentWindowId;
+    ImGuiViewportFlags  ViewportFlagsOverrideSet;
+    ImGuiViewportFlags  ViewportFlagsOverrideClear;
+    ImGuiTabItemFlags   TabItemFlagsOverrideSet;
+    ImGuiDockNodeFlags  DockNodeFlagsOverrideSet;
+    bool                DockingAlwaysTabBar;
+    bool                DockingAllowUnclassed;
+
+    ImGuiWindowClass() { memset((void*)this, 0, sizeof(*this)); ParentViewportId = (ImGuiID)-1; DockingAllowUnclassed = true; }
 };
 
 struct ImGuiPayload
@@ -2774,6 +2864,18 @@ enum ImGuiViewportFlags_
     ImGuiViewportFlags_IsPlatformWindow         = 1 << 0,
     ImGuiViewportFlags_IsPlatformMonitor        = 1 << 1,
     ImGuiViewportFlags_OwnedByApp               = 1 << 2,
+    ImGuiViewportFlags_NoDecoration             = 1 << 3,
+    ImGuiViewportFlags_NoTaskBarIcon            = 1 << 4,
+    ImGuiViewportFlags_NoFocusOnAppearing       = 1 << 5,
+    ImGuiViewportFlags_NoFocusOnClick           = 1 << 6,
+    ImGuiViewportFlags_NoInputs                 = 1 << 7,
+    ImGuiViewportFlags_NoRendererClear          = 1 << 8,
+    ImGuiViewportFlags_NoAutoMerge              = 1 << 9,
+    ImGuiViewportFlags_TopMost                  = 1 << 10,
+    ImGuiViewportFlags_CanHostOtherWindows      = 1 << 11,
+
+    ImGuiViewportFlags_IsMinimized              = 1 << 12,
+    ImGuiViewportFlags_IsFocused                = 1 << 13,
 };
 
 struct ImGuiViewport
@@ -2785,14 +2887,26 @@ struct ImGuiViewport
     ImVec2              FramebufferScale;
     ImVec2              WorkPos;
     ImVec2              WorkSize;
+    float               DpiScale;
+    ImGuiID             ParentViewportId;
+    ImGuiViewport*      ParentViewport;
+    ImDrawData*         DrawData;
 
+    void*               RendererUserData;
+    void*               PlatformUserData;
     void*               PlatformHandle;
     void*               PlatformHandleRaw;
+    bool                PlatformWindowCreated;
+    bool                PlatformRequestMove;
+    bool                PlatformRequestResize;
+    bool                PlatformRequestClose;
 
     ImGuiViewport()     { memset((void*)this, 0, sizeof(*this)); }
+    ~ImGuiViewport()    { IM_ASSERT(PlatformUserData == NULL && RendererUserData == NULL); }
 
     ImVec2              GetCenter() const       { return ImVec2(Pos.x + Size.x * 0.5f, Pos.y + Size.y * 0.5f); }
     ImVec2              GetWorkCenter() const   { return ImVec2(WorkPos.x + WorkSize.x * 0.5f, WorkPos.y + WorkSize.y * 0.5f); }
+    IMGUI_API const char* GetDebugName() const;
 };
 
 struct ImGuiPlatformIO
@@ -2816,10 +2930,50 @@ struct ImGuiPlatformIO
 
     void*       Renderer_RenderState;
 
+    void    (*Platform_CreateWindow)(ImGuiViewport* vp);
+    void    (*Platform_DestroyWindow)(ImGuiViewport* vp);
+    void    (*Platform_ShowWindow)(ImGuiViewport* vp);
+    void    (*Platform_SetWindowPos)(ImGuiViewport* vp, ImVec2 pos);
+    ImVec2  (*Platform_GetWindowPos)(ImGuiViewport* vp);
+    void    (*Platform_SetWindowSize)(ImGuiViewport* vp, ImVec2 size);
+    ImVec2  (*Platform_GetWindowSize)(ImGuiViewport* vp);
+    ImVec2  (*Platform_GetWindowFramebufferScale)(ImGuiViewport* vp);
+    void    (*Platform_SetWindowFocus)(ImGuiViewport* vp);
+    bool    (*Platform_GetWindowFocus)(ImGuiViewport* vp);
+    bool    (*Platform_GetWindowMinimized)(ImGuiViewport* vp);
+    void    (*Platform_SetWindowTitle)(ImGuiViewport* vp, const char* str);
+    void    (*Platform_SetWindowAlpha)(ImGuiViewport* vp, float alpha);
+    void    (*Platform_UpdateWindow)(ImGuiViewport* vp);
+    void    (*Platform_RenderWindow)(ImGuiViewport* vp, void* render_arg);
+    void    (*Platform_SwapBuffers)(ImGuiViewport* vp, void* render_arg);
+    float   (*Platform_GetWindowDpiScale)(ImGuiViewport* vp);
+    void    (*Platform_OnChangedViewport)(ImGuiViewport* vp);
+    ImVec4  (*Platform_GetWindowWorkAreaInsets)(ImGuiViewport* vp);
+    int     (*Platform_CreateVkSurface)(ImGuiViewport* vp, ImU64 vk_inst, const void* vk_allocators, ImU64* out_vk_surface);
+
+    void    (*Renderer_CreateWindow)(ImGuiViewport* vp);
+    void    (*Renderer_DestroyWindow)(ImGuiViewport* vp);
+    void    (*Renderer_SetWindowSize)(ImGuiViewport* vp, ImVec2 size);
+    void    (*Renderer_RenderWindow)(ImGuiViewport* vp, void* render_arg);
+    void    (*Renderer_SwapBuffers)(ImGuiViewport* vp, void* render_arg);
+
+    ImVector<ImGuiPlatformMonitor>  Monitors;
+
     ImVector<ImTextureData*>        Textures;
+
+    ImVector<ImGuiViewport*>        Viewports;
 
     IMGUI_API void ClearPlatformHandlers();
     IMGUI_API void ClearRendererHandlers();
+};
+
+struct ImGuiPlatformMonitor
+{
+    ImVec2  MainPos, MainSize;
+    ImVec2  WorkPos, WorkSize;
+    float   DpiScale;
+    void*   PlatformHandle;
+    ImGuiPlatformMonitor()          { MainPos = MainSize = WorkPos = WorkSize = ImVec2(0, 0); DpiScale = 1.0f; PlatformHandle = NULL; }
 };
 
 struct ImGuiPlatformImeData

@@ -12,6 +12,8 @@ inline int selectedTab = 0;
 namespace Aimbot {
 inline bool recoilEnabled=false;
 inline bool recoilHorizontal=true;
+inline bool glockAutomatic=false;
+inline int glockClickDelay=120;
 inline bool recoilActive=false;
 inline float recoilStrength=1.f;
 inline float recoilPull=400.f;
@@ -101,6 +103,10 @@ inline float color[4]={.5f,.75f,1,1},glowColor[4]={1,.75f,.2f,1};
 
 namespace Misc {
 inline bool streamProof = true;
+inline bool showInTaskbar = false;
+inline bool moderatorAlerts = true;
+inline bool spectatorCounter = false;
+inline float spectatorPanelX = 20, spectatorPanelY = 80;
 inline bool spotifyPlayer = false;
 inline int streamKey = 0;
 inline int streamKeyMode = 0;

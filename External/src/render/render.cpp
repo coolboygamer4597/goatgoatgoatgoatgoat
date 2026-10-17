@@ -2,11 +2,13 @@
 #define IMGUI_DEFINE_MATH_OPERATORS
 #endif
 #include "render.h"
+#include "AppUpdateUi.h"
 #include "WindowIdentity.h"
 #include "../core/app/RuntimePaths.h"
 #include "RetroUi.h"
 #include "MenuMotion.h"
 #include "OverlayLifecycle.h"
+#include "DesktopUi.h"
 #include "WeaponPreview.h"
 #include "../core/features/TargetLabels.h"
 #include "StartupLoader.h"
@@ -14,6 +16,7 @@
 #include "SadblobVideo.h"
 #include "../core/net/performance.h"
 #include "floating_panels.h"
+#include "SessionPanels.h"
 #include "../core/functions/settings/preferences.h"
 
 #include <dwmapi.h>
@@ -49,10 +52,6 @@
 #include <vector>
 #include <wincodec.h>
 #include <wrl/client.h>
-#include <deque>
-#include <thread>
-#include <mutex>
-#include <atomic>
 
 #pragma comment(lib, "windowscodecs.lib")
 
@@ -208,155 +207,6 @@ void OverlayWindow::CreateRenderTarget() {
     }
 }
 
-struct OverlayMouseEvent { UINT msg; LONG x, y; int wheel; USHORT xdata; bool swallow; };
-static std::deque<OverlayMouseEvent> g_mouseEvents;
-static std::mutex g_mouseEventsMtx;
-static std::thread g_hookThread;
-static std::atomic<bool> g_hookStop{ false };
-static HANDLE g_mouseEvent = nullptr;
-static std::atomic<bool> g_keyboardFocusRequested{false};
-static ImVec2 g_menuRectMin(FLT_MAX, FLT_MAX);
-static ImVec2 g_menuRectMax(-FLT_MAX, -FLT_MAX);
-static ImVec2 g_dlgRectMin(FLT_MAX, FLT_MAX);
-static ImVec2 g_dlgRectMax(-FLT_MAX, -FLT_MAX);
-static POINT g_overlayOrigin{ 0, 0 };
-
-static std::vector<ImRect> g_uiRects;
-static std::mutex g_uiRectsMtx;
-static void OverlayTrackUiRect(float x, float y, float w, float h)
-{
-    std::lock_guard<std::mutex> lk(g_uiRectsMtx);
-    if (g_uiRects.size() < 64)
-        g_uiRects.push_back(ImRect(ImVec2(x, y), ImVec2(x + w, y + h)));
-}
-static void OverlayClearUiRects()
-{
-    std::lock_guard<std::mutex> lk(g_uiRectsMtx);
-    g_uiRects.clear();
-}
-
-static bool OverlayRectWantsClick(const POINT& pt) {
-    const bool overMenu = variables::menuOpen &&
-        pt.x >= g_menuRectMin.x && pt.x <= g_menuRectMax.x &&
-        pt.y >= g_menuRectMin.y && pt.y <= g_menuRectMax.y;
-    const bool overDlg =
-        pt.x >= g_dlgRectMin.x && pt.x <= g_dlgRectMax.x &&
-        pt.y >= g_dlgRectMin.y && pt.y <= g_dlgRectMax.y;
-    if (FloatingPanels::WantsMouse(float(pt.x-g_overlayOrigin.x),float(pt.y-g_overlayOrigin.y))) return true;
-    if (overMenu || overDlg)
-        return true;
-
-    {
-        std::lock_guard<std::mutex> lk(g_uiRectsMtx);
-        for (const ImRect& r : g_uiRects) {
-            if (pt.x >= r.Min.x && pt.x <= r.Max.x &&
-                pt.y >= r.Min.y && pt.y <= r.Max.y)
-                return true;
-        }
-    }
-    if (Keys::SpotifyOn() && native_music_player::CursorOverMusicCard())
-        return true;
-    return false;
-}
-
-static LRESULT CALLBACK OverlayMouseHook(int nCode, WPARAM wParam, LPARAM lParam) {
-    if (nCode == HC_ACTION && g_mouseEvent) {
-        const MSLLHOOKSTRUCT* m = reinterpret_cast<const MSLLHOOKSTRUCT*>(lParam);
-        bool swallow = false;
-        switch (wParam) {
-        case WM_LBUTTONDOWN: case WM_LBUTTONUP:
-        case WM_RBUTTONDOWN: case WM_RBUTTONUP:
-        case WM_MBUTTONDOWN: case WM_MBUTTONUP:
-        case WM_XBUTTONDOWN: case WM_XBUTTONUP:
-        case WM_MOUSEWHEEL: case WM_MOUSEHWHEEL: {
-
-            swallow = OverlayRectWantsClick(m->pt);
-            break;
-        }
-        default: break;
-        }
-        static bool capturedLeft=false;
-        if(wParam==WM_LBUTTONDOWN){
-            capturedLeft=swallow;
-            if(swallow&&variables::menuOpen)g_keyboardFocusRequested.store(true,std::memory_order_release);
-        }
-        if(wParam==WM_LBUTTONUP){swallow=swallow||capturedLeft;capturedLeft=false;}
-        OverlayMouseEvent ev{ (UINT)wParam, m->pt.x, m->pt.y, 0, 0, swallow };
-        if (wParam == WM_MOUSEWHEEL || wParam == WM_MOUSEHWHEEL)
-            ev.wheel = GET_WHEEL_DELTA_WPARAM(m->mouseData);
-        if (wParam == WM_XBUTTONDOWN || wParam == WM_XBUTTONUP)
-            ev.xdata = HIWORD(m->mouseData);
-        {
-            std::lock_guard<std::mutex> lk(g_mouseEventsMtx);
-            g_mouseEvents.push_back(ev);
-            if (g_mouseEvents.size() > 64)
-                g_mouseEvents.pop_front();
-        }
-        SetEvent(g_mouseEvent);
-        return swallow ? 1 : CallNextHookEx(nullptr, nCode, wParam, lParam);
-    }
-    return CallNextHookEx(nullptr, nCode, wParam, lParam);
-}
-
-static void OverlayHookThreadMain() {
-    HHOOK hook = SetWindowsHookExW(WH_MOUSE_LL, OverlayMouseHook, nullptr, 0);
-    if (!hook) return;
-    while (!g_hookStop.load(std::memory_order_acquire)) {
-        DWORD w = MsgWaitForMultipleObjectsEx(1, &g_mouseEvent, 200, QS_ALLINPUT, 0);
-        if (w == WAIT_OBJECT_0)
-            ResetEvent(g_mouseEvent);
-        if (g_hookStop.load(std::memory_order_acquire)) break;
-
-        MSG pumpMsg;
-        while (PeekMessageW(&pumpMsg, nullptr, 0, 0, PM_REMOVE)) {
-            TranslateMessage(&pumpMsg);
-            DispatchMessageW(&pumpMsg);
-        }
-    }
-    UnhookWindowsHookEx(hook);
-}
-
-void DrainOverlayMouseEvents() {
-    std::deque<OverlayMouseEvent> local;
-    {
-        std::lock_guard<std::mutex> lk(g_mouseEventsMtx);
-        local.swap(g_mouseEvents);
-    }
-    if (local.empty()) return;
-    if (!ImGui::GetCurrentContext()) return;
-    ImGuiIO& io = ImGui::GetIO();
-    for (const auto& ev : local) {
-        const POINT pt{ ev.x - g_overlayOrigin.x, ev.y - g_overlayOrigin.y };
-        switch (ev.msg) {
-        case WM_MOUSEMOVE:
-            if (variables::menuOpen || Keys::SpotifyOn() || variables::Misc::keybinds || variables::Misc::performancePanel)
-                io.AddMousePosEvent((float)pt.x, (float)pt.y);
-            break;
-        case WM_LBUTTONDOWN: case WM_LBUTTONUP:
-            if (ev.swallow) io.AddMouseButtonEvent(0, ev.msg == WM_LBUTTONDOWN);
-            break;
-        case WM_RBUTTONDOWN: case WM_RBUTTONUP:
-            if (ev.swallow) io.AddMouseButtonEvent(1, ev.msg == WM_RBUTTONDOWN);
-            break;
-        case WM_MBUTTONDOWN: case WM_MBUTTONUP:
-            if (ev.swallow) io.AddMouseButtonEvent(2, ev.msg == WM_MBUTTONDOWN);
-            break;
-        case WM_XBUTTONDOWN: case WM_XBUTTONUP:
-
-            if (ev.swallow) io.AddMouseButtonEvent(
-                ev.xdata == XBUTTON1 ? 3 : 4, ev.msg == WM_XBUTTONDOWN);
-            break;
-        case WM_MOUSEWHEEL:
-            if (ev.swallow) io.AddMouseWheelEvent(0.0f, ev.wheel / (float)WHEEL_DELTA);
-            break;
-        case WM_MOUSEHWHEEL:
-            if (ev.swallow) io.AddMouseWheelEvent(ev.wheel / (float)WHEEL_DELTA, 0.0f);
-            break;
-        default: break;
-        }
-    }
-}
-
 void OverlayWindow::SyncToGameWindow() {
 
     static DWORD s_lastSync = 0;
@@ -392,10 +242,10 @@ void OverlayWindow::SyncToGameWindow() {
     }
     RECT overlayRect{};
     if (!GetWindowRect(windowHandle, &overlayRect) || overlayRect.left != x || overlayRect.top != y
-        || overlayRect.right - overlayRect.left != w || overlayRect.bottom - overlayRect.top != h)
+        || overlayRect.right - overlayRect.left != w || overlayRect.bottom - overlayRect.top != h) {
         SetWindowPos(windowHandle, HWND_TOPMOST, x, y, w, h, SWP_NOACTIVATE);
-    g_overlayOrigin.x = x;
-    g_overlayOrigin.y = y;
+        if (ImGui::GetCurrentContext()) DesktopUi::PlaceCanvas(windowHandle);
+    }
     overlayWidth = w;
     overlayHeight = h;
     ResizeSwapChain(overlayWidth, overlayHeight);
@@ -428,7 +278,8 @@ void OverlayWindow::CloseWindow() {
         windowHandle = nullptr;
     }
     if (windowClass.lpszClassName) {
-        UnregisterClassW(windowClass.lpszClassName, windowClass.hInstance);
+        const bool removed = UnregisterClassW(windowClass.lpszClassName, windowClass.hInstance) != FALSE;
+
         windowClass = {};
     }
 }
@@ -437,14 +288,16 @@ bool OverlayWindow::Initialize() {
     WindowIdentity::Generate(windowClassName);
     WNDCLASSEXW wc = { sizeof(wc), CS_CLASSDC, OverlayWndProc, 0L, 0L, GetModuleHandleW(nullptr), nullptr, nullptr, nullptr, nullptr, windowClassName, nullptr };
     windowClass = wc;
-    if (!RegisterClassExW(&windowClass)) { windowClass = {}; return false; }
+    const bool registered = RegisterClassExW(&windowClass) != 0;
+
+    if (!registered) { windowClass = {}; return false; }
     const auto fail = [this] { CleanupD3D11(); CloseWindow(); return false; };
-    windowHandle = CreateWindowExW(WS_EX_TOPMOST | WS_EX_LAYERED | WS_EX_TRANSPARENT | WS_EX_TOOLWINDOW,
+    windowHandle = CreateWindowExW(WS_EX_TOPMOST | WS_EX_LAYERED | WS_EX_TRANSPARENT | WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE,
         windowClass.lpszClassName, L"", WS_POPUP, 0, 0, 100, 100, nullptr, nullptr, windowClass.hInstance, nullptr);
     if (!windowHandle || !CaptureProtection::Apply(windowHandle, StartupLoader::StreamproofEnabled()))
         return fail();
 
-    ShowWindow(windowHandle, SW_SHOW);
+    ShowWindow(windowHandle, SW_SHOWNOACTIVATE);
 
     UpdateWindow(windowHandle);
     SetupD3D11(windowHandle);
@@ -479,8 +332,7 @@ bool OverlayWindow::Initialize() {
         imGuiCustom::GetFontsMutable().InterMedium,
         imGuiCustom::GetFontsMutable().InterSemiBold);
 
-    g_mouseEvent = CreateEventW(nullptr, TRUE, FALSE, nullptr);
-    g_hookThread = std::thread(OverlayHookThreadMain);
+    DesktopUi::Install(Keys::StreamProofOn);
     return true;
 }
 
@@ -489,40 +341,15 @@ ImVec2 OverlayWindow::GetClientSize() const {
 }
 
 void OverlayWindow::UpdateWindowStyle(bool inputWanted) {
-    const bool clickedMenu=g_keyboardFocusRequested.exchange(false,std::memory_order_acq_rel);
-    if (!composited) {
-
-        const LONG baseEx = WS_EX_TOPMOST | WS_EX_LAYERED | WS_EX_TOOLWINDOW;
-        const LONG wantStyle = inputWanted ? baseEx : (baseEx | WS_EX_TRANSPARENT);
-        if (wantStyle != lastExStyle) {
-            SetWindowLong(windowHandle, GWL_EXSTYLE, wantStyle);
-            lastExStyle = wantStyle;
-        }
-        if(!clickedMenu)return;
+    const LONG passive = WS_EX_TOPMOST | WS_EX_LAYERED | WS_EX_TOOLWINDOW | WS_EX_TRANSPARENT | WS_EX_NOACTIVATE;
+    if (passive != lastExStyle) {
+        SetWindowLongW(windowHandle, GWL_EXSTYLE, passive);
+        SetWindowPos(windowHandle, nullptr, 0, 0, 0, 0,
+            SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
+        lastExStyle = passive;
     }
-
-    static int s_lastFocus = -1;
-    if ((int)inputWanted == s_lastFocus && !clickedMenu)
-        return;
-    s_lastFocus = inputWanted;
-    if (inputWanted) {
-        const HWND fg = GetForegroundWindow();
-        DWORD fgThread = 0;
-        if (fg)
-            fgThread = GetWindowThreadProcessId(fg, nullptr);
-        const DWORD me = GetCurrentThreadId();
-        const bool attached = fg && fgThread && fgThread != me;
-        if (attached)
-            AttachThreadInput(fgThread, me, TRUE);
-        SetActiveWindow(windowHandle);
-        SetForegroundWindow(windowHandle);
-        SetFocus(windowHandle);
-        if (attached)
-            AttachThreadInput(fgThread, me, FALSE);
-    } else {
-        if (GetFocus() == windowHandle)
-            SetFocus(nullptr);
-    }
+    if (inputWasWanted && !inputWanted) DesktopUi::RestoreGameFocus();
+    inputWasWanted = inputWanted;
 }
 
 void OverlayWindow::BeginFrame() {
@@ -537,10 +364,7 @@ void OverlayWindow::BeginFrame() {
     theme.AccentText = variables::Theme::accent;
     theme.Text = variables::Theme::text;
     theme.TextBright = variables::Theme::textBright;
-    const bool spotifyInput = Keys::SpotifyOn() && native_music_player::CursorOverMusicCard();
-    POINT mouse{};GetCursorPos(&mouse);
-    const bool panelsInput=FloatingPanels::WantsMouse(float(mouse.x-g_overlayOrigin.x),float(mouse.y-g_overlayOrigin.y));
-    UpdateWindowStyle(variables::menuOpen || spotifyInput || (!composited && panelsInput));
+    UpdateWindowStyle(variables::menuOpen);
     static DWORD s_lastAffinity = 0xFFFFFFFFul;
     const DWORD wantAffinity = Keys::StreamProofOn() ? WDA_EXCLUDEFROMCAPTURE : WDA_NONE;
     if (wantAffinity != s_lastAffinity) {
@@ -573,7 +397,7 @@ constexpr PrimTabDef kTabs[]={{"AIM",""},{"VISUALS",""},{"SYSTEM",""},{"SKINS","
 constexpr int kTabCount=4;
 struct PrimSubTabDef {const char* label;const char* desc;};
 constexpr PrimSubTabDef kSubTabs[kTabCount][6]={
-    {{"Silent Aim",""},{"Checks",""},{"Recoil",""},{"",""}},
+    {{"Silent Aim",""},{"Checks",""},{"Recoil",""},{"Other gun mods",""}},
     {{"Mesh",""},{"Native",""},{"Target checks",""}},
     {{"General",""},{"Players",""},{"Appearance",""},{"",""}},
     {{"Skin Changer",""},{"Custom skin\noverlay",""},{"Skin editor",""}}
@@ -627,9 +451,17 @@ void PrimContent(const char* id, const char* title, const ImVec2& pos, const ImV
 }
 
 void OverlayWindow::RenderMenu() {
-    if(!variables::menuOpen && !MenuMotion::Visible()){
+    if(!variables::menuOpen){
         SadblobVideo::Update(d3dDevice,d3dContext,false,variables::Theme::sadblobStyle);
-        OverlayClearUiRects();
+        if (variables::Misc::showInTaskbar) {
+            DesktopUi::PrepareMenu(true);
+            ImGui::SetNextWindowSize(ImVec2(kMenuW,kMenuH),ImGuiCond_Always);
+            ImGui::SetNextWindowPos(ImGui::GetMainViewport()->Pos + ImVec2(60,50),ImGuiCond_FirstUseEver);
+            ImGui::Begin("goatgoatgoatgoatgoatgoat",nullptr,
+                ImGuiWindowFlags_NoDecoration|ImGuiWindowFlags_NoBackground|ImGuiWindowFlags_NoMove|ImGuiWindowFlags_NoInputs);
+            DesktopUi::Menu(ImGui::GetWindowViewport(), variables::menuOpen);
+            ImGui::End();
+        }
         return;
     }
     if(variables::Theme::preset==SadblobVideo::ThemePreset && !SadblobVideo::HasBundledClips())
@@ -640,14 +472,23 @@ void OverlayWindow::RenderMenu() {
     static int s_subTab=0,previousTab=-1;
     variables::selectedTab=std::clamp(variables::selectedTab,0,kTabCount-1);
     if(previousTab!=variables::selectedTab){s_subTab=0;previousTab=variables::selectedTab;}
+    DesktopUi::PrepareMenu(variables::Misc::showInTaskbar);
     ImGui::SetNextWindowSize(ImVec2(kMenuW,kMenuH),ImGuiCond_Always);
-    ImGui::SetNextWindowPos(ImVec2(60,50),ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowPos(ImGui::GetMainViewport()->Pos + ImVec2(60, 50), ImGuiCond_FirstUseEver);
     ImGui::Begin("goatgoatgoatgoatgoatgoat",nullptr,ImGuiWindowFlags_NoDecoration|ImGuiWindowFlags_NoBackground|ImGuiWindowFlags_NoMove|(!variables::menuOpen?ImGuiWindowFlags_NoInputs:0));
+    DesktopUi::Menu(ImGui::GetWindowViewport(), variables::menuOpen);
+    if (DesktopUi::closeRequested) {
+        ImGui::OpenPopup("Close program?");
+        DesktopUi::closeRequested = false;
+    }
     auto draw=ImGui::GetWindowDrawList();auto w=ImGui::GetWindowPos();
-    RetroUi::Frame(draw,w,w+ImVec2(kMenuW,kMenuH));
     ImGui::SetCursorScreenPos(w+ImVec2(8,6));
     ImGui::InvisibleButton("##drag_retro",ImVec2(kMenuW-84,34));
-    if(ImGui::IsItemActive() && ImGui::IsMouseDragging(0))ImGui::SetWindowPos(w+ImGui::GetIO().MouseDelta);
+    if(ImGui::IsItemActive() && ImGui::IsMouseDragging(0)) {
+        w+=ImGui::GetIO().MouseDelta;
+        ImGui::SetWindowPos(w);
+    }
+    RetroUi::Frame(draw,w,w+ImVec2(kMenuW,kMenuH));
     if(RetroUi::CaptionButton("##minimize",w+ImVec2(kMenuW-66,8),false)){
         variables::menuOpen=false; imGuiCustom::KeyCaptureId()=0; ImGui::ClearActiveID();
     }
@@ -679,9 +520,12 @@ void OverlayWindow::RenderMenu() {
         else if(sub==1)
             PrimContent("aim_checks", "Checks", childPos, childSize,
                 [] { Settings::RenderAimChecks(); });
-        else
+        else if(sub==2)
             PrimContent("aim_recoil", "Recoil dampening", childPos, childSize,
                 [] { Settings::RenderRecoil(); });
+        else
+            PrimContent("aim_other_gun_mods", "Other gun mods", childPos, childSize,
+                [] { Settings::RenderOtherGunMods(); });
         break;
     }
     case 1: {
@@ -843,52 +687,18 @@ void OverlayWindow::RenderMenu() {
     ImGui::SetNextWindowPos(w+ImVec2(280,270),ImGuiCond_Appearing);
     if(ImGui::BeginPopupModal("Close program?",nullptr,ImGuiWindowFlags_NoDecoration|ImGuiWindowFlags_NoMove)){
         auto p=ImGui::GetWindowPos();RetroUi::Frame(ImGui::GetWindowDrawList(),p,p+ImVec2(380,176));
-        g_dlgRectMin=p;g_dlgRectMax=p+ImVec2(380,176);
         ImGui::SetCursorPos(ImVec2(24,26));ImGui::TextUnformatted("* Close and restore the game?");
         ImGui::SetCursorPos(ImVec2(24,100));if(RetroUi::Choice("YES",false,ImVec2(150,40))){Globals::running=false;ImGui::CloseCurrentPopup();}
         ImGui::SetCursorPos(ImVec2(204,100));if(RetroUi::Choice("NO",false,ImVec2(150,40)))ImGui::CloseCurrentPopup();
         ImGui::EndPopup();
-    }else{g_dlgRectMin=ImVec2(FLT_MAX,FLT_MAX);g_dlgRectMax=ImVec2(-FLT_MAX,-FLT_MAX);}
-    g_menuRectMin=w;g_menuRectMax=w+ImVec2(kMenuW,kMenuH);
+    }
+    if(AppUpdateUi::Draw())Globals::running=false;
     ImGui::End();
 
-    OverlayClearUiRects();
-    if(tab==3&&sub==1&&variables::Weapons::preview){
+    if(tab==3&&sub==1&&variables::Weapons::preview)
         WeaponPreview::Draw(d3dDevice,d3dContext,w,ImVec2(kMenuW,kMenuH));
-        if(auto* preview=ImGui::FindWindowByName("Weapon preview"))
-            OverlayTrackUiRect(preview->Pos.x,preview->Pos.y,preview->Size.x,preview->Size.y);
-    }
-    if(tab==1&&sub==1&&variables::ESP::nativePreview){
+    if(tab==1&&sub==1&&variables::ESP::nativePreview)
         WeaponPreview::DrawAvatar(d3dDevice,d3dContext,w,ImVec2(kMenuW,kMenuH));
-        if(auto* preview=ImGui::FindWindowByName("Native preview"))OverlayTrackUiRect(preview->Pos.x,preview->Pos.y,preview->Size.x,preview->Size.y);
-    }
-    ImGuiContext& g = *GImGui;
-    for (int i = 0; i < g.WindowsFocusOrder.Size; ++i) {
-        ImGuiWindow* w = g.WindowsFocusOrder[i];
-        if (!w || !(w->Active) || w->Hidden)
-            continue;
-        if (!(w->Flags & ImGuiWindowFlags_Popup))
-            continue;
-        const ImRect& r = w->OuterRectClipped;
-        if (r.Min.x >= r.Max.x || r.Min.y >= r.Max.y)
-            continue;
-        OverlayTrackUiRect(r.Min.x, r.Min.y,
-            r.Max.x - r.Min.x, r.Max.y - r.Min.y);
-    }
-    if (GImGui->NavWindow) {
-        ImGuiWindow* w = GImGui->NavWindow;
-        if ((w->Flags & ImGuiWindowFlags_Popup) && w->Active && !w->Hidden) {
-            const ImRect& r = w->OuterRectClipped;
-            if (r.Min.x < r.Max.x && r.Min.y < r.Max.y)
-                OverlayTrackUiRect(r.Min.x, r.Min.y,
-                    r.Max.x - r.Min.x, r.Max.y - r.Min.y);
-        }
-    }
-
-    for (const ImVec4& r : imGuiCustom::HandDrawnPopupRects()) {
-        if (r.z > r.x && r.w > r.y)
-            OverlayTrackUiRect(r.x, r.y, r.z - r.x, r.w - r.y);
-    }
     for(auto* window:GImGui->Windows){
         if(!window->Active)continue;
         auto* root=window->RootWindow;
@@ -909,6 +719,8 @@ void OverlayWindow::render(ImDrawList* drawList) {
         Aimbot::DrawFovCircle(drawList, center, radius, fc);
     }
     FloatingPanels::Draw();
+    SessionPanels::Draw();
+    if(SessionPanels::TakeRestoreFocus())DesktopUi::RestoreGameFocus();
     TargetLabels::Draw(drawList);
 
 }
@@ -917,6 +729,7 @@ bool OverlayWindow::EndFrame() {
     if (Keys::SpotifyOn())
         native_music_player::DrawMusicPlayer();
     ImGui::Render();
+    DesktopUi::Update();
     if (!renderTarget || !d3dContext || !swapChain) return false;
     float clearColor[4] = {0.0f, 0.0f, 0.0f, 0.0f};
     d3dContext->OMSetRenderTargets(1, &renderTarget, nullptr);
@@ -983,12 +796,7 @@ bool OverlayWindow::EndFrame() {
 void OverlayWindow::Cleanup() {
     WeaponPreview::Shutdown();
     SadblobVideo::Shutdown();
-    if (g_hookThread.joinable()) {
-        g_hookStop.store(true, std::memory_order_release);
-        if (g_mouseEvent) SetEvent(g_mouseEvent);
-        g_hookThread.join();
-    }
-    if (g_mouseEvent) { CloseHandle(g_mouseEvent); g_mouseEvent = nullptr; }
+    ImGui::DestroyPlatformWindows();
     native_music_player::ShutdownMusicPlayer();
     media::Shutdown();
     Cheat::Visuals::MeshDxShader::Shutdown();

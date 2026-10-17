@@ -134,6 +134,24 @@ struct PulseIntegrator {
 private:
     std::uint64_t identity_=0;
 };
+struct AutoClick {
+    bool active=false,outputDown=false,requireRelease=true;
+    double previous=0,next=0,releaseAt=0;
+    std::uint64_t identity=0;
+    int Stop(bool physical){const int edge=active&&outputDown?-1:0;active=outputDown=false;requireRelease=physical;return edge;}
+    int Step(double now,bool allowed,bool physical,int delay,std::uint64_t id){
+        const bool interrupted=!std::isfinite(now)||now<previous||(previous&&now-previous>.2)||id!=identity;
+        previous=now;identity=id;
+        if(interrupted||!allowed||delay<25||delay>1000)return Stop(physical);
+        if(!physical)return Stop(false);
+        if(requireRelease)return 0;
+        const double interval=delay/1000.;
+        if(!active){active=outputDown=true;next=now+interval;releaseAt=now+(std::min)(.012,interval*.4);return 0;}
+        if(outputDown&&now>=releaseAt){outputDown=false;return -1;}
+        if(!outputDown&&now>=next){outputDown=true;next=now+interval;releaseAt=now+(std::min)(.012,interval*.4);return 1;}
+        return 0;
+    }
+};
 struct Horizontal {
     struct Calibration {
         std::array<double,12> x{},y{};

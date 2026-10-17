@@ -186,6 +186,7 @@
     <ClCompile Include="ext\imgui\imgui_widgets.cpp">
       <Filter>Source Files\ext\imgui</Filter>
     </ClCompile>
+    <ClCompile Include="src\sdk\OffsetUpdates.cpp"><Filter>Source Files</Filter></ClCompile>
     <ClCompile Include="main.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -368,6 +369,11 @@
     <ClInclude Include="src\sdk\math.h">
       <Filter>Header Files\src\sdk</Filter>
     </ClInclude>
+    <ClInclude Include="src\sdk\RuntimeOffsets.h" />
+    <ClInclude Include="src\sdk\OffsetData.h" />
+    <ClInclude Include="src\sdk\OffsetUpdates.h" />
+    <ClInclude Include="src\sdk\offset_fields.inc" />
+    <ClInclude Include="src\render\OffsetSourceUi.h" />
     <ClInclude Include="src\sdk\offsets.h">
       <Filter>Header Files\src\sdk</Filter>
     </ClInclude>
@@ -482,6 +488,9 @@
     <ClInclude Include="src\render\OverlayLifecycle.h">
       <Filter>Header Files\src\render</Filter>
     </ClInclude>
+    <ClInclude Include="src\render\DesktopUi.h">
+      <Filter>Header Files\src\render</Filter>
+    </ClInclude>
     <ClInclude Include="src\render\RetroUi.h">
       <Filter>Header Files\src\render</Filter>
     </ClInclude>
@@ -518,15 +527,26 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="src\sdk\OffsetUpdates.cpp"><Filter>Source Files\src\sdk</Filter></ClCompile>
-    <ClInclude Include="src\sdk\RuntimeOffsets.h"><Filter>Header Files\src\sdk</Filter></ClInclude>
-    <ClInclude Include="src\sdk\offset_fields.inc"><Filter>Header Files\src\sdk</Filter></ClInclude>
-    <ClInclude Include="src\sdk\OffsetData.h"><Filter>Header Files\src\sdk</Filter></ClInclude>
-    <ClInclude Include="src\sdk\OffsetUpdates.h"><Filter>Header Files\src\sdk</Filter></ClInclude>
-    <ClInclude Include="src\render\OffsetSourceUi.h"><Filter>Header Files\src\render</Filter></ClInclude>
-  </ItemGroup>
-  <ItemGroup>
     <ClInclude Include="src\render\PreviewCache.h"><Filter>Header Files\src\render</Filter></ClInclude>
     <ClInclude Include="src\render\PreviewThumbnail.h"><Filter>Header Files\src\render</Filter></ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="src\core\app\AppUpdates.cpp"><Filter>Source Files\src\core\app</Filter></ClCompile>
+    <ClInclude Include="src\core\app\AppVersion.h"><Filter>Header Files\src\core\app</Filter></ClInclude>
+    <ClInclude Include="src\core\app\AppUpdateData.h"><Filter>Header Files\src\core\app</Filter></ClInclude>
+    <ClInclude Include="src\core\app\UpdateTrust.h"><Filter>Header Files\src\core\app</Filter></ClInclude>
+    <ClInclude Include="src\core\app\AppUpdates.h"><Filter>Header Files\src\core\app</Filter></ClInclude>
+    <ClInclude Include="src\render\AppUpdateUi.h"><Filter>Header Files\src\render</Filter></ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="src\core\features\SessionPresence.h">
+      <Filter>Header Files\src\core\features</Filter>
+    </ClInclude>
+    <ClInclude Include="src\core\features\SessionRoster.h">
+      <Filter>Header Files\src\core\features</Filter>
+    </ClInclude>
+    <ClInclude Include="src\render\SessionPanels.h">
+      <Filter>Header Files\src\render</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

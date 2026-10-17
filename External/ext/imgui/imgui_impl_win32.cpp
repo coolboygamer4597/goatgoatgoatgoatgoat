@@ -8,12 +8,14 @@
 #include <windowsx.h>
 #include <tchar.h>
 #include <dwmapi.h>
+#include "../../src/render/WindowIdentity.h"
 
 #ifndef IMGUI_IMPL_WIN32_DISABLE_GAMEPAD
 #include <xinput.h>
 typedef DWORD(WINAPI* PFN_XInputGetCapabilities)(DWORD, DWORD, XINPUT_CAPABILITIES*);
 typedef DWORD(WINAPI* PFN_XInputGetState)(DWORD, XINPUT_STATE*);
 #endif
+typedef BOOL(WINAPI* PFN_AdjustWindowRectExForDpi)(LPRECT, DWORD, BOOL, DWORD, UINT);
 
 #if defined(__clang__)
 #pragma clang diagnostic push
@@ -25,9 +27,15 @@ typedef DWORD(WINAPI* PFN_XInputGetState)(DWORD, XINPUT_STATE*);
 #pragma GCC diagnostic ignored "-Wcast-function-type"
 #endif
 
+static bool ImGui_ImplWin32_InitMultiViewportSupport(bool platform_has_own_dc);
+static void ImGui_ImplWin32_ShutdownMultiViewportSupport();
+static void ImGui_ImplWin32_UpdateMonitors();
+static bool ImGui_ImplWin32_IsDpiAwarenessPerMonitorAwareV2();
+
 struct ImGui_ImplWin32_Data
 {
     HWND                        hWnd;
+    wchar_t                     WindowClassName[64];
     HWND                        MouseHwnd;
     int                         MouseTrackedArea;
     int                         MouseButtonsDown;
@@ -35,6 +43,9 @@ struct ImGui_ImplWin32_Data
     INT64                       TicksPerSecond;
     ImGuiMouseCursor            LastMouseCursor;
     UINT32                      KeyboardCodePage;
+    bool                        WantUpdateMonitors;
+    bool                        IsPerMonitorDpiAwareV2;
+    PFN_AdjustWindowRectExForDpi AdjustWindowRectExForDpi;
 
 #ifndef IMGUI_IMPL_WIN32_DISABLE_GAMEPAD
     bool                        HasGamepad;
@@ -84,6 +95,9 @@ static bool ImGui_ImplWin32_InitEx(void* hwnd, bool platform_has_own_dc)
     io.BackendPlatformName = "imgui_impl_win32";
     io.BackendFlags |= ImGuiBackendFlags_HasMouseCursors;
     io.BackendFlags |= ImGuiBackendFlags_HasSetMousePos;
+    io.BackendFlags |= ImGuiBackendFlags_PlatformHasViewports;
+    io.BackendFlags |= ImGuiBackendFlags_HasMouseHoveredViewport;
+    io.BackendFlags |= ImGuiBackendFlags_HasParentViewport;
 
     bd->hWnd = (HWND)hwnd;
     bd->TicksPerSecond = perf_frequency;
@@ -91,9 +105,25 @@ static bool ImGui_ImplWin32_InitEx(void* hwnd, bool platform_has_own_dc)
     bd->LastMouseCursor = ImGuiMouseCursor_COUNT;
     ImGui_ImplWin32_UpdateKeyboardCodePage(io);
 
+    ImGui_ImplWin32_UpdateMonitors();
+
     ImGuiViewport* main_viewport = ImGui::GetMainViewport();
     main_viewport->PlatformHandle = main_viewport->PlatformHandleRaw = (void*)bd->hWnd;
-    IM_UNUSED(platform_has_own_dc);
+
+    if (!ImGui_ImplWin32_InitMultiViewportSupport(platform_has_own_dc))
+    {
+        main_viewport->PlatformHandle = main_viewport->PlatformHandleRaw = nullptr;
+        io.BackendPlatformName = nullptr;
+        io.BackendPlatformUserData = nullptr;
+        io.BackendFlags &= ~(ImGuiBackendFlags_HasMouseCursors | ImGuiBackendFlags_HasSetMousePos | ImGuiBackendFlags_PlatformHasViewports | ImGuiBackendFlags_HasMouseHoveredViewport | ImGuiBackendFlags_HasParentViewport);
+        IM_DELETE(bd);
+        return false;
+    }
+    ::SetPropA(bd->hWnd, "IMGUI_CONTEXT", ImGui::GetCurrentContext());
+
+    if (HINSTANCE user32_dll = ::GetModuleHandleA("user32.dll"))
+        bd->AdjustWindowRectExForDpi = (PFN_AdjustWindowRectExForDpi)::GetProcAddress(user32_dll, "AdjustWindowRectExForDpi");
+    bd->IsPerMonitorDpiAwareV2 = ImGui_ImplWin32_IsDpiAwarenessPerMonitorAwareV2();
 
 #ifndef IMGUI_IMPL_WIN32_DISABLE_GAMEPAD
     bd->WantUpdateHasGamepad = true;
@@ -136,6 +166,9 @@ void    ImGui_ImplWin32_Shutdown()
     ImGuiIO& io = ImGui::GetIO();
     ImGuiPlatformIO& platform_io = ImGui::GetPlatformIO();
 
+    ::SetPropA(bd->hWnd, "IMGUI_CONTEXT", nullptr);
+    ImGui_ImplWin32_ShutdownMultiViewportSupport();
+
 #ifndef IMGUI_IMPL_WIN32_DISABLE_GAMEPAD
     if (bd->XInputDLL)
         ::FreeLibrary(bd->XInputDLL);
@@ -143,7 +176,7 @@ void    ImGui_ImplWin32_Shutdown()
 
     io.BackendPlatformName = nullptr;
     io.BackendPlatformUserData = nullptr;
-    io.BackendFlags &= ~(ImGuiBackendFlags_HasMouseCursors | ImGuiBackendFlags_HasSetMousePos | ImGuiBackendFlags_HasGamepad);
+    io.BackendFlags &= ~(ImGuiBackendFlags_HasMouseCursors | ImGuiBackendFlags_HasSetMousePos | ImGuiBackendFlags_HasGamepad | ImGuiBackendFlags_PlatformHasViewports | ImGuiBackendFlags_HasMouseHoveredViewport | ImGuiBackendFlags_HasParentViewport);
     platform_io.ClearPlatformHandlers();
     IM_DELETE(bd);
 }
@@ -215,30 +248,52 @@ static void ImGui_ImplWin32_UpdateKeyModifiers(ImGuiIO& io)
     io.AddKeyEvent(ImGuiMod_Super, IsVkDown(VK_LWIN) || IsVkDown(VK_RWIN));
 }
 
-static void ImGui_ImplWin32_UpdateMouseData(ImGuiIO& io)
+static ImGuiViewport* ImGui_ImplWin32_FindViewportByPlatformHandle(ImGuiPlatformIO& platform_io, HWND hwnd)
+{
+
+    for (ImGuiViewport* viewport : platform_io.Viewports)
+        if (viewport->PlatformHandle == hwnd)
+            return viewport;
+    return nullptr;
+}
+
+static void ImGui_ImplWin32_UpdateMouseData(ImGuiIO& io, ImGuiPlatformIO& platform_io)
 {
     ImGui_ImplWin32_Data* bd = ImGui_ImplWin32_GetBackendData(io);
     IM_ASSERT(bd->hWnd != 0);
 
+    POINT mouse_screen_pos;
+    bool has_mouse_screen_pos = ::GetCursorPos(&mouse_screen_pos) != 0;
+
     HWND focused_window = ::GetForegroundWindow();
-    const bool is_app_focused = (focused_window == bd->hWnd);
+    const bool is_app_focused = (focused_window && (focused_window == bd->hWnd || ::IsChild(focused_window, bd->hWnd) || ImGui_ImplWin32_FindViewportByPlatformHandle(platform_io, focused_window)));
     if (is_app_focused)
     {
 
         if (io.WantSetMousePos)
         {
             POINT pos = { (int)io.MousePos.x, (int)io.MousePos.y };
-            if (::ClientToScreen(bd->hWnd, &pos))
-                ::SetCursorPos(pos.x, pos.y);
+            if ((io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable) == 0)
+                ::ClientToScreen(focused_window, &pos);
+            ::SetCursorPos(pos.x, pos.y);
         }
 
-        if (!io.WantSetMousePos && bd->MouseTrackedArea == 0)
+        if (!io.WantSetMousePos && bd->MouseTrackedArea == 0 && has_mouse_screen_pos)
         {
-            POINT pos;
-            if (::GetCursorPos(&pos) && ::ScreenToClient(bd->hWnd, &pos))
-                io.AddMousePosEvent((float)pos.x, (float)pos.y);
+
+            POINT mouse_pos = mouse_screen_pos;
+            if (!(io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable))
+                ::ScreenToClient(bd->hWnd, &mouse_pos);
+            io.AddMousePosEvent((float)mouse_pos.x, (float)mouse_pos.y);
         }
     }
+
+    ImGuiID mouse_viewport_id = 0;
+    if (has_mouse_screen_pos)
+        if (HWND hovered_hwnd = ::WindowFromPoint(mouse_screen_pos))
+            if (ImGuiViewport* viewport = ImGui_ImplWin32_FindViewportByPlatformHandle(platform_io, hovered_hwnd))
+                mouse_viewport_id = viewport->ID;
+    io.AddMouseViewportEvent(mouse_viewport_id);
 }
 
 static void ImGui_ImplWin32_UpdateGamepads(ImGuiIO& io)
@@ -297,22 +352,56 @@ static void ImGui_ImplWin32_UpdateGamepads(ImGuiIO& io)
 #endif
 }
 
+static BOOL CALLBACK ImGui_ImplWin32_UpdateMonitors_EnumFunc(HMONITOR monitor, HDC, LPRECT, LPARAM)
+{
+    MONITORINFO info = {};
+    info.cbSize = sizeof(MONITORINFO);
+    if (!::GetMonitorInfo(monitor, &info))
+        return TRUE;
+    ImGuiPlatformMonitor imgui_monitor;
+    imgui_monitor.MainPos = ImVec2((float)info.rcMonitor.left, (float)info.rcMonitor.top);
+    imgui_monitor.MainSize = ImVec2((float)(info.rcMonitor.right - info.rcMonitor.left), (float)(info.rcMonitor.bottom - info.rcMonitor.top));
+    imgui_monitor.WorkPos = ImVec2((float)info.rcWork.left, (float)info.rcWork.top);
+    imgui_monitor.WorkSize = ImVec2((float)(info.rcWork.right - info.rcWork.left), (float)(info.rcWork.bottom - info.rcWork.top));
+    imgui_monitor.DpiScale = ImGui_ImplWin32_GetDpiScaleForMonitor(monitor);
+    imgui_monitor.PlatformHandle = (void*)monitor;
+    if (imgui_monitor.DpiScale <= 0.0f)
+        return TRUE;
+    ImGuiPlatformIO& io = ImGui::GetPlatformIO();
+    if (info.dwFlags & MONITORINFOF_PRIMARY)
+        io.Monitors.push_front(imgui_monitor);
+    else
+        io.Monitors.push_back(imgui_monitor);
+    return TRUE;
+}
+
+static void ImGui_ImplWin32_UpdateMonitors()
+{
+    ImGui_ImplWin32_Data* bd = ImGui_ImplWin32_GetBackendData();
+    ImGui::GetPlatformIO().Monitors.resize(0);
+    ::EnumDisplayMonitors(nullptr, nullptr, ImGui_ImplWin32_UpdateMonitors_EnumFunc, 0);
+    bd->WantUpdateMonitors = false;
+}
+
 void    ImGui_ImplWin32_NewFrame()
 {
     ImGui_ImplWin32_Data* bd = ImGui_ImplWin32_GetBackendData();
     IM_ASSERT(bd != nullptr && "Context or backend not initialized? Did you call ImGui_ImplWin32_Init()?");
     ImGuiIO& io = ImGui::GetIO();
+    ImGuiPlatformIO& platform_io = ImGui::GetPlatformIO();
 
     RECT rect = { 0, 0, 0, 0 };
     ::GetClientRect(bd->hWnd, &rect);
     io.DisplaySize = ImVec2((float)(rect.right - rect.left), (float)(rect.bottom - rect.top));
+    if (bd->WantUpdateMonitors)
+        ImGui_ImplWin32_UpdateMonitors();
 
     INT64 current_time = 0;
     ::QueryPerformanceCounter((LARGE_INTEGER*)&current_time);
     io.DeltaTime = (float)(current_time - bd->Time) / bd->TicksPerSecond;
     bd->Time = current_time;
 
-    ImGui_ImplWin32_UpdateMouseData(io);
+    ImGui_ImplWin32_UpdateMouseData(io, platform_io);
 
     ImGui_ImplWin32_ProcessKeyEventsWorkarounds(io);
 
@@ -491,6 +580,10 @@ static ImGuiMouseSource ImGui_ImplWin32_GetMouseSourceFromMessageExtraInfo()
 extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandlerEx(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam, ImGuiIO& io);
 
+#ifndef WM_DPICHANGED
+#define WM_DPICHANGED 0x02E0
+#endif
+
 IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
 
@@ -523,8 +616,11 @@ IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandlerEx(HWND hwnd, UINT msg, WPA
             bd->MouseTrackedArea = area;
         }
         POINT mouse_pos = { (LONG)GET_X_LPARAM(lParam), (LONG)GET_Y_LPARAM(lParam) };
-        if (msg == WM_NCMOUSEMOVE)
-             ::ScreenToClient(hwnd, &mouse_pos);
+        bool want_absolute_pos = (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable) != 0;
+        if (msg == WM_MOUSEMOVE && want_absolute_pos)
+            ::ClientToScreen(hwnd, &mouse_pos);
+        if (msg == WM_NCMOUSEMOVE && !want_absolute_pos)
+            ::ScreenToClient(hwnd, &mouse_pos);
         io.AddMouseSourceEvent(mouse_source);
         io.AddMousePosEvent((float)mouse_pos.x, (float)mouse_pos.y);
         return 0;
@@ -689,6 +785,21 @@ IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandlerEx(HWND hwnd, UINT msg, WPA
             bd->WantUpdateHasGamepad = true;
 #endif
         return 0;
+    case WM_DISPLAYCHANGE:
+        bd->WantUpdateMonitors = true;
+        return 0;
+    case WM_SETTINGCHANGE:
+        if (wParam == SPI_SETWORKAREA)
+            bd->WantUpdateMonitors = true;
+        return 0;
+    case WM_DPICHANGED:
+    {
+
+        const RECT* suggested_rect = (RECT*)lParam;
+        if (io.ConfigDpiScaleViewports)
+            ::SetWindowPos(hwnd, nullptr, suggested_rect->left, suggested_rect->top, suggested_rect->right - suggested_rect->left, suggested_rect->bottom - suggested_rect->top, SWP_NOZORDER | SWP_NOACTIVATE);
+        return 0;
+    }
     }
     return 0;
 }
@@ -732,9 +843,15 @@ DECLARE_HANDLE(DPI_AWARENESS_CONTEXT);
 typedef HRESULT(WINAPI* PFN_SetProcessDpiAwareness)(PROCESS_DPI_AWARENESS);
 typedef HRESULT(WINAPI* PFN_GetDpiForMonitor)(HMONITOR, MONITOR_DPI_TYPE, UINT*, UINT*);
 typedef DPI_AWARENESS_CONTEXT(WINAPI* PFN_SetThreadDpiAwarenessContext)(DPI_AWARENESS_CONTEXT);
+typedef DPI_AWARENESS_CONTEXT(WINAPI* PFN_GetThreadDpiAwarenessContext)();
+typedef BOOL(WINAPI* PFN_AreDpiAwarenessContextsEqual)(DPI_AWARENESS_CONTEXT, DPI_AWARENESS_CONTEXT);
 
 void ImGui_ImplWin32_EnableDpiAwareness()
 {
+
+    if (ImGui_ImplWin32_Data* bd = ImGui_ImplWin32_GetBackendData())
+        bd->WantUpdateMonitors = true;
+
     if (_IsWindows10OrGreater())
     {
         static HINSTANCE user32_dll = ::LoadLibraryA("user32.dll");
@@ -756,6 +873,18 @@ void ImGui_ImplWin32_EnableDpiAwareness()
 #if _WIN32_WINNT >= 0x0600
     ::SetProcessDPIAware();
 #endif
+}
+
+static bool ImGui_ImplWin32_IsDpiAwarenessPerMonitorAwareV2()
+{
+    if (!_IsWindows10OrGreater())
+        return false;
+    static HINSTANCE user32_dll = ::GetModuleHandleA("user32.dll");
+    PFN_GetThreadDpiAwarenessContext GetThreadDpiAwarenessContextFn = (PFN_GetThreadDpiAwarenessContext)::GetProcAddress(user32_dll, "GetThreadDpiAwarenessContext");
+    PFN_AreDpiAwarenessContextsEqual AreDpiAwarenessContextsEqualFn = (PFN_AreDpiAwarenessContextsEqual)::GetProcAddress(user32_dll, "AreDpiAwarenessContextsEqual");
+    if (GetThreadDpiAwarenessContextFn && AreDpiAwarenessContextsEqualFn)
+        return AreDpiAwarenessContextsEqualFn(GetThreadDpiAwarenessContextFn(), DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2) != 0;
+    return false;
 }
 
 #if defined(_MSC_VER) && !defined(NOGDI)
@@ -825,6 +954,366 @@ void ImGui_ImplWin32_EnableAlphaCompositing(void* hwnd)
         bb.dwFlags = DWM_BB_ENABLE;
         ::DwmEnableBlurBehindWindow((HWND)hwnd, &bb);
     }
+}
+
+struct ImGui_ImplWin32_ViewportData
+{
+    HWND    Hwnd;
+    HWND    HwndParent;
+    bool    HwndOwned;
+    DWORD   DwStyle;
+    DWORD   DwExStyle;
+
+    ImGui_ImplWin32_ViewportData() { Hwnd = HwndParent = nullptr; HwndOwned = false;  DwStyle = DwExStyle = 0; }
+    ~ImGui_ImplWin32_ViewportData() { IM_ASSERT(Hwnd == nullptr); }
+};
+
+static void ImGui_ImplWin32_GetWin32StyleFromViewportFlags(ImGuiViewportFlags flags, DWORD* out_style, DWORD* out_ex_style)
+{
+    if (flags & ImGuiViewportFlags_NoDecoration)
+        *out_style = WS_POPUP;
+    else
+        *out_style = WS_OVERLAPPEDWINDOW;
+
+    if (flags & ImGuiViewportFlags_NoTaskBarIcon)
+        *out_ex_style = WS_EX_TOOLWINDOW;
+    else
+        *out_ex_style = WS_EX_APPWINDOW;
+
+    if (flags & ImGuiViewportFlags_TopMost)
+        *out_ex_style |= WS_EX_TOPMOST;
+}
+
+static HWND ImGui_ImplWin32_GetHwndFromViewport(ImGuiViewport* viewport)
+{
+    if (viewport != nullptr)
+        return (HWND)viewport->PlatformHandle;
+    return nullptr;
+}
+
+static void ImGui_ImplWin32_AdjustWindowRect(ImGuiViewport* viewport, RECT* rect, DWORD style, DWORD ex_style)
+{
+    ImGui_ImplWin32_Data* bd = ImGui_ImplWin32_GetBackendData();
+    if (bd->AdjustWindowRectExForDpi && bd->IsPerMonitorDpiAwareV2)
+    {
+        UINT dpi = (UINT)(viewport->DpiScale * 96.0f + 0.5f);
+        if (dpi != 0 && bd->AdjustWindowRectExForDpi(rect, style, FALSE, ex_style, dpi))
+            return;
+    }
+    ::AdjustWindowRectEx(rect, style, FALSE, ex_style);
+}
+
+static void ImGui_ImplWin32_CreateWindow(ImGuiViewport* viewport)
+{
+    ImGui_ImplWin32_ViewportData* vd = IM_NEW(ImGui_ImplWin32_ViewportData)();
+    viewport->PlatformUserData = vd;
+
+    ImGui_ImplWin32_GetWin32StyleFromViewportFlags(viewport->Flags, &vd->DwStyle, &vd->DwExStyle);
+    vd->HwndParent = ImGui_ImplWin32_GetHwndFromViewport(viewport->ParentViewport);
+
+    RECT rect = { (LONG)viewport->Pos.x, (LONG)viewport->Pos.y, (LONG)(viewport->Pos.x + viewport->Size.x), (LONG)(viewport->Pos.y + viewport->Size.y) };
+    ImGui_ImplWin32_AdjustWindowRect(viewport, &rect, vd->DwStyle, vd->DwExStyle);
+    vd->Hwnd = ::CreateWindowExW(
+        vd->DwExStyle, ImGui_ImplWin32_GetBackendData()->WindowClassName, L"Untitled", vd->DwStyle,
+        rect.left, rect.top, rect.right - rect.left, rect.bottom - rect.top,
+        vd->HwndParent, nullptr, ::GetModuleHandle(nullptr), nullptr);
+    vd->HwndOwned = true;
+    viewport->PlatformRequestResize = false;
+    viewport->PlatformHandle = viewport->PlatformHandleRaw = vd->Hwnd;
+
+    ::SetPropA(vd->Hwnd, "IMGUI_CONTEXT", ImGui::GetCurrentContext());
+}
+
+static void ImGui_ImplWin32_DestroyWindow(ImGuiViewport* viewport)
+{
+    ImGui_ImplWin32_Data* bd = ImGui_ImplWin32_GetBackendData();
+    if (ImGui_ImplWin32_ViewportData* vd = (ImGui_ImplWin32_ViewportData*)viewport->PlatformUserData)
+    {
+        if (::GetCapture() == vd->Hwnd)
+        {
+
+            ::ReleaseCapture();
+            ::SetCapture(bd->hWnd);
+        }
+        if (vd->Hwnd && vd->HwndOwned)
+            ::DestroyWindow(vd->Hwnd);
+        vd->Hwnd = nullptr;
+        IM_DELETE(vd);
+    }
+    viewport->PlatformUserData = viewport->PlatformHandle = nullptr;
+}
+
+static void ImGui_ImplWin32_ShowWindow(ImGuiViewport* viewport)
+{
+    ImGui_ImplWin32_ViewportData* vd = (ImGui_ImplWin32_ViewportData*)viewport->PlatformUserData;
+    IM_ASSERT(vd->Hwnd != 0);
+
+    bool avoid_bringing_parent_to_front = vd->HwndParent != NULL && (viewport->Flags & (ImGuiViewportFlags_NoFocusOnAppearing | ImGuiViewportFlags_NoTaskBarIcon)) != 0;
+    if (avoid_bringing_parent_to_front)
+        ::SetWindowLongPtr(vd->Hwnd, GWLP_HWNDPARENT, (LONG_PTR)nullptr);
+
+    if (viewport->Flags & ImGuiViewportFlags_NoFocusOnAppearing)
+        ::ShowWindow(vd->Hwnd, SW_SHOWNA);
+    else
+        ::ShowWindow(vd->Hwnd, SW_SHOW);
+
+    if (avoid_bringing_parent_to_front)
+        ::SetWindowLongPtr(vd->Hwnd, GWLP_HWNDPARENT, (LONG_PTR)vd->HwndParent);
+}
+
+static void ImGui_ImplWin32_UpdateWindow(ImGuiViewport* viewport)
+{
+    ImGui_ImplWin32_ViewportData* vd = (ImGui_ImplWin32_ViewportData*)viewport->PlatformUserData;
+    IM_ASSERT(vd->Hwnd != 0);
+
+    HWND new_parent = ImGui_ImplWin32_GetHwndFromViewport(viewport->ParentViewport);
+    if (new_parent != vd->HwndParent)
+    {
+
+        vd->HwndParent = new_parent;
+        ::SetWindowLongPtr(vd->Hwnd, GWLP_HWNDPARENT, (LONG_PTR)vd->HwndParent);
+    }
+
+    DWORD new_style;
+    DWORD new_ex_style;
+    ImGui_ImplWin32_GetWin32StyleFromViewportFlags(viewport->Flags, &new_style, &new_ex_style);
+
+    if (vd->DwStyle != new_style || vd->DwExStyle != new_ex_style)
+    {
+
+        bool top_most_changed = (vd->DwExStyle & WS_EX_TOPMOST) != (new_ex_style & WS_EX_TOPMOST);
+        HWND insert_after = top_most_changed ? ((viewport->Flags & ImGuiViewportFlags_TopMost) ? HWND_TOPMOST : HWND_NOTOPMOST) : 0;
+        UINT swp_flag = top_most_changed ? 0 : SWP_NOZORDER;
+
+        vd->DwStyle = new_style;
+        vd->DwExStyle = new_ex_style;
+        ::SetWindowLong(vd->Hwnd, GWL_STYLE, vd->DwStyle);
+        ::SetWindowLong(vd->Hwnd, GWL_EXSTYLE, vd->DwExStyle);
+        RECT rect = { (LONG)viewport->Pos.x, (LONG)viewport->Pos.y, (LONG)(viewport->Pos.x + viewport->Size.x), (LONG)(viewport->Pos.y + viewport->Size.y) };
+        ImGui_ImplWin32_AdjustWindowRect(viewport, &rect, vd->DwStyle, vd->DwExStyle);
+        ::SetWindowPos(vd->Hwnd, insert_after, rect.left, rect.top, rect.right - rect.left, rect.bottom - rect.top, swp_flag | SWP_NOACTIVATE | SWP_FRAMECHANGED);
+        ::ShowWindow(vd->Hwnd, SW_SHOWNA);
+        viewport->PlatformRequestMove = viewport->PlatformRequestResize = true;
+    }
+}
+
+static ImVec2 ImGui_ImplWin32_GetWindowPos(ImGuiViewport* viewport)
+{
+    ImGui_ImplWin32_ViewportData* vd = (ImGui_ImplWin32_ViewportData*)viewport->PlatformUserData;
+    IM_ASSERT(vd->Hwnd != 0);
+    POINT pos = { 0, 0 };
+    ::ClientToScreen(vd->Hwnd, &pos);
+    return ImVec2((float)pos.x, (float)pos.y);
+}
+
+static void ImGui_ImplWin32_UpdateWin32StyleFromWindow(ImGuiViewport* viewport)
+{
+    ImGui_ImplWin32_ViewportData* vd = (ImGui_ImplWin32_ViewportData*)viewport->PlatformUserData;
+    vd->DwStyle = ::GetWindowLongW(vd->Hwnd, GWL_STYLE);
+    vd->DwExStyle = ::GetWindowLongW(vd->Hwnd, GWL_EXSTYLE);
+}
+
+static void ImGui_ImplWin32_SetWindowPos(ImGuiViewport* viewport, ImVec2 pos)
+{
+    ImGui_ImplWin32_ViewportData* vd = (ImGui_ImplWin32_ViewportData*)viewport->PlatformUserData;
+    IM_ASSERT(vd->Hwnd != 0);
+    RECT rect = { (LONG)pos.x, (LONG)pos.y, (LONG)pos.x, (LONG)pos.y };
+    if (viewport->Flags & ImGuiViewportFlags_OwnedByApp)
+        ImGui_ImplWin32_UpdateWin32StyleFromWindow(viewport);
+    ImGui_ImplWin32_AdjustWindowRect(viewport, &rect, vd->DwStyle, vd->DwExStyle);
+    ::SetWindowPos(vd->Hwnd, nullptr, rect.left, rect.top, 0, 0, SWP_NOZORDER | SWP_NOSIZE | SWP_NOACTIVATE);
+}
+
+static ImVec2 ImGui_ImplWin32_GetWindowSize(ImGuiViewport* viewport)
+{
+    ImGui_ImplWin32_ViewportData* vd = (ImGui_ImplWin32_ViewportData*)viewport->PlatformUserData;
+    IM_ASSERT(vd->Hwnd != 0);
+    RECT rect;
+    ::GetClientRect(vd->Hwnd, &rect);
+    return ImVec2(float(rect.right - rect.left), float(rect.bottom - rect.top));
+}
+
+static void ImGui_ImplWin32_SetWindowSize(ImGuiViewport* viewport, ImVec2 size)
+{
+    ImGui_ImplWin32_ViewportData* vd = (ImGui_ImplWin32_ViewportData*)viewport->PlatformUserData;
+    IM_ASSERT(vd->Hwnd != 0);
+    RECT rect = { 0, 0, (LONG)size.x, (LONG)size.y };
+    if (viewport->Flags & ImGuiViewportFlags_OwnedByApp)
+        ImGui_ImplWin32_UpdateWin32StyleFromWindow(viewport);
+    ImGui_ImplWin32_AdjustWindowRect(viewport, &rect, vd->DwStyle, vd->DwExStyle);
+    ::SetWindowPos(vd->Hwnd, nullptr, 0, 0, rect.right - rect.left, rect.bottom - rect.top, SWP_NOZORDER | SWP_NOMOVE | SWP_NOACTIVATE);
+}
+
+static void ImGui_ImplWin32_SetWindowFocus(ImGuiViewport* viewport)
+{
+    ImGui_ImplWin32_ViewportData* vd = (ImGui_ImplWin32_ViewportData*)viewport->PlatformUserData;
+    IM_ASSERT(vd->Hwnd != 0);
+    ::BringWindowToTop(vd->Hwnd);
+    ::SetForegroundWindow(vd->Hwnd);
+    ::SetFocus(vd->Hwnd);
+}
+
+static bool ImGui_ImplWin32_GetWindowFocus(ImGuiViewport* viewport)
+{
+    ImGui_ImplWin32_ViewportData* vd = (ImGui_ImplWin32_ViewportData*)viewport->PlatformUserData;
+    IM_ASSERT(vd->Hwnd != 0);
+    return ::GetForegroundWindow() == vd->Hwnd;
+}
+
+static bool ImGui_ImplWin32_GetWindowMinimized(ImGuiViewport* viewport)
+{
+    ImGui_ImplWin32_ViewportData* vd = (ImGui_ImplWin32_ViewportData*)viewport->PlatformUserData;
+    IM_ASSERT(vd->Hwnd != 0);
+    return ::IsIconic(vd->Hwnd) != 0;
+}
+
+static void ImGui_ImplWin32_SetWindowTitle(ImGuiViewport* viewport, const char* title)
+{
+
+    ImGui_ImplWin32_ViewportData* vd = (ImGui_ImplWin32_ViewportData*)viewport->PlatformUserData;
+    IM_ASSERT(vd->Hwnd != 0);
+    int n = ::MultiByteToWideChar(CP_UTF8, 0, title, -1, nullptr, 0);
+    ImVector<wchar_t> title_w;
+    title_w.resize(n);
+    ::MultiByteToWideChar(CP_UTF8, 0, title, -1, title_w.Data, n);
+
+    ::DefWindowProcW(vd->Hwnd, WM_SETTEXT, 0, (LPARAM)title_w.Data);
+}
+
+static void ImGui_ImplWin32_SetWindowAlpha(ImGuiViewport* viewport, float alpha)
+{
+    ImGui_ImplWin32_ViewportData* vd = (ImGui_ImplWin32_ViewportData*)viewport->PlatformUserData;
+    IM_ASSERT(vd->Hwnd != 0);
+    IM_ASSERT(alpha >= 0.0f && alpha <= 1.0f);
+    if (alpha < 1.0f)
+    {
+        DWORD ex_style = ::GetWindowLongW(vd->Hwnd, GWL_EXSTYLE) | WS_EX_LAYERED;
+        ::SetWindowLongW(vd->Hwnd, GWL_EXSTYLE, ex_style);
+        ::SetLayeredWindowAttributes(vd->Hwnd, 0, (BYTE)(255 * alpha), LWA_ALPHA);
+    }
+    else
+    {
+        DWORD ex_style = ::GetWindowLongW(vd->Hwnd, GWL_EXSTYLE) & ~WS_EX_LAYERED;
+        ::SetWindowLongW(vd->Hwnd, GWL_EXSTYLE, ex_style);
+    }
+}
+
+static float ImGui_ImplWin32_GetWindowDpiScale(ImGuiViewport* viewport)
+{
+    ImGui_ImplWin32_ViewportData* vd = (ImGui_ImplWin32_ViewportData*)viewport->PlatformUserData;
+    IM_ASSERT(vd->Hwnd != 0);
+    return ImGui_ImplWin32_GetDpiScaleForHwnd(vd->Hwnd);
+}
+
+static void ImGui_ImplWin32_OnChangedViewport(ImGuiViewport* viewport)
+{
+    (void)viewport;
+#if 0
+    ImGuiStyle default_style;
+
+    default_style.ScaleAllSizes(viewport->DpiScale);
+    ImGuiStyle& style = ImGui::GetStyle();
+    style = default_style;
+#endif
+}
+
+namespace ImGui { extern ImGuiIO& GetIO(ImGuiContext*); extern ImGuiPlatformIO& GetPlatformIO(ImGuiContext*); }
+
+static LRESULT CALLBACK ImGui_ImplWin32_WndProcHandler_PlatformWindow(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
+{
+
+    ImGuiContext* ctx = (ImGuiContext*)::GetPropA(hWnd, "IMGUI_CONTEXT");
+    if (ctx == NULL)
+        return ::DefWindowProcW(hWnd, msg, wParam, lParam);
+
+    ImGuiIO& io = ImGui::GetIO(ctx);
+    ImGuiPlatformIO& platform_io = ImGui::GetPlatformIO(ctx);
+    LRESULT result = 0;
+    if (ImGui_ImplWin32_WndProcHandlerEx(hWnd, msg, wParam, lParam, io))
+        result = 1;
+    else if (ImGuiViewport* viewport = ImGui_ImplWin32_FindViewportByPlatformHandle(platform_io, hWnd))
+    {
+        switch (msg)
+        {
+        case WM_CLOSE:
+            viewport->PlatformRequestClose = true;
+            return 0;
+        case WM_MOVE:
+            viewport->PlatformRequestMove = true;
+            break;
+        case WM_SIZE:
+            viewport->PlatformRequestResize = true;
+            break;
+        case WM_MOUSEACTIVATE:
+            if (viewport->Flags & ImGuiViewportFlags_NoFocusOnClick)
+                result = MA_NOACTIVATE;
+            break;
+        case WM_NCHITTEST:
+
+            if (viewport->Flags & ImGuiViewportFlags_NoInputs)
+                result = HTTRANSPARENT;
+            break;
+        }
+    }
+    if (result == 0)
+        result = ::DefWindowProcW(hWnd, msg, wParam, lParam);
+    return result;
+}
+
+static bool ImGui_ImplWin32_InitMultiViewportSupport(bool platform_has_own_dc)
+{
+    ImGui_ImplWin32_Data* bd = ImGui_ImplWin32_GetBackendData();
+    WindowIdentity::Generate(bd->WindowClassName);
+    WNDCLASSEXW wcex;
+    wcex.cbSize = sizeof(WNDCLASSEXW);
+    wcex.style = CS_HREDRAW | CS_VREDRAW | (platform_has_own_dc ? CS_OWNDC : 0);
+    wcex.lpfnWndProc = ImGui_ImplWin32_WndProcHandler_PlatformWindow;
+    wcex.cbClsExtra = 0;
+    wcex.cbWndExtra = 0;
+    wcex.hInstance = ::GetModuleHandle(nullptr);
+    wcex.hIcon = nullptr;
+    wcex.hCursor = nullptr;
+    wcex.hbrBackground = (HBRUSH)(COLOR_BACKGROUND + 1);
+    wcex.lpszMenuName = nullptr;
+    wcex.lpszClassName = bd->WindowClassName;
+    wcex.hIconSm = nullptr;
+    const bool registered = ::RegisterClassExW(&wcex) != 0;
+
+    if (!registered) return false;
+
+    ImGui_ImplWin32_UpdateMonitors();
+
+    ImGuiPlatformIO& platform_io = ImGui::GetPlatformIO();
+    platform_io.Platform_CreateWindow = ImGui_ImplWin32_CreateWindow;
+    platform_io.Platform_DestroyWindow = ImGui_ImplWin32_DestroyWindow;
+    platform_io.Platform_ShowWindow = ImGui_ImplWin32_ShowWindow;
+    platform_io.Platform_SetWindowPos = ImGui_ImplWin32_SetWindowPos;
+    platform_io.Platform_GetWindowPos = ImGui_ImplWin32_GetWindowPos;
+    platform_io.Platform_SetWindowSize = ImGui_ImplWin32_SetWindowSize;
+    platform_io.Platform_GetWindowSize = ImGui_ImplWin32_GetWindowSize;
+    platform_io.Platform_SetWindowFocus = ImGui_ImplWin32_SetWindowFocus;
+    platform_io.Platform_GetWindowFocus = ImGui_ImplWin32_GetWindowFocus;
+    platform_io.Platform_GetWindowMinimized = ImGui_ImplWin32_GetWindowMinimized;
+    platform_io.Platform_SetWindowTitle = ImGui_ImplWin32_SetWindowTitle;
+    platform_io.Platform_SetWindowAlpha = ImGui_ImplWin32_SetWindowAlpha;
+    platform_io.Platform_UpdateWindow = ImGui_ImplWin32_UpdateWindow;
+    platform_io.Platform_GetWindowDpiScale = ImGui_ImplWin32_GetWindowDpiScale;
+    platform_io.Platform_OnChangedViewport = ImGui_ImplWin32_OnChangedViewport;
+
+    ImGuiViewport* main_viewport = ImGui::GetMainViewport();
+    ImGui_ImplWin32_ViewportData* vd = IM_NEW(ImGui_ImplWin32_ViewportData)();
+    vd->Hwnd = bd->hWnd;
+    vd->HwndOwned = false;
+    main_viewport->PlatformUserData = vd;
+    return true;
+}
+
+static void ImGui_ImplWin32_ShutdownMultiViewportSupport()
+{
+    ImGui_ImplWin32_Data* bd = ImGui_ImplWin32_GetBackendData();
+    ImGui::DestroyPlatformWindows();
+    const bool removed = ::UnregisterClassW(bd->WindowClassName, ::GetModuleHandle(nullptr)) != FALSE;
+
 }
 
 #if defined(__GNUC__)

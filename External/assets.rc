@@ -1,4 +1,6 @@
+#include "src/core/app/AppVersion.h"
 1 ICON "app_icon.ico"
+208 RCDATA { GOAT_APP_VERSION }
 
 201 RCDATA "assets/grid.mp4"
 204 RCDATA "assets/pixel-bold.ttf"

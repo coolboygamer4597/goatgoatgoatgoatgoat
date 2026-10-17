@@ -46,7 +46,7 @@ inline bool LoadClick(bool click,float scale,bool streamproof,bool force=false){
         if(chosen==0)ImGui::TextWrapped("Downloads matching offsets and keeps a verified offline copy.");
         if(chosen==1)ImGui::TextWrapped("Bundled version: %s",BundledOffsets::ClientVersion.c_str());
         if(chosen==2){
-            if(RetroUi::Choice("Select offsets file...",false,ImVec2(240*scale,26*scale)))file=Browse(static_cast<HWND>(ImGui::GetMainViewport()->PlatformHandleRaw),streamproof,file);
+            if(RetroUi::Choice("Select offsets file...",false,ImVec2(240*scale,26*scale)))file=Browse(static_cast<HWND>(ImGui::GetWindowViewport()->PlatformHandleRaw),streamproof,file);
             ImGui::SetCursorScreenPos(at(24,250));ImGui::TextUnformatted(file.empty()?"No file selected":file.filename().u8string().c_str());
         }
         if(!error.empty()){ImGui::SetCursorScreenPos(at(24,270));ImGui::PushStyleColor(ImGuiCol_Text,ImVec4(1,.45f,.4f,1));ImGui::PushTextWrapPos(526*scale);ImGui::TextWrapped("%s",error.c_str());ImGui::PopTextWrapPos();ImGui::PopStyleColor();}

@@ -20,6 +20,7 @@ class RawObserver {
     std::atomic<bool> quit{false},ready{false},deviceSeen{false};
     std::atomic<DWORD> threadId{0},gamePid{0};
     std::atomic<long long> physicalX{0};
+    std::atomic<bool> physicalLeft{false},buttonKnown{false};
     std::atomic<ULONGLONG> bad{0};
     std::mutex mutex;
     std::deque<Move> pending;
@@ -27,13 +28,18 @@ class RawObserver {
         if(message==WM_NCCREATE)SetWindowLongPtrW(window,GWLP_USERDATA,reinterpret_cast<LONG_PTR>(reinterpret_cast<CREATESTRUCTW*>(lp)->lpCreateParams));
         auto self=reinterpret_cast<RawObserver*>(GetWindowLongPtrW(window,GWLP_USERDATA));
         if(message==WM_INPUT && self){
-            DWORD pid=0;GetWindowThreadProcessId(GetForegroundWindow(),&pid);
-            if(pid==self->gamePid.load()){
-                RAWINPUT input{};UINT size=sizeof(input);
-                if(GetRawInputData(reinterpret_cast<HRAWINPUT>(lp),RID_INPUT,&input,&size,sizeof(RAWINPUTHEADER))!=static_cast<UINT>(-1) && input.header.dwType==RIM_TYPEMOUSE){
-                    const auto& mouse=input.data.mouse;
+            RAWINPUT input{};UINT size=sizeof(input);
+            if(GetRawInputData(reinterpret_cast<HRAWINPUT>(lp),RID_INPUT,&input,&size,sizeof(RAWINPUTHEADER))!=static_cast<UINT>(-1) && input.header.dwType==RIM_TYPEMOUSE){
+                const auto& mouse=input.data.mouse;
+                const bool hardware=input.header.hDevice && mouse.ulExtraInformation!=0x52434c31;
+                if(hardware){
+                    if(mouse.usButtonFlags&RI_MOUSE_LEFT_BUTTON_DOWN){self->physicalLeft=true;self->buttonKnown=true;}
+                    if(mouse.usButtonFlags&RI_MOUSE_LEFT_BUTTON_UP){self->physicalLeft=false;self->buttonKnown=true;}
+                }
+                DWORD pid=0;GetWindowThreadProcessId(GetForegroundWindow(),&pid);
+                if(pid==self->gamePid.load()){
                     if(mouse.usFlags&MOUSE_MOVE_ABSOLUTE)self->bad=GetTickCount64();
-                    else if(input.header.hDevice && mouse.ulExtraInformation!=0x52434c31){self->deviceSeen=true;self->physicalX.fetch_add(mouse.lLastX);}
+                    else if(hardware){self->deviceSeen=true;self->physicalX.fetch_add(mouse.lLastX);}
                     else if(mouse.lLastX){
                         std::lock_guard<std::mutex> lock(self->mutex);
                         int remaining=mouse.lLastX;
@@ -66,8 +72,10 @@ class RawObserver {
 public:
     ~RawObserver(){Stop();}
     bool Connected()const{return ready.load();}
-    void Start(DWORD pid){gamePid=pid;if(!worker.joinable()){quit=false;try{worker=std::thread([this]{Run();});}catch(...){ready=false;quit=true;}}}
-    void Stop(){quit=true;if(threadId)PostThreadMessageW(threadId.load(),WM_QUIT,0,0);if(worker.joinable())worker.join();threadId=0;ready=false;deviceSeen=false;physicalX=0;std::lock_guard<std::mutex> lock(mutex);pending.clear();}
+    bool PhysicalLeft()const{return physicalLeft.load();}
+    bool ButtonReady()const{return ready&&buttonKnown;}
+    void Start(DWORD pid){gamePid=pid;if(!worker.joinable()){physicalLeft=(GetAsyncKeyState(VK_LBUTTON)&0x8000)!=0;buttonKnown=false;quit=false;try{worker=std::thread([this]{Run();});}catch(...){ready=false;quit=true;}}}
+    void Stop(){quit=true;if(threadId)PostThreadMessageW(threadId.load(),WM_QUIT,0,0);if(worker.joinable())worker.join();threadId=0;ready=false;deviceSeen=false;physicalX=0;buttonKnown=false;physicalLeft=false;std::lock_guard<std::mutex> lock(mutex);pending.clear();}
     void Expect(int x){if(!x)return;std::lock_guard<std::mutex> lock(mutex);pending.push_back({x,GetTickCount64()});}
     bool Take(long long& dx){
         dx=physicalX.exchange(0);const auto now=GetTickCount64();
@@ -76,6 +84,16 @@ public:
     }
 };
 RawObserver observer;
+RecoilModel::AutoClick automatic;
+bool ownedClickDown=false;
+std::atomic<bool> automaticHolding{false};
+bool Click(int edge){
+    if(!edge)return true;
+    INPUT input{};input.type=INPUT_MOUSE;input.mi.dwFlags=edge>0?MOUSEEVENTF_LEFTDOWN:MOUSEEVENTF_LEFTUP;input.mi.dwExtraInfo=0x52434c31;
+    if(SendInput(1,&input,sizeof(input))!=1)return false;
+    ownedClickDown=edge>0;return true;
+}
+void StopAutomatic(){automaticHolding=false;const auto edge=automatic.Stop(observer.PhysicalLeft());if(edge||ownedClickDown)Click(-1);}
 RecoilModel::Horizontal horizontal;
 std::array<float,4> horizontalFov{};
 Clock::time_point lastShot{};
@@ -124,22 +142,23 @@ bool Refresh() {
     return root && humanoid && tool;
 }
 }
-void Stop(){observer.Stop();horizontal.Reset();lastShot={};previousAmmo=-1;shotIdentity=0;const bool down=(GetAsyncKeyState(VK_LBUTTON)&0x8000)!=0;integrator.Reset(down);pulse.Reset(down);previous={};nextResolve={};nextAmmoPoll=nextAmmoResolve={};ammoField=ammoIdentity=0;currentAmmo=-1;character=root=humanoid=tool=0;stance=-1;glock=false;variables::Aimbot::recoilActive=false;status="Disabled";}
+void Stop(){StopAutomatic();observer.Stop();horizontal.Reset();lastShot={};previousAmmo=-1;shotIdentity=0;const bool down=(GetAsyncKeyState(VK_LBUTTON)&0x8000)!=0;integrator.Reset(down);pulse.Reset(down);previous={};nextResolve={};nextAmmoPoll=nextAmmoResolve={};ammoField=ammoIdentity=0;currentAmmo=-1;character=root=humanoid=tool=0;stance=-1;glock=false;variables::Aimbot::recoilActive=false;status="Disabled";}
+bool AutomaticHeld(){return automaticHolding&&observer.PhysicalLeft();}
 const char* Status(){return status;}
 const char* HorizontalStatus(){return horizontalStatus;}
 void Tick() {
     variables::Aimbot::recoilActive=false;
-    const bool down=(GetAsyncKeyState(VK_LBUTTON)&0x8000)!=0;
+    bool down=(GetAsyncKeyState(VK_LBUTTON)&0x8000)!=0;
     const auto now=Clock::now();
     const double dt=previous.time_since_epoch().count()?std::chrono::duration<double>(now-previous).count():0;
     previous=now;
     long long physicalDx=0;const bool rawReady=observer.Take(physicalDx);
-    auto idle=[&](const char* message){integrator.Reset(down);pulse.Reset(down);horizontal.Reset();lastShot={};previousAmmo=-1;status=message;};
-    if(!variables::Aimbot::recoilEnabled){idle("Disabled");return;}
+    auto idle=[&](const char* message){StopAutomatic();integrator.Reset(down);pulse.Reset(down);horizontal.Reset();lastShot={};previousAmmo=-1;status=message;};
+    if(!variables::Aimbot::recoilEnabled&&!variables::Aimbot::glockAutomatic){idle("Disabled");return;}
     if(!memory || !Globals::running || !memory->IsConnected()){idle("Paused: game disconnected");return;}
     if(variables::menuOpen){idle("Paused: menu open");return;}
     if(!Foreground()){idle("Paused: Roblox not focused");return;}
-    if(variables::Aimbot::recoilHorizontal)observer.Start(memory->get_process_id());
+    if(variables::Aimbot::recoilHorizontal||variables::Aimbot::glockAutomatic)observer.Start(memory->get_process_id());
     std::uint64_t place=0;
     if(!memory->read_raw(Globals::dataModel.Addr+Offsets::DataModel::PlaceId,&place,sizeof(place)) || place!=4888256398ULL){idle("Available in the skin game");return;}
     if(now>=nextResolve || Globals::localPlayer.GetModelRef().Addr!=character) {
@@ -153,6 +172,13 @@ void Tick() {
     const auto ammo=Ammo(now,tool ^ (character<<1));
     if(ammo<0){idle("Waiting for ammo display");return;}
     if(ammo==0){idle("Paused: magazine empty");return;}
+    const auto autoIdentity=tool ^ (character<<1);
+    const bool autoAllowed=variables::Aimbot::glockAutomatic&&glock&&observer.ButtonReady()&&!(GetAsyncKeyState('R')&0x8000);
+    const auto edge=automatic.Step(std::chrono::duration<double>(now.time_since_epoch()).count(),autoAllowed,observer.PhysicalLeft(),variables::Aimbot::glockClickDelay,autoIdentity);
+    if(!Click(edge)){StopAutomatic();idle("Mouse input unavailable");return;}
+    automaticHolding=autoAllowed&&automatic.active;
+    if(autoAllowed&&automatic.active)down=automatic.outputDown;
+    if(!variables::Aimbot::recoilEnabled){integrator.Reset(down);pulse.Reset(down);horizontal.Reset();lastShot={};previousAmmo=-1;status="Disabled";return;}
     const auto currentShotIdentity=tool ^ (character<<1);
     if(shotIdentity!=currentShotIdentity){shotIdentity=currentShotIdentity;previousAmmo=ammo;lastShot={};horizontal.Reset();}
     if(previousAmmo>=0 && ammo<previousAmmo && (down || (glock && pulse.remaining>0)))lastShot=now;

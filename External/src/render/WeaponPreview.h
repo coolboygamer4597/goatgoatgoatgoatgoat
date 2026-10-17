@@ -317,7 +317,7 @@ inline void Draw(ID3D11Device* device,ID3D11DeviceContext* context,ImVec2 mainPo
     static int weapon=0;
     const auto display=ImGui::GetIO().DisplaySize;
     const ImVec2 preferred=weapon?ImVec2(420,430):ImVec2(600,330);
-    ImVec2 position{(std::max)(0.f,(std::min)(mainPos.x+mainSize.x+12,display.x-preferred.x)),(std::max)(0.f,(std::min)(mainPos.y+42,display.y-preferred.y))};
+    ImVec2 position{mainPos.x+mainSize.x+12,mainPos.y+42};
     ImGui::SetNextWindowPos(position,ImGuiCond_FirstUseEver);
     ImGui::SetNextWindowSize(preferred,ImGuiCond_FirstUseEver);
     ImGui::SetNextWindowSizeConstraints(ImVec2(360,260),ImVec2((std::max)(360.f,display.x),(std::max)(260.f,display.y)));
@@ -362,7 +362,7 @@ inline void DrawAvatar(ID3D11Device* device,ID3D11DeviceContext* context,ImVec2 
     if(!avatarViewer){avatarViewer=std::make_unique<Viewer>();avatarViewer->snapshot=Avatar();avatarViewer->dirty=true;}
     auto& v=*avatarViewer;
     v.PollAvatar();
-    auto display=ImGui::GetIO().DisplaySize;ImVec2 pos{std::clamp(mainPos.x+mainSize.x+12,0.f,(std::max)(0.f,display.x-340)),std::clamp(mainPos.y+42,0.f,(std::max)(0.f,display.y-390))};
+    ImVec2 pos{mainPos.x+mainSize.x+12,mainPos.y+42};
     ImGui::SetNextWindowPos(pos,ImGuiCond_FirstUseEver);
     ImGui::SetNextWindowSize(ImVec2(340,390),ImGuiCond_FirstUseEver);ImGui::SetNextWindowSizeConstraints(ImVec2(250,290),ImVec2(900,1000));
     const auto& theme=imGuiCustom::GetTheme();

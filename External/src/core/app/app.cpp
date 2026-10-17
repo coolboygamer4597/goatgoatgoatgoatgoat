@@ -1,3 +1,8 @@
+#include "../../sdk/OffsetUpdates.h"
+#ifndef IMGUI_DEFINE_MATH_OPERATORS
+#define IMGUI_DEFINE_MATH_OPERATORS
+#endif
+#include "../../render/DesktopUi.h"
 #include "../keys/visual_keybind.h"
 #include "../keys/keys.h"
 #include "app.h"
@@ -15,7 +20,6 @@
 #include <unordered_map>
 #include "../../memory/memory.h"
 #include "../../sdk/RuntimeOffsets.h"
-#include "../../sdk/OffsetUpdates.h"
 #include "../../sdk/sdk.h"
 #include "../cache/cache.h"
 #include "../globals/globals.h"
@@ -35,6 +39,7 @@
 #include "../features/WeaponVisuals.h"
 #include "../../render/MenuMotion.h"
 #include "../features/TargetLabels.h"
+#include "../features/SessionRoster.h"
 
 #pragma comment(lib, "winmm.lib")
 
@@ -626,6 +631,7 @@ std::int32_t Run() {
         menuKeyWasDown = menuKeyDown;
 
         Recoil::Tick();
+        SessionRoster::Tick();
         apply_game_fps_limit();
         if (!Globals::renderEngine.Addr || !Globals::players.Addr || !Globals::localPlayer.Addr) {
             std::this_thread::sleep_for(std::chrono::milliseconds(50));
@@ -661,8 +667,10 @@ std::int32_t Run() {
         }
 
         const bool overlayNeeded =
-            variables::menuOpen || MenuMotion::Visible() || Keys::SpotifyOn()
+            variables::menuOpen || variables::Misc::showInTaskbar || MenuMotion::Visible() || Keys::SpotifyOn()
             || Keys::KeybindsOn() || variables::Misc::performancePanel
+            || variables::Misc::spectatorCounter
+            || (variables::Misc::moderatorAlerts && !SessionPresence::state.Notices().empty())
             || (variables::Aimbot::silentEnabled && variables::Aimbot::silentShowFOV)
             || variables::ESP::meshChams
             || Cheat::Visuals::NativeChams::WorldDepthNeeded() || TargetLabels::Active();
@@ -678,26 +686,26 @@ std::int32_t Run() {
 
             overlay.UpdateWindowStyle(false);
 
-            DrainOverlayMouseEvents();
             Sleep(8);
             continue;
         }
         overlayWasNeeded = true;
 
-        DrainOverlayMouseEvents();
         overlay.BeginFrame();
         { Performance::Scope timing(Performance::Menu); overlay.RenderMenu(); }
         if (!Globals::running.load())
             break;
 
         ImDrawList* dl = ImGui::GetBackgroundDrawList(ImGui::GetMainViewport());
-        { Performance::Scope timing(Performance::Overlay); overlay.render(dl); }
-        if (variables::ESP::meshChams || Cheat::Visuals::NativeChams::WorldDepthNeeded()) {
-            const auto meshView = Globals::renderEngine.GetViewMat();
-            const ImVec2 overlaySize = overlay.GetClientSize();
-            Performance::Scope timing(Performance::Mesh);
-            RenderMeshVisuals(dl, meshView, overlaySize);
-        }
+        DesktopUi::GameOverlay(dl, overlay.GetClientSize(), [&] {
+            { Performance::Scope timing(Performance::Overlay); overlay.render(dl); }
+            if (variables::ESP::meshChams || Cheat::Visuals::NativeChams::WorldDepthNeeded()) {
+                const auto meshView = Globals::renderEngine.GetViewMat();
+                const ImVec2 overlaySize = overlay.GetClientSize();
+                Performance::Scope timing(Performance::Mesh);
+                RenderMeshVisuals(dl, meshView, overlaySize);
+            }
+        });
 
         overlay.EndFrame();
 

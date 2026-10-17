@@ -1,7 +1,9 @@
-﻿#include <cstdint>
+#include <cstdint>
 #include <windows.h>
+#include "ext/imgui/imgui_impl_win32.h"
 #include <string>
 #include "src/core/app/app.h"
+#include "src/core/app/AppUpdates.h"
 #include "src/core/app/RuntimePaths.h"
 #include "src/render/StartupLoader.h"
 #include "src/render/menu/UiText.h"
@@ -28,6 +30,9 @@ static void LogWideLine(const std::wstring& value) {
 }
 
 std::int32_t WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
+    int updateExit=0;if(AppUpdates::HelperMode(updateExit))return updateExit;
+    ImGui_ImplWin32_EnableDpiAwareness();
+    DisableProcessWindowsGhosting();
     HANDLE singleInstance = CreateMutexW(nullptr, TRUE, L"Local\\TheRogCog1Special.SingleInstance");
     if (!singleInstance || GetLastError() == ERROR_ALREADY_EXISTS) {
         if (singleInstance)
@@ -52,6 +57,7 @@ std::int32_t WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
         if (!ProtectedError::Show(L"goatgoatgoatgoatgoatgoat", message))
             LogLine("The error window was not shown because Windows could not protect it from capture.");
     }
+    AppUpdates::Shutdown();
     ReleaseMutex(singleInstance);
     CloseHandle(singleInstance);
     return code;

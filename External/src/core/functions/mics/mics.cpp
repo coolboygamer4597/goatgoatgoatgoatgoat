@@ -2,6 +2,7 @@
 #define IMGUI_DEFINE_MATH_OPERATORS
 #endif
 #include "mics.h"
+#include "../../app/AppUpdates.h"
 #include "../../globals/globals.h"
 #include "../../variables/variables.h"
 #include "../../keys/keys.h"
@@ -234,6 +235,10 @@ void RenderThemeMenu() {
 }
 
 void RenderMiscMenu() {
+    auto updateState=AppUpdates::Get();bool automaticUpdates=updateState.automatic;
+    if(imGuiCustom::Checkbox("Check for updates on startup",&automaticUpdates,ImVec2(317,300)))AppUpdates::SetAutomatic(automaticUpdates);
+    ImGui::SetCursorPos(ImVec2(317,333));if(ImGui::Button(updateState.phase==AppUpdates::Phase::Checking?"Checking...":"Check for updates"))AppUpdates::Check();
+    ImGui::SetCursorPos(ImVec2(317,366));ImGui::Text("Version %s",AppUpdates::CurrentVersion());
     auto selected = OffsetUpdates::GetSelection();
     int source = static_cast<int>(selected.source);
     if (imGuiCustom::Combo("offset_source", &source, OffsetSourceUi::names, 3,
@@ -244,7 +249,7 @@ void RenderMiscMenu() {
     if (source==2) {
         ImGui::SetCursorPos(ImVec2(317,109));
         if (ImGui::Button("Select offsets file...")) {
-            auto file=OffsetSourceUi::Browse(static_cast<HWND>(ImGui::GetMainViewport()->PlatformHandleRaw),Keys::StreamProofOn(),selected.file);
+            auto file=OffsetSourceUi::Browse(static_cast<HWND>(ImGui::GetWindowViewport()->PlatformHandleRaw),Keys::StreamProofOn(),selected.file);
             if (!file.empty()) try { OffsetUpdates::SetSelection(OffsetUpdates::Source::Local,file); OffsetSourceUi::error.clear(); }
                 catch (const std::exception& e) { OffsetSourceUi::error=e.what(); }
         }
@@ -263,6 +268,12 @@ void RenderMiscMenu() {
     imGuiCustom::Checkbox("Keybind list", &variables::Misc::keybinds, ImVec2(12.0f,ry));
     ry += imGuiCustom::CheckStep();
     imGuiCustom::Checkbox("Performance", &variables::Misc::performancePanel, ImVec2(12.0f,ry));
+    ry += imGuiCustom::CheckStep();
+    imGuiCustom::Checkbox("Show in taskbar", &variables::Misc::showInTaskbar, ImVec2(12.0f,ry));
+    ry += imGuiCustom::CheckStep();
+    imGuiCustom::Checkbox("Senior Mod+ alerts", &variables::Misc::moderatorAlerts, ImVec2(12.0f,ry));
+    ry += imGuiCustom::CheckStep();
+    imGuiCustom::Checkbox("Spectator team counter", &variables::Misc::spectatorCounter, ImVec2(12.0f,ry));
     ry += imGuiCustom::CheckStep();
 
     {

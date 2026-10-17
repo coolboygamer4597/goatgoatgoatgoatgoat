@@ -362,7 +362,8 @@ void RunAimbot(const RBX::Mat4& view) {
     const bool keyActive = activation.Update(enabled, variables::Aimbot::silentToggleKey,
         variables::Aimbot::silentKey, Keys::IsKeyPressed(variables::Aimbot::silentKey),
         !variables::menuOpen && foregroundPid == memory->get_process_id());
-    variables::Aimbot::silentActive = keyActive;
+    variables::Aimbot::silentActive = enabled && variables::Aimbot::silentKey > 0 &&
+        (variables::Aimbot::silentToggleKey ? activation.latched : keyActive);
     const bool magicBullet = variables::Aimbot::silentMethod == 2;
     static bool loggedTarget = false;
     static bool loggedHandlerActivity = false;

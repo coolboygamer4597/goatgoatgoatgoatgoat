@@ -14,6 +14,7 @@
 #include "LaunchPrivacy.h"
 #include "CaptureProtection.h"
 #include "OffsetSourceUi.h"
+#include "AppUpdateUi.h"
 #include <future>
 #include <functional>
 #pragma comment(lib,"d3d11.lib")
@@ -90,9 +91,12 @@ inline void Draw(LoadState& state,bool detected,ImFont* titleFont,ImFont* smallF
  ImGui::SetCursorPos(Scaled(55,211));ImGui::BeginDisabled(!detected||state.loading);
  const auto offsetsLabel=OffsetSourceUi::LoaderLabel();
  bool chooseSource=RetroUi::Choice(offsetsLabel.c_str(),false,Scaled(250,26));
- ImGui::EndDisabled();click=OffsetSourceUi::LoadClick(click,uiScale,LaunchPrivacy::streamproof,chooseSource);state.Update(detected,click,t);
+ ImGui::EndDisabled();click=OffsetSourceUi::LoadClick(click,uiScale,LaunchPrivacy::streamproof,chooseSource);if(click)AppUpdates::SuppressStartupPrompt();state.Update(detected,click,t);
  ImGui::SetCursorPos(Scaled(369,264));if(RetroUi::Choice("QUIT",false,Scaled(275,46)))cancelled=true;
  for(int i=0;i<30;++i){ImVec2 p=Scaled(36+i*20.f,331);d->AddRectFilled(p,ImVec2(p.x+16*uiScale,p.y+8*uiScale),i<int(state.Progress(t)*30)?RetroUi::Gold:IM_COL32(40,40,49,255));}
+ AppUpdateUi::LoaderControls(uiScale,!state.loading);
+ d->AddText(smallFont,12*uiScale,Scaled(45,108),RetroUi::White,(std::string("v")+AppUpdates::CurrentVersion()).c_str());
+ if(AppUpdateUi::Draw(uiScale,!state.loading))cancelled=true;
  ImGui::End();
 }
 inline bool StreamproofEnabled(){
@@ -135,6 +139,7 @@ inline bool Run(const std::function<bool()>& prepare={}){
  ImGui_ImplWin32_Init(hwnd);ImGui_ImplDX11_Init(device.Get(),context.Get());
  SetWindowPos(hwnd,HWND_TOPMOST,0,0,0,0,SWP_NOMOVE|SWP_NOSIZE|SWP_NOACTIVATE|SWP_SHOWWINDOW);
  UpdateWindow(hwnd);
+ AppUpdates::Begin();
  LoadState state;bool detected=false,ready=false,prepared=false;double nextScan=0;std::future<bool> preparing;
  while(!cancelled){
   MSG msg;while(PeekMessageW(&msg,nullptr,0,0,PM_REMOVE)){if(msg.message==WM_QUIT)cancelled=true;TranslateMessage(&msg);DispatchMessageW(&msg);}

@@ -23,6 +23,8 @@ template<class T> void Add(std::vector<Field>& fields,int tab,const std::string&
 }
 inline std::vector<Field>& Fields(){static auto fields=[] {std::vector<Field> out;
         Add(out,0,"Aimbot.recoilEnabled",variables::Aimbot::recoilEnabled);
+        Add(out,0,"Aimbot.glockAutomatic",variables::Aimbot::glockAutomatic);
+        Add(out,0,"Aimbot.glockClickDelay",variables::Aimbot::glockClickDelay);
         Add(out,0,"Aimbot.recoilStrength",variables::Aimbot::recoilStrength);
         Add(out,0,"Aimbot.recoilPull",variables::Aimbot::recoilPull);
         Add(out,0,"Aimbot.recoilGlockStrength",variables::Aimbot::recoilGlockStrength);
@@ -133,6 +135,11 @@ inline std::vector<Field>& Fields(){static auto fields=[] {std::vector<Field> ou
         Add(out,1,"ESP.nativeChamsGlowStrength",variables::ESP::nativeChamsGlowStrength);
         Add(out,1,"ESP.nativeChamsWalls",variables::ESP::nativeChamsWalls);
         Add(out,2,"Misc.streamProof",variables::Misc::streamProof);
+        Add(out,2,"Misc.showInTaskbar",variables::Misc::showInTaskbar);
+        Add(out,2,"Misc.moderatorAlerts",variables::Misc::moderatorAlerts);
+        Add(out,2,"Misc.spectatorCounter",variables::Misc::spectatorCounter);
+        Add(out,2,"Misc.spectatorPanelX",variables::Misc::spectatorPanelX);
+        Add(out,2,"Misc.spectatorPanelY",variables::Misc::spectatorPanelY);
         Add(out,2,"Misc.spotifyPlayer",variables::Misc::spotifyPlayer);
         Add(out,2,"Misc.streamKey",variables::Misc::streamKey);
         Add(out,2,"Misc.streamKeyMode",variables::Misc::streamKeyMode);
@@ -220,13 +227,14 @@ inline void Apply(const std::string& text){
  variables::Theme::preset=(std::max)(0,(std::min)(16,variables::Theme::preset));
  variables::Theme::sadblobStyle=(std::max)(0,(std::min)(6,variables::Theme::sadblobStyle));
  variables::menuKey=variables::menuKey>0&&variables::menuKey<1024?variables::menuKey:VK_INSERT;
+ variables::Aimbot::glockClickDelay=std::clamp(variables::Aimbot::glockClickDelay,25,1000);
  variables::Aimbot::recoilStrength=std::clamp(variables::Aimbot::recoilStrength,0.f,1.f);
  variables::Aimbot::recoilPull=std::clamp(variables::Aimbot::recoilPull,0.f,1200.f);
  variables::Aimbot::recoilGlockStrength=std::clamp(variables::Aimbot::recoilGlockStrength,0.f,1.f);
  variables::Aimbot::recoilGlockPull=std::clamp(variables::Aimbot::recoilGlockPull,0.f,160.f);
  variables::Aimbot::silentMethod=(std::max)(1,(std::min)(2,variables::Aimbot::silentMethod));
  variables::Aimbot::aimTarget=(std::max)(0,(std::min)(7,variables::Aimbot::aimTarget));
- variables::Aimbot::silentFovRadius=(std::max)(5.f,(std::min)(600.f,variables::Aimbot::silentFovRadius));
+ variables::Aimbot::silentFovRadius=(std::max)(1.f,(std::min)(600.f,variables::Aimbot::silentFovRadius));
  variables::ESP::visualKeybindMode=variables::ESP::visualKeybindMode==1?1:0;
  variables::ESP::visualKeybindTarget=variables::ESP::visualKeybindTarget==1?1:0;
  variables::Misc::fpsLimit=(std::max)(60,(std::min)(2000,variables::Misc::fpsLimit));

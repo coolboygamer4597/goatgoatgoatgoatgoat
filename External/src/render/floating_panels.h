@@ -1,5 +1,6 @@
 #pragma once
 #include "menu/library.h"
+#include <imgui_internal.h>
 #include "../core/variables/variables.h"
 #include "../core/keys/keys.h"
 #include "../core/net/performance.h"
@@ -13,10 +14,11 @@ inline Rect rects[2];
 inline bool WantsMouse(float x,float y){std::lock_guard<std::mutex> lock(rectMutex);for(auto r:rects)if(r.w>0 && x>=r.x && y>=r.y && x<=r.x+r.w && y<=r.y+r.h)return true;return false;}
 inline void Begin(int index,const char* id,const char* title,float& x,float& y,float width,float height){
  ImGui::PushFont(imGuiCustom::GetFonts().InterSmall?imGuiCustom::GetFonts().InterSmall:ImGui::GetFont(),13.0f);
- const auto screen=ImGui::GetIO().DisplaySize;
- x=(std::max)(0.f,(std::min)(x,(std::max)(0.f,screen.x-width)));
- y=(std::max)(0.f,(std::min)(y,(std::max)(0.f,screen.y-height)));
- ImGui::SetNextWindowPos(ImVec2(x,y),ImGuiCond_Always);
+ const auto origin=ImGui::GetMainViewport()->Pos;
+ if(auto* existing=ImGui::FindWindowByName(id)) {
+  x=existing->Pos.x-origin.x; y=existing->Pos.y-origin.y;
+ }
+ ImGui::SetNextWindowPos(origin+ImVec2(x,y),ImGuiCond_FirstUseEver);
  ImGui::SetNextWindowSize(ImVec2(width,height));
  ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding,0);
  ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize,0);
@@ -24,9 +26,9 @@ inline void Begin(int index,const char* id,const char* title,float& x,float& y,f
  ImGui::Begin(id,nullptr,ImGuiWindowFlags_NoTitleBar|ImGuiWindowFlags_NoResize|ImGuiWindowFlags_NoMove|ImGuiWindowFlags_NoScrollbar|ImGuiWindowFlags_NoSavedSettings);
  ImGui::SetCursorPos(ImVec2(0,0));ImGui::InvisibleButton("##drag",ImVec2(width,29));
  if(ImGui::IsItemActive() && ImGui::IsMouseDragging(0)){
-  x=(std::max)(0.f,(std::min)(x+ImGui::GetIO().MouseDelta.x,(std::max)(0.f,screen.x-width)));
-  y=(std::max)(0.f,(std::min)(y+ImGui::GetIO().MouseDelta.y,(std::max)(0.f,screen.y-height)));
-  ImGui::SetWindowPos(ImVec2(x,y));
+  auto position=ImGui::GetWindowPos()+ImGui::GetIO().MouseDelta;
+  x=position.x-origin.x; y=position.y-origin.y;
+  ImGui::SetWindowPos(position);
  }
  auto dl=ImGui::GetWindowDrawList();auto p=ImGui::GetWindowPos();
  dl->AddRectFilledMultiColor(p,ImVec2(p.x+width,p.y+2),ImGui::GetColorU32(variables::Theme::accent),IM_COL32(100,65,40,15),IM_COL32(100,65,40,15),ImGui::GetColorU32(variables::Theme::accent));

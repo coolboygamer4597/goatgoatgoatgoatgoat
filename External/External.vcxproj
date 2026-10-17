@@ -28,6 +28,7 @@
     <ClCompile Include="src\sdk\OffsetUpdates.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="src\core\app\app.cpp" />
+    <ClCompile Include="src\core\app\AppUpdates.cpp" />
     <ClCompile Include="src\core\functions\aim\aim.cpp" />
     <ClCompile Include="src\core\functions\aim\recoil.cpp" />
     <ClCompile Include="src\core\functions\aim\raycast_silent.cpp" />
@@ -69,6 +70,11 @@
     <ClInclude Include="src\core\cache\cache.h" />
     <ClInclude Include="src\core\functions\aim\raycast_silent.h" />
     <ClInclude Include="src\core\app\app.h" />
+    <ClInclude Include="src\core\app\AppVersion.h" />
+    <ClInclude Include="src\core\app\AppUpdateData.h" />
+    <ClInclude Include="src\core\app\UpdateTrust.h" />
+    <ClInclude Include="src\core\app\AppUpdates.h" />
+    <ClInclude Include="src\render\AppUpdateUi.h" />
     <ClInclude Include="src\core\app\RuntimePaths.h" />
     <ClInclude Include="src\core\functions\aim\aim.h" />
     <ClInclude Include="src\core\functions\aim\recoil.h" />
@@ -91,9 +97,9 @@
     <ClInclude Include="src\render\SadblobVideo.h" />
     <ClInclude Include="src\sdk\math.h" />
     <ClInclude Include="src\sdk\RuntimeOffsets.h" />
-    <ClInclude Include="src\sdk\offset_fields.inc" />
     <ClInclude Include="src\sdk\OffsetData.h" />
     <ClInclude Include="src\sdk\OffsetUpdates.h" />
+    <ClInclude Include="src\sdk\offset_fields.inc" />
     <ClInclude Include="src\render\OffsetSourceUi.h" />
     <ClInclude Include="src\sdk\offsets.h" />
     <ClInclude Include="src\sdk\sdk.h" />
@@ -265,6 +271,7 @@
     <ClInclude Include="src\core\variables\player_rules.h" />
     <ClInclude Include="src\render\MenuMotion.h" />
     <ClInclude Include="src\render\OverlayLifecycle.h" />
+    <ClInclude Include="src\render\DesktopUi.h" />
     <ClInclude Include="src\render\RetroUi.h" />
     <ClInclude Include="src\render\StartupLoader.h" />
     <ClInclude Include="src\render\UiAssets.h" />
@@ -280,4 +287,9 @@
   <Target Name="CopyPreviewCache" AfterTargets="Build">
     <Copy SourceFiles="@(PreviewCacheFile)" DestinationFolder="$(OutDir)preview-cache\%(RecursiveDir)" SkipUnchangedFiles="true" />
   </Target>
+  <ItemGroup>
+    <ClInclude Include="src\core\features\SessionPresence.h" />
+    <ClInclude Include="src\core\features\SessionRoster.h" />
+    <ClInclude Include="src\render\SessionPanels.h" />
+  </ItemGroup>
 </Project>

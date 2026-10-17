@@ -1,5 +1,6 @@
 #pragma once
 #include <windows.h>
+#include "../functions/aim/recoil.h"
 #ifndef IMGUI_DEFINE_MATH_OPERATORS
 #define IMGUI_DEFINE_MATH_OPERATORS
 #endif
@@ -8,6 +9,7 @@
 
 namespace Keys {
 inline bool IsKeyPressed(int key) {
+    if((key==VK_LBUTTON||key==ImGuiKey_MouseLeft)&&Recoil::AutomaticHeld())return true;
     if (key <= 0)
         return false;
     if (key >= ImGuiKey_NamedKey_BEGIN && key < ImGuiKey_NamedKey_END) {
