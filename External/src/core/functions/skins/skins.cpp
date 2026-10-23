@@ -3,6 +3,8 @@
 #endif
 #include "skins.h"
 #include "SkinMix.h"
+#include "SkinCatalogRules.h"
+#include "GloveRuntime.h"
 #include "../../variables/variables.h"
 #include "../../../render/WeaponPreview.h"
 #ifdef WIN32_LEAN_AND_MEAN
@@ -47,6 +49,8 @@ bool g_editorActive=false;
 SkinMix::Choices g_editorChoices;
 std::map<std::string,std::vector<std::string>> g_slotCatalog;
 std::vector<std::string> g_gloveCatalog;
+std::map<std::string,bool> g_gloveMembership;
+GloveRuntime::RetryGate g_gloveRetry;
 std::string g_requestedEditorGlove;
 std::string WeaponSelection(const std::string& weapon,const std::string& fallback){
     std::lock_guard<std::mutex> lock(g_stateMutex);
@@ -152,7 +156,7 @@ std::string GloveSelection(const std::string& fallback){
     std::lock_guard<std::mutex> lock(g_stateMutex);
     if(!g_editorActive)return fallback;
     const auto pick=SkinMix::GlovesForWeapon(g_editorChoices,g_lastLiveWeapon.empty()?"AR-15":g_lastLiveWeapon);
-    if(pick!=g_requestedEditorGlove){g_requestedEditorGlove=pick;g_gloveUnsupported.store(false);g_useInGameGlove.store(false);}
+    if(pick!=g_requestedEditorGlove){g_requestedEditorGlove=pick;g_gloveRetry.Reset();g_gloveUnsupported.store(false);g_useInGameGlove.store(false);}
     return pick;
 }
 
@@ -262,12 +266,17 @@ RBX::RbxInstance GlovesCatalogRoot() {
 }
 
 bool IsGloveSkin(const std::string& skin) {
-    if (skin.empty() || skin == "Default")
-        return false;
-    if (g_gloveActive.load(std::memory_order_relaxed) &&
-        g_activeGloveSkin == skin && (g_activeGloveModel || g_gloveAssembly.dirty))
-        return true;
-    return FindModelRecursive(GlovesCatalogRoot(), skin).Addr != 0;
+    if (skin.empty() || skin=="Default") return false;
+    if (g_gloveActive.load(std::memory_order_relaxed) && g_activeGloveSkin==skin) return true;
+    const auto name=skin=="S1S1bow"?std::string("S1S1"):skin;
+    {
+        std::lock_guard<std::mutex> lock(g_stateMutex);
+        const auto found=g_gloveMembership.find(name);
+        if (found!=g_gloveMembership.end()) return found->second;
+    }
+    const bool found=FindModelRecursive(GlovesCatalogRoot(),name).Addr!=0;
+    {std::lock_guard<std::mutex> lock(g_stateMutex);g_gloveMembership[name]=found;}
+    return found;
 }
 
 std::uint64_t Rq(std::uintptr_t address) {
@@ -887,66 +896,84 @@ bool SwapGloveString(std::uintptr_t stockPart, std::uintptr_t sourcePart,
     return true;
 }
 
-constexpr std::uintptr_t kGloveInitialMeshSize = 0x218;
-
-bool CopyGloveVector(std::uintptr_t dst,std::uintptr_t src,std::string& error){
-    RBX::Vec3 wanted{},original{};
-    if(!memory->read_raw(src,&wanted,sizeof(wanted)) || !memory->read_raw(dst,&original,sizeof(original))){
-        error="could not read glove sizing metadata";return false;
-    }
-    auto valid=[](const RBX::Vec3& v){return std::isfinite(v.X)&&std::isfinite(v.Y)&&std::isfinite(v.Z)&&
-        v.X>0.00001f&&v.Y>0.00001f&&v.Z>0.00001f&&v.X<10000&&v.Y<10000&&v.Z<10000;};
-    if(!valid(wanted)||!valid(original)){error="glove sizing metadata is invalid";return false;}
-    if(wanted.X==original.X&&wanted.Y==original.Y&&wanted.Z==original.Z)return true;
-    g_gloveSizeChanges.push_back({dst,original});
-    if(!memory->Write<RBX::Vec3>(dst,wanted)){error="could not copy glove sizing metadata";return false;}
-    return true;
-}
-bool CopyGloveSize(const RBX::RbxInstance& stockPart,
-                   const RBX::RbxInstance& sourcePart,std::string& error){
-    const auto stockPrim=stockPart.GetPrimitivePtr(),sourcePrim=sourcePart.GetPrimitivePtr();
-    if(!stockPrim||!sourcePrim||stockPart.GetClass()!="MeshPart"||sourcePart.GetClass()!="MeshPart"){
+bool ResolveGloveSizes(const RBX::RbxInstance& stockPart,
+                       const RBX::RbxInstance& sourcePart,
+                       GloveRuntime::Sizes& sizes,std::string& error) {
+    if (stockPart.GetClass()!="MeshPart"||sourcePart.GetClass()!="MeshPart") {
         error="glove mesh primitive is missing";return false;
     }
-    return CopyGloveVector(stockPart.Addr+kGloveInitialMeshSize,sourcePart.Addr+kGloveInitialMeshSize,error) &&
-        CopyGloveVector(stockPrim+Offsets::Primitive::Size,sourcePrim+Offsets::Primitive::Size,error);
-}
-
-bool ValidGloveFrame(const RBX::CFrame& frame) {
-    for (float value : frame.data)
-        if (!std::isfinite(value) || std::abs(value) > 10.0f) return false;
-    for (int row = 0; row < 3; ++row)
-        for (int other = row; other < 3; ++other) {
-            float dot = 0;
-            for (int col = 0; col < 3; ++col)
-                dot += frame.data[row * 3 + col] * frame.data[other * 3 + col];
-            if (std::abs(dot - (row == other ? 1.0f : 0.0f)) > 0.002f) return false;
-        }
-    const auto& m = frame.data;
-    const float determinant = m[0]*(m[4]*m[8]-m[5]*m[7]) -
-        m[1]*(m[3]*m[8]-m[5]*m[6]) + m[2]*(m[3]*m[7]-m[4]*m[6]);
-    return std::abs(determinant - 1.0f) < 0.003f;
-}
-
-bool CopyGloveAttachment(std::uintptr_t stockMotor, std::uintptr_t sourceMotor,
-                         std::string& error) {
-    const auto dst = Rq(stockMotor + 0xF8), src = Rq(sourceMotor + 0xF8);
-    RBX::CFrame original[2]{}, wanted[2]{};
-    if (dst < 0x10000 || src < 0x10000 || dst == src ||
-        !memory->read_raw(dst + 0x38, original, sizeof(original)) ||
-        !memory->read_raw(src + 0x38, wanted, sizeof(wanted)) ||
-        !ValidGloveFrame(original[0]) || !ValidGloveFrame(original[1]) ||
-        !ValidGloveFrame(wanted[0]) || !ValidGloveFrame(wanted[1])) {
-        error = "glove attachment layout is invalid";
-        return false;
+    if (!GloveRuntime::ResolveSizes([](std::uintptr_t at,void* out,std::size_t size){
+        return memory->read_raw(at,out,size);
+    },stockPart.Addr,sourcePart.Addr,stockPart.GetPrimitivePtr(),sourcePart.GetPrimitivePtr(),
+      Offsets::Primitive::Size,sizes)) {
+        error="glove sizing metadata is invalid";return false;
     }
-    for (int i = 0; i < 2; ++i) {
-        if (std::memcmp(&original[i], &wanted[i], sizeof(RBX::CFrame)) == 0) continue;
-        const auto field = dst + 0x38 + i * sizeof(RBX::CFrame);
-        g_gloveJointChanges.push_back({field, original[i]});
-        if (!memory->write_raw(field, &wanted[i], sizeof(RBX::CFrame))) {
-            error = "could not copy glove attachment";
-            return false;
+    return true;
+}
+
+bool CopyGloveSize(const RBX::RbxInstance& stockPart,
+                   const RBX::RbxInstance& sourcePart,std::string& error) {
+    GloveRuntime::Sizes sizes;
+    if (!ResolveGloveSizes(stockPart,sourcePart,sizes,error)) return false;
+    static_assert(sizeof(RBX::Vec3)==sizeof(GloveRuntime::Size));
+    for (const auto& change : sizes) {
+        if (change.original==change.wanted) continue;
+        RBX::Vec3 original;
+        std::memcpy(&original,change.original.data(),sizeof(original));
+        g_gloveSizeChanges.push_back({change.field,original});
+        if (!memory->write_raw(change.field,change.wanted.data(),sizeof(change.wanted))) {
+            error="could not copy glove sizing metadata";return false;
+        }
+    }
+    return true;
+}
+
+bool NeedsGloveAssembly(const RBX::RbxInstance& source) {
+    std::vector<std::string> rootClasses;
+    for (const auto& child : source.GetChildList()) rootClasses.push_back(child.GetClass());
+    return GloveRuntime::NeedsAssembly(rootClasses);
+}
+
+bool ResolveGloveAttachment(std::uintptr_t stockMotor,std::uintptr_t sourceMotor,
+                            GloveRuntime::Attachment& attachment,bool visualCopy=false) {
+    auto read=[](std::uintptr_t at,void* out,std::size_t size){
+        return memory->read_raw(at,out,size);
+    };
+    const auto stockPart=Rq(stockMotor+Offsets::Instance::Parent);
+    const auto sourcePart=Rq(sourceMotor+Offsets::Instance::Parent);
+    if (GloveRuntime::ResolveAttachment(read,stockMotor,sourceMotor,stockPart,sourcePart,attachment))
+        return true;
+    if (!visualCopy) return false;
+    const auto stock=RBX::RbxInstance(stockPart).GetParent();
+    if (stock.GetClass()!="Model"||stock.GetName()!="Default"||
+        RBX::RbxInstance(sourcePart).GetClass()!="MeshPart") return false;
+    for (const char* side : {"LeftGlove","RightGlove"}) {
+        const auto knownPart=stock.FindChild(side);
+        if (!knownPart.Addr||knownPart.GetClass()!="MeshPart"||knownPart.GetParent().Addr!=stock.Addr) continue;
+        GloveRuntime::Attachment candidate;
+        if (!GloveRuntime::ResolveAttachment(read,stockMotor,sourceMotor,stockPart,sourcePart,candidate,knownPart.Addr)) continue;
+        std::uint64_t sourceArm[2]{};
+        if (read(sourceMotor+candidate.part0Offset,sourceArm,sizeof(sourceArm))&&!sourceArm[0]&&!sourceArm[1]) {
+            attachment=candidate;return true;
+        }
+    }
+    return false;
+}
+
+bool CopyGloveAttachment(std::uintptr_t stockMotor,std::uintptr_t sourceMotor,std::string& error) {
+    GloveRuntime::Attachment attachment;
+    if (!ResolveGloveAttachment(stockMotor,sourceMotor,attachment,true)) {
+        error="glove attachment layout is invalid";return false;
+    }
+    static_assert(sizeof(RBX::CFrame)==sizeof(GloveRuntime::Frame));
+    for (int i=0;i<2;++i) {
+        if (attachment.original[i]==attachment.wanted[i]) continue;
+        RBX::CFrame original;
+        std::memcpy(original.data,attachment.original[i].data(),sizeof(original));
+        const auto field=attachment.stockFrames+i*sizeof(original);
+        g_gloveJointChanges.push_back({field,original});
+        if (!memory->write_raw(field,attachment.wanted[i].data(),sizeof(original))) {
+            error="could not copy glove attachment";return false;
         }
     }
     return true;
@@ -1090,15 +1117,14 @@ bool PlanGloveAssembly(const RBX::RbxInstance& tmpl, const RBX::RbxInstance& sto
         const auto dm = dst.FindChildByClass("Motor6D"), sm = src.FindChildByClass("Motor6D");
         const auto arm = tmpl.FindChild(namesForSide[1]);
         GloveArmLinkSwap link;
-        link.stock = dm.Addr + 0x108; link.source = sm.Addr + 0x108;
-        RBX::CFrame frames[2]{};
-        if (!dm.Addr || !sm.Addr || !arm.Addr ||
-            Rq(dm.Addr + 0x118) != dst.Addr || Rq(sm.Addr + 0x118) != src.Addr ||
-            !memory->read_raw(link.stock, link.stockLink, sizeof(link.stockLink)) ||
-            !memory->read_raw(link.source, link.sourceLink, sizeof(link.sourceLink)) ||
-            link.stockLink[0] != arm.Addr || link.sourceLink[0] || link.sourceLink[1] ||
-            !memory->read_raw(Rq(sm.Addr + 0xF8) + 0x38, frames, sizeof(frames)) ||
-            !ValidGloveFrame(frames[0]) || !ValidGloveFrame(frames[1])) {
+        GloveRuntime::Attachment attachment;
+        if (!dm.Addr || !sm.Addr || !arm.Addr || !ResolveGloveAttachment(dm.Addr,sm.Addr,attachment)) {
+            error="multipart glove attachment layout is unsupported";return false;
+        }
+        link.stock=dm.Addr+attachment.part0Offset;link.source=sm.Addr+attachment.part0Offset;
+        if (!memory->read_raw(link.stock,link.stockLink,sizeof(link.stockLink)) ||
+            !memory->read_raw(link.source,link.sourceLink,sizeof(link.sourceLink)) ||
+            link.stockLink[0]!=arm.Addr || link.sourceLink[0] || link.sourceLink[1]) {
             error = "multipart glove attachment layout is unsupported"; return false;
         }
         links.push_back(link);
@@ -1118,7 +1144,7 @@ bool ApplyGloveVisuals(const std::string& selected, std::string& error) {
         error = "glove catalog or stock template is missing";
         return false;
     }
-    if (source.GetChildList().size() > 2) {
+    if (NeedsGloveAssembly(source)) {
         std::vector<GloveArmLinkSwap> links;
         SwapRecord assembly;
         if (!PlanGloveAssembly(tmpl, stock, source, links, error) ||
@@ -1215,6 +1241,48 @@ void ApplyGlovesCore(const RBX::RbxInstance& armModel,
     g_gloveActive.store(false, std::memory_order_relaxed);
     if (ApplyGloveVisuals(selected, error))
         g_gloveActive.store(true, std::memory_order_relaxed);
+}
+
+bool PreflightGloves(const std::string& selected,std::string& error) {
+    const auto source=FindModelRecursive(GlovesCatalogRoot(),selected=="S1S1bow"?"S1S1":selected);
+    const auto tmpl=FindPath(FindServiceInstance("ReplicatedStorage"),{"Models","Viewmodel","ArmModel"});
+    const auto stock=tmpl.FindChild("Default");
+    if (!source.Addr || !stock.Addr) {error="glove catalog or stock template is missing";return false;}
+    if (NeedsGloveAssembly(source)) {
+        std::vector<GloveArmLinkSwap> links;
+        return PlanGloveAssembly(tmpl,stock,source,links,error);
+    }
+    for (const char* name : {"LeftGlove","RightGlove"}) {
+        const auto dst=stock.FindChild(name),src=source.FindChild(name);
+        const auto dm=dst.FindChildByClass("Motor6D"),sm=src.FindChildByClass("Motor6D");
+        GloveRuntime::Attachment attachment;
+        if (!dst.Addr||!src.Addr||!dm.Addr||!sm.Addr||!ResolveGloveAttachment(dm.Addr,sm.Addr,attachment,true)) {
+            error="glove attachment layout is invalid";return false;
+        }
+        GloveRuntime::Sizes sizes;
+        if (!ResolveGloveSizes(dst,src,sizes,error)) return false;
+    }
+    return true;
+}
+
+enum class GloveAttempt {Deferred,Applied,Failed};
+GloveAttempt TryApplyGloves(const RBX::RbxInstance& armModel,const std::string& selected,std::string& error) {
+    const auto now=GloveRuntime::RetryGate::Clock::now();
+    const auto context=selected+"/"+std::to_string(armModel.Addr);
+    if (!g_gloveRetry.Ready(context,now)) return GloveAttempt::Deferred;
+    if (!PreflightGloves(selected,error)) {
+        g_gloveRetry.Failed(now);return GloveAttempt::Failed;
+    }
+    {
+        ProcessSuspend guard;
+        if (!guard.ok()) error=guard.reason();
+        else ApplyGlovesCore(armModel,selected,error);
+    }
+    if (!error.empty()||!g_gloveActive.load(std::memory_order_relaxed)) {
+        if (error.empty()) error="glove application did not complete";
+        g_gloveRetry.Failed(GloveRuntime::RetryGate::Clock::now());return GloveAttempt::Failed;
+    }
+    g_gloveRetry.Reset();return GloveAttempt::Applied;
 }
 
 void ApplySelectedSkin(const RBX::RbxInstance& armModel,
@@ -1457,22 +1525,15 @@ void ApplySelectedSkin(const RBX::RbxInstance& armModel,
             if (gloveNeeded && !inGameOverride) {
                 ConsumePendingRevision();
                 std::string error;
-                ProcessSuspend guard;
-                if (!guard.ok())
-                    error = guard.reason();
-                else {
-                    ApplyGlovesCore(armModel, selected, error);
-                }
-                if (error.empty()) {
-                    g_gloveActive.store(true, std::memory_order_relaxed);
-                    SetStatus("Gloves swapped (" + selected +
-                        ") - your next equip shows them");
-                } else {
-                    if (error.find("glove parts do not match") != std::string::npos ||
-                        error.find("selected glove has") != std::string::npos ||
-                        error.find("stock glove joint") != std::string::npos)
-                        g_gloveUnsupported.store(true, std::memory_order_relaxed);
-                    SetStatus("Glove swap failed: " + error);
+                const auto attempt=TryApplyGloves(armModel,selected,error);
+                if (attempt==GloveAttempt::Applied) {
+                    SetStatus("Gloves swapped ("+selected+") - your next equip shows them");
+                } else if (attempt==GloveAttempt::Failed) {
+                    if (error.find("glove parts do not match")!=std::string::npos ||
+                        error.find("selected glove has")!=std::string::npos ||
+                        error.find("stock glove joint")!=std::string::npos)
+                        g_gloveUnsupported.store(true,std::memory_order_relaxed);
+                    SetStatus("Glove swap failed: "+error);
                 }
             }
         }
@@ -1593,9 +1654,9 @@ bool ApplySelectionFromUi() {
     }
     g_wantDefault.store(false, std::memory_order_relaxed);
 
-    std::string applied;
+    std::string applied,gloveFailure;
+    std::lock_guard<std::mutex> serial(g_swapMutex);
     {
-        std::lock_guard<std::mutex> serial(g_swapMutex);
         ProcessSuspend guard;
         if (!guard.ok()) {
             SetStatus("Swap deferred: could not suspend Roblox - " +
@@ -1662,47 +1723,53 @@ bool ApplySelectionFromUi() {
             applied += candidate;
         }
 
-        selected=GloveSelection(presetSelected);
+    }
 
-        if (!g_useInGameGlove.load(std::memory_order_relaxed) &&
-            !g_gloveUnsupported.load(std::memory_order_relaxed) &&
-            IsGloveSkin(selected)) {
-            std::string gloveError;
-            ApplyGlovesCore(RBX::RbxInstance(), selected, gloveError);
-            if (gloveError.empty()) {
-                g_gloveActive.store(true, std::memory_order_relaxed);
-                if (!applied.empty())
-                    applied += " + ";
-                applied += "gloves -> " + selected;
-            } else if (gloveError != "catalog is missing " + selected &&
-                       gloveError != "no glove model under the template ArmModel") {
-                if (gloveError.find("glove parts do not match") != std::string::npos ||
-                    gloveError.find("selected glove has") != std::string::npos ||
-                    gloveError.find("stock glove joint") != std::string::npos)
-                    g_gloveUnsupported.store(true, std::memory_order_relaxed);
-                SetStatus("Glove side failed: " + gloveError);
-            }
-        } else if (g_gloveActive.load(std::memory_order_relaxed)) {
-            std::string gloveError;
-            RestoreStockGloves(gloveError);
-            if (gloveError.empty()) {
-                g_gloveActive.store(false, std::memory_order_relaxed);
-                if (!applied.empty()) applied += " + ";
-                applied += "stock gloves";
-            } else {
-                error = "gloves: " + gloveError;
-            }
+    selected=GloveSelection(presetSelected);
+
+    if (!g_useInGameGlove.load(std::memory_order_relaxed) &&
+        !g_gloveUnsupported.load(std::memory_order_relaxed) &&
+        IsGloveSkin(selected)) {
+        std::string gloveError;
+        const auto attempt=TryApplyGloves(ResolveArmModel(),selected,gloveError);
+        if (attempt==GloveAttempt::Applied) {
+            g_gloveActive.store(true, std::memory_order_relaxed);
+            if (!applied.empty())
+                applied += " + ";
+            applied += "gloves -> " + selected;
+        } else if (attempt==GloveAttempt::Failed && gloveError != "catalog is missing " + selected &&
+                   gloveError != "no glove model under the template ArmModel") {
+            if (gloveError.find("glove parts do not match") != std::string::npos ||
+                gloveError.find("selected glove has") != std::string::npos ||
+                gloveError.find("stock glove joint") != std::string::npos)
+                g_gloveUnsupported.store(true, std::memory_order_relaxed);
+            gloveFailure=gloveError;
         }
-
-        ApplySoundsCore();
-        if (applied.empty() && !editor) {
-
-            return false;
+    } else if (g_gloveActive.load(std::memory_order_relaxed)) {
+        std::string gloveError;
+        {
+            ProcessSuspend guard;
+            if (!guard.ok()) gloveError=guard.reason();
+            else RestoreStockGloves(gloveError);
         }
+        if (gloveError.empty()) {
+            g_gloveActive.store(false, std::memory_order_relaxed);
+            if (!applied.empty()) applied += " + ";
+            applied += "stock gloves";
+        } else {
+            error = "gloves: " + gloveError;
+        }
+    }
+
+    ApplySoundsCore();
+    if (applied.empty() && !editor) {
+
+        return false;
     }
     if (error.empty())
         ConsumePendingRevision();
-    SetStatus(error.empty()
+    if (!gloveFailure.empty()) SetStatus("Glove swap failed: "+gloveFailure);
+    else SetStatus(error.empty()
         ? "Swapped " + applied + " - your next equip shows it" +
             (g_gloveUnsupported.load(std::memory_order_relaxed)
                 ? "; special glove layout unsupported, kept stock" : "")
@@ -1841,7 +1908,7 @@ void RefreshCatalog(const RBX::RbxInstance& root) {
         const std::string weapon = weaponFolder.GetName();
         if (!weapon.empty()){
             CollectCatalog(weaponFolder,weapon,slotCatalog[weapon]);
-            auto& skins=slotCatalog[weapon];std::sort(skins.begin(),skins.end());skins.erase(std::unique(skins.begin(),skins.end()),skins.end());
+            auto& skins=slotCatalog[weapon];SkinCatalogRules::Filter(skins);std::sort(skins.begin(),skins.end());skins.erase(std::unique(skins.begin(),skins.end()),skins.end());
             catalog.insert(catalog.end(),skins.begin(),skins.end());
         }
     }
@@ -1873,8 +1940,11 @@ void RefreshCatalog(const RBX::RbxInstance& root) {
     }
 
     std::lock_guard<std::mutex> lock(g_stateMutex);
+    SkinCatalogRules::Filter(catalog);SkinCatalogRules::Filter(allGloves);
     g_slotCatalog=std::move(slotCatalog);std::sort(allGloves.begin(),allGloves.end());allGloves.erase(std::unique(allGloves.begin(),allGloves.end()),allGloves.end());g_gloveCatalog=std::move(allGloves);
     g_catalog = std::move(catalog);
+    g_gloveMembership.clear();
+    for (const auto& name:g_gloveCatalog) g_gloveMembership[name]=true;
     if (g_selected.empty() && !g_editorActive && !g_catalog.empty())
         g_selected = std::find(g_catalog.begin(), g_catalog.end(), "Default") !=
                 g_catalog.end()
@@ -1903,13 +1973,13 @@ bool ReleaseRequests(std::string& error){
     }
     g_records.clear();g_gloveRecords.clear();g_gloveActive.store(false);
     g_useInGameGlove.store(false);g_wantDefault.store(false);g_pendingGlove.store(false);
-    g_gloveUnsupported.store(false);ConsumePendingRevision();return true;
+    g_gloveUnsupported.store(false);g_gloveRetry.Reset();ConsumePendingRevision();return true;
 }
 
 void SetSelection(const std::string& skin, bool) {
     std::lock_guard<std::mutex> lock(g_stateMutex);
-    g_queuedSelection = skin;
-    g_status = "Queued skin: " + skin;
+    g_queuedSelection = SkinCatalogRules::Selection(skin);
+    g_status = "Queued skin: " + *g_queuedSelection;
 }
 
 bool ProcessQueuedSelection() {

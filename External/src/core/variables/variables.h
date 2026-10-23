@@ -103,6 +103,7 @@ inline float color[4]={.5f,.75f,1,1},glowColor[4]={1,.75f,.2f,1};
 
 namespace Misc {
 inline bool streamProof = true;
+inline bool nvidiaStreamproof = false;
 inline bool showInTaskbar = false;
 inline bool moderatorAlerts = true;
 inline bool spectatorCounter = false;

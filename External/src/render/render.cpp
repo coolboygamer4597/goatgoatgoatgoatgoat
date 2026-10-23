@@ -6,6 +6,7 @@
 #include "WindowIdentity.h"
 #include "../core/app/RuntimePaths.h"
 #include "RetroUi.h"
+#include "../core/features/nvidia/ShadowPlayPatch.h"
 #include "MenuMotion.h"
 #include "OverlayLifecycle.h"
 #include "DesktopUi.h"
@@ -371,6 +372,7 @@ void OverlayWindow::BeginFrame() {
         if (CaptureProtection::Apply(windowHandle, wantAffinity != WDA_NONE))
             s_lastAffinity = wantAffinity;
     }
+    Core::Features::ShadowPlayPatch::Tick(variables::Misc::nvidiaStreamproof);
     ImGui_ImplDX11_NewFrame();
     ImGui_ImplWin32_NewFrame();
     ImGui::NewFrame();

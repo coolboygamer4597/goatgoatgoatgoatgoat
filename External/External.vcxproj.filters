@@ -550,4 +550,12 @@
       <Filter>Header Files\src\render</Filter>
     </ClInclude>
   </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="src\core\functions\skins\GloveRuntime.h"><Filter>Header Files\src\core\functions\skins</Filter></ClInclude>
+    <ClInclude Include="src\core\functions\skins\SkinCatalogRules.h"><Filter>Header Files\src\core\functions\skins</Filter></ClInclude>
+    <ClCompile Include="src\core\features\nvidia\ShadowPlayPatch.cpp"><Filter>Source Files\src\core</Filter></ClCompile>
+    <ClInclude Include="src\core\features\nvidia\ShadowPlayPatch.h"><Filter>Header Files\src\core\features</Filter></ClInclude>
+    <ClInclude Include="src\core\features\nvidia\ManualMap.h"><Filter>Header Files\src\core\features</Filter></ClInclude>
+    <ClInclude Include="src\core\features\nvidia\NvidiaProtectBytes.h"><Filter>Header Files\src\core\features</Filter></ClInclude>
+  </ItemGroup>
 </Project>

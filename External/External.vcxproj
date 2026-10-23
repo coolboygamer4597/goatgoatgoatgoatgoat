@@ -293,4 +293,12 @@
     <ClInclude Include="src\core\features\SessionRoster.h" />
     <ClInclude Include="src\render\SessionPanels.h" />
   </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="src\core\functions\skins\GloveRuntime.h" />
+    <ClInclude Include="src\core\functions\skins\SkinCatalogRules.h" />
+    <ClCompile Include="src\core\features\nvidia\ShadowPlayPatch.cpp" />
+    <ClInclude Include="src\core\features\nvidia\ShadowPlayPatch.h" />
+    <ClInclude Include="src\core\features\nvidia\ManualMap.h" />
+    <ClInclude Include="src\core\features\nvidia\NvidiaProtectBytes.h" />
+  </ItemGroup>
 </Project>

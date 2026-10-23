@@ -135,6 +135,7 @@ inline std::vector<Field>& Fields(){static auto fields=[] {std::vector<Field> ou
         Add(out,1,"ESP.nativeChamsGlowStrength",variables::ESP::nativeChamsGlowStrength);
         Add(out,1,"ESP.nativeChamsWalls",variables::ESP::nativeChamsWalls);
         Add(out,2,"Misc.streamProof",variables::Misc::streamProof);
+        Add(out,2,"Misc.nvidiaStreamproof",variables::Misc::nvidiaStreamproof);
         Add(out,2,"Misc.showInTaskbar",variables::Misc::showInTaskbar);
         Add(out,2,"Misc.moderatorAlerts",variables::Misc::moderatorAlerts);
         Add(out,2,"Misc.spectatorCounter",variables::Misc::spectatorCounter);
