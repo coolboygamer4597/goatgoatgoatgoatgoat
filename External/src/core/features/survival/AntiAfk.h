@@ -2,18 +2,20 @@
 #include "AntiAfkState.h"
 #include "../../../memory/memory.h"
 #include "../../../sdk/RuntimeOffsets.h"
+#include "../../../sdk/OffsetUpdates.h"
 #include <cstring>
+#include <algorithm>
 namespace AntiAfk {
 struct Session {
  HANDLE handle=nullptr;DWORD pid=0;std::uintptr_t base=0;Patch patch;
- static constexpr std::uintptr_t timeoutRva=0x80219c0,disabledRva=0x85c7658;
+ std::uintptr_t timeoutRva=0,disabledRva=0,nameOffset=8,nameLengthOffset=16;
  bool Read(std::uintptr_t at,void* out,size_t size)const{SIZE_T done=0;return handle&&ReadProcessMemory(handle,reinterpret_cast<LPCVOID>(at),out,size,&done)&&done==size;}
  template<class T>bool Write(std::uintptr_t rva,T value)const{SIZE_T done=0;return handle&&WriteProcessMemory(handle,reinterpret_cast<LPVOID>(base+rva),&value,sizeof(value),&done)&&done==sizeof(value);}
  bool ValuesNow(Values& v)const{return Read(base+timeoutRva,&v.timeout,sizeof(v.timeout))&&Read(base+disabledRva,&v.disabled,sizeof(v.disabled));}
  bool Named(std::uintptr_t rva,const char* expected)const{
   std::uint64_t pointer=0,length=0;char name[80]{};size_t n=std::strlen(expected);std::uint32_t peOffset=0,size=0;
-  if(!Read(base+60,&peOffset,4)||peOffset>4096||!Read(base+peOffset+80,&size,4)||size<4096||size>512*1024*1024||rva>size-24)return false;
-  if(!Read(base+rva+8,&pointer,8)||!Read(base+rva+16,&length,8)||length!=n||pointer<base||pointer-base>size-n-1||!Read(pointer,name,n+1)||std::memcmp(name,expected,n+1))return false;
+  if(!Read(base+60,&peOffset,4)||peOffset>4096||!Read(base+peOffset+80,&size,4)||size<4096||size>512*1024*1024||rva>size-std::max(nameOffset,nameLengthOffset)-8)return false;
+  if(!Read(base+rva+nameOffset,&pointer,8)||!Read(base+rva+nameLengthOffset,&length,8)||length!=n||pointer<base||pointer-base>size-n-1||!Read(pointer,name,n+1)||std::memcmp(name,expected,n+1))return false;
   MEMORY_BASIC_INFORMATION info{};if(!VirtualQueryEx(handle,reinterpret_cast<LPCVOID>(base+rva),&info,sizeof(info))||info.State!=MEM_COMMIT||(info.Protect&(PAGE_GUARD|PAGE_NOACCESS)))return false;
   auto protect=info.Protect&255;return protect==PAGE_READWRITE||protect==PAGE_WRITECOPY;
  }
@@ -31,9 +33,12 @@ inline void Tick(){
  if(session.handle&&(session.pid!=pid||session.base!=base))session.Close();
  if(!enabled){if(session.handle&&session.Restore())session.Close();error.clear();return;}
  if(!memory||!memory->IsConnected()||!base){session.Close();error="Waiting for Roblox";return;}
- if(Offsets::ClientVersion!="version-11f155f3450f4c8e"){session.Close();error="Anti-AFK unavailable for this client";return;}
+ const auto timeout=OffsetUpdates::OptionalField("AntiAfk.TimeoutRva"),disabled=OffsetUpdates::OptionalField("AntiAfk.DisabledRva");const bool published=timeout&&disabled;const bool previous=Offsets::ClientVersion=="version-11f155f3450f4c8e";
+ if(!published&&!previous){session.Close();error="Anti-AFK offsets unavailable for this client";return;}
+ session.timeoutRva=published?timeout:0x80219c0;session.disabledRva=published?disabled:0x85c7658;const auto name=OffsetUpdates::OptionalField("AntiAfk.NameOffset"),length=OffsetUpdates::OptionalField("AntiAfk.NameLengthOffset");session.nameOffset=name?name:8;session.nameLengthOffset=length?length:16;
+ if(session.nameOffset==session.nameLengthOffset){session.Close();error="Invalid anti-AFK flag layout";return;}
  if(!session.handle){HANDLE copy=nullptr;if(!DuplicateHandle(GetCurrentProcess(),memory->GetHandle(),GetCurrentProcess(),&copy,0,FALSE,DUPLICATE_SAME_ACCESS)){error="Anti-AFK could not access Roblox";return;}session.handle=copy;session.pid=pid;session.base=base;}
  if(!session.Valid()){session.Close();error="Anti-AFK flags could not be verified";return;}
- bool ok=session.patch.Apply([&](Values& v){return session.ValuesNow(v);},[&](std::uint32_t v){return session.Write(Session::timeoutRva,v);},[&](std::uint8_t v){return session.Write(Session::disabledRva,v);});error=ok?"":"Anti-AFK could not update the timeout";
+ bool ok=session.patch.Apply([&](Values& v){return session.ValuesNow(v);},[&](std::uint32_t v){return session.Write(session.timeoutRva,v);},[&](std::uint8_t v){return session.Write(session.disabledRva,v);});error=ok?"":"Anti-AFK could not update the timeout";
 }
 }

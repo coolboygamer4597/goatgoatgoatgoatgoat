@@ -46,7 +46,38 @@ std::string Download(const std::string& relative){
     std::string bytes;const auto start=GetTickCount64();char chunk[8192];DWORD read=0;
     do{if(GetTickCount64()-start>15000)throw std::runtime_error("Offsets download timed out.");if(!WinHttpReadData(request.handle,chunk,sizeof(chunk),&read))throw std::runtime_error("Offsets download was interrupted.");if(bytes.size()+read>524288)throw std::runtime_error("Downloaded offsets file is too large.");bytes.append(chunk,read);}while(read);return bytes;
 }
-OffsetData::Package Bundled(){OffsetData::Package p;p.version=BundledOffsets::ClientVersion;for(auto& f:OffsetCatalog::Fields())p.fields[f.name]=f.bundled;return p;}
+OffsetData::Package Bundled(){OffsetData::Package p;p.version=BundledOffsets::ClientVersion;for(auto& f:OffsetCatalog::Fields())p.fields[f.name]=f.bundled;
+#ifdef GOAT_OPTIONAL_PARTICLEEMITTER_RATE
+p.fields["ParticleEmitter.Rate"]=GOAT_OPTIONAL_PARTICLEEMITTER_RATE;
+#endif
+#ifdef GOAT_OPTIONAL_PARTICLEEMITTER_TEXTURE
+p.fields["ParticleEmitter.Texture"]=GOAT_OPTIONAL_PARTICLEEMITTER_TEXTURE;
+#endif
+#ifdef GOAT_OPTIONAL_PARTICLEEMITTER_LOCALTRANSPARENCYMODIFIER
+p.fields["ParticleEmitter.LocalTransparencyModifier"]=GOAT_OPTIONAL_PARTICLEEMITTER_LOCALTRANSPARENCYMODIFIER;
+#endif
+#ifdef GOAT_OPTIONAL_PARTICLEEMITTER_ENABLED
+p.fields["ParticleEmitter.Enabled"]=GOAT_OPTIONAL_PARTICLEEMITTER_ENABLED;
+#endif
+#ifdef GOAT_OPTIONAL_PARTICLEEMITTER_LIFETIME
+p.fields["ParticleEmitter.Lifetime"]=GOAT_OPTIONAL_PARTICLEEMITTER_LIFETIME;
+#endif
+#ifdef GOAT_OPTIONAL_HIGHLIGHT_OUTLINETRANSPARENCY
+p.fields["Highlight.OutlineTransparency"]=GOAT_OPTIONAL_HIGHLIGHT_OUTLINETRANSPARENCY;
+#endif
+#ifdef GOAT_OPTIONAL_ANTIAFK_TIMEOUTRVA
+p.fields["AntiAfk.TimeoutRva"]=GOAT_OPTIONAL_ANTIAFK_TIMEOUTRVA;
+#endif
+#ifdef GOAT_OPTIONAL_ANTIAFK_DISABLEDRVA
+p.fields["AntiAfk.DisabledRva"]=GOAT_OPTIONAL_ANTIAFK_DISABLEDRVA;
+#endif
+#ifdef GOAT_OPTIONAL_ANTIAFK_NAMEOFFSET
+p.fields["AntiAfk.NameOffset"]=GOAT_OPTIONAL_ANTIAFK_NAMEOFFSET;
+#endif
+#ifdef GOAT_OPTIONAL_ANTIAFK_NAMELENGTHOFFSET
+p.fields["AntiAfk.NameLengthOffset"]=GOAT_OPTIONAL_ANTIAFK_NAMELENGTHOFFSET;
+#endif
+return p;}
 Resolution Cached(const std::filesystem::path& cache,const std::string& version,const std::string& expected={}){
     auto envelope=OffsetData::Parse(ReadFile(cache/std::filesystem::u8path(version+".json")));auto body=envelope.At("package").Str(),hash=envelope.At("sha256").Str();
     if(Sha256(body)!=hash||(!expected.empty()&&hash!=expected))throw std::runtime_error("No verified cached offsets match this version and revision.");auto p=OffsetData::JsonPackage(body);OffsetData::Validate(p,version,Required());return {p,"Automatic updates: cached revision "+std::to_string(p.revision)+" (offline)"};
@@ -91,7 +122,14 @@ Resolution ResolveData(const std::string& version,const Selection& selected,cons
     try{Write(cache/std::filesystem::u8path(version+".json"),"{\"sha256\":"+OffsetData::Quote(hash)+",\"package\":"+OffsetData::Quote(body)+"}");}catch(...){status+=" (cache could not be saved)";}
     return {p,status};
 }
-void Apply(const OffsetData::Package& package,const std::string& version){OffsetData::Validate(package,version,Required());for(auto& f:OffsetCatalog::Fields())if(package.fields.at(f.name)>0xffffffffULL)throw std::runtime_error("Offset exceeds its range.");std::map<std::string,std::uintptr_t> optional;for(const auto* name:{"ParticleEmitter.Rate","ParticleEmitter.Texture","ParticleEmitter.LocalTransparencyModifier","ParticleEmitter.Enabled","ParticleEmitter.Lifetime","Highlight.OutlineTransparency"})if(auto value=package.fields.find(name);value!=package.fields.end()){if(value->second<(std::string(name)=="Highlight.OutlineTransparency"?0x80:0x100)||value->second>=0x1000)throw std::runtime_error("Optional cosmetic offset exceeds its range.");optional[name]=static_cast<std::uintptr_t>(value->second);}for(auto& f:OffsetCatalog::Fields())*f.active=static_cast<std::uintptr_t>(package.fields.at(f.name));Offsets::ClientVersion=version;{std::lock_guard<std::mutex> lock(stateMutex);optionalFields=std::move(optional);}}
+void Apply(const OffsetData::Package& package,const std::string& version){
+    OffsetData::Validate(package,version,Required());for(auto& field:OffsetCatalog::Fields())if(package.fields.at(field.name)>0xffffffffULL)throw std::runtime_error("Offset exceeds its range.");std::map<std::string,std::uintptr_t> optional;
+    for(const auto* name:{"ParticleEmitter.Rate","ParticleEmitter.Texture","ParticleEmitter.LocalTransparencyModifier","ParticleEmitter.Enabled","ParticleEmitter.Lifetime","Highlight.OutlineTransparency","AntiAfk.TimeoutRva","AntiAfk.DisabledRva","AntiAfk.NameOffset","AntiAfk.NameLengthOffset"})if(auto value=package.fields.find(name);value!=package.fields.end()){
+        const std::string key=name;const auto number=value->second;const bool anti=key.rfind("AntiAfk.",0)==0,layout=key=="AntiAfk.NameOffset"||key=="AntiAfk.NameLengthOffset";
+        if(anti?(layout?(number<8||number>72||number%8):(number<4096||number>0xffffffffULL)):(number<(key=="Highlight.OutlineTransparency"?0x80:0x100)||number>=0x1000))throw std::runtime_error("Optional offset exceeds its range.");optional[key]=static_cast<std::uintptr_t>(number);
+    }
+    for(auto& field:OffsetCatalog::Fields())*field.active=static_cast<std::uintptr_t>(package.fields.at(field.name));Offsets::ClientVersion=version;{std::lock_guard<std::mutex> lock(stateMutex);optionalFields=std::move(optional);}
+}
 std::uintptr_t OptionalField(const std::string& name){std::lock_guard<std::mutex> lock(stateMutex);const auto found=optionalFields.find(name);return found==optionalFields.end()?0:found->second;}
 bool Resolve(const std::string& version){
     auto selected=GetSelection();try{auto result=ResolveData(version,selected,Storage()/L"cache",FetchPublished);Apply(result.package,version);std::lock_guard<std::mutex> lock(stateMutex);currentStatus=result.status;failure.clear();return true;}

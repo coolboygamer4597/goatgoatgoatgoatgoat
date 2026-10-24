@@ -11,6 +11,7 @@
 #include <stdexcept>
 #include "AppVersion.h"
 #include "UpdateTrust.h"
+#include "UpdateChannels.h"
 #include "../../sdk/OffsetData.h"
 #pragma comment(lib,"bcrypt.lib")
 namespace AppUpdateData {
@@ -28,6 +29,7 @@ inline std::array<unsigned,3> Version(std::string text){
     if(parts<2 || at<=text.size())throw std::runtime_error("Invalid release version.");return result;
 }
 inline int Compare(const std::string& first,const std::string& second){const auto a=Version(first),b=Version(second);return a<b?-1:a>b?1:0;}
+inline bool NewerPublication(std::uint64_t sequence,const std::string& version){return sequence?sequence>GOAT_UPDATE_SEQUENCE:Compare(version,GOAT_APP_VERSION)>0;}
 inline std::vector<unsigned char> Unhex(const std::string& text,std::size_t bytes){
     if(text.size()!=bytes*2)throw std::runtime_error("Invalid update checksum or signature.");
     std::vector<unsigned char> result(bytes);auto digit=[](char c){return c>='0'&&c<='9'?c-'0':c>='a'&&c<='f'?c-'a'+10:-1;};
@@ -52,11 +54,12 @@ inline void Signature(const std::string& payload,const std::string& signature){
 inline constexpr std::size_t MaximumPreviewBytes=256*1024*1024;
 inline constexpr std::size_t MaximumAddonBytes=1024*1024*1024;
 struct Previews{bool available=false;std::string sha256;std::size_t bytes=0,expanded=0,files=0;std::string asset;};
-struct Release{std::string version,notes,sha256,envelope;std::size_t bytes=0;Previews previews,textures;};
-inline Release Manifest(const std::string& source){
+struct Release{std::string version,displayVersion,tag,channel,notes,sha256,envelope;std::uint64_t sequence=0;std::size_t bytes=0;Previews previews,textures;};
+inline bool Label(const std::string& text){return !text.empty()&&text.size()<=64&&std::all_of(text.begin(),text.end(),[](char c){return(c>='0'&&c<='9')||(c>='a'&&c<='z')||(c>='A'&&c<='Z')||c=='.'||c=='-'||c=='_';});}
+inline Release Manifest(const std::string& source,UpdateChannels::Channel channel=UpdateChannels::Default){
     if(source.size()>32768)throw std::runtime_error("Update information is too large.");auto envelope=OffsetData::Parse(source);auto payload=envelope.At("payload").Str();Signature(payload,envelope.At("signature").Str());
-    auto data=OffsetData::Parse(payload);if(OffsetData::Uint(data.At("schema"))!=1 || data.At("app").Str()!="GoatGoatGoat" || data.At("channel").Str()!="stable" || data.At("asset").Str()!=Asset)throw std::runtime_error("Unsupported application update.");
-    Release result;result.version=data.At("version").Str();Version(result.version);result.notes=data.At("notes").Str();result.sha256=data.At("sha256").Str();Unhex(result.sha256,32);result.bytes=static_cast<std::size_t>(OffsetData::Uint(data.At("bytes")));
+    auto data=OffsetData::Parse(payload);if(OffsetData::Uint(data.At("schema"))!=1 || data.At("app").Str()!="GoatGoatGoat" || data.At("channel").Str()!=UpdateChannels::Name(channel) || data.At("asset").Str()!=Asset)throw std::runtime_error("Unsupported application update.");
+    Release result;result.version=data.At("version").Str();Version(result.version);result.channel=data.At("channel").Str();result.displayVersion=result.version;result.tag="v"+result.version;if(auto value=data.object.find("display_version");value!=data.object.end()){result.displayVersion=value->second.Str();if(!Label(result.displayVersion))throw std::runtime_error("Invalid display version.");}if(auto value=data.object.find("release_tag");value!=data.object.end()){result.tag=value->second.Str();if(!Label(result.tag))throw std::runtime_error("Invalid release tag.");}if(auto value=data.object.find("sequence");value!=data.object.end()){result.sequence=OffsetData::Uint(value->second);if(!result.sequence)throw std::runtime_error("Invalid publication sequence.");}result.notes=data.At("notes").Str();result.sha256=data.At("sha256").Str();Unhex(result.sha256,32);result.bytes=static_cast<std::size_t>(OffsetData::Uint(data.At("bytes")));
     if(result.bytes<1024 || result.bytes>MaximumBytes || result.notes.size()>8192)throw std::runtime_error("Invalid application update size.");
     if(auto entry=data.object.find("previews");entry!=data.object.end()){
         const auto& pack=entry->second;
@@ -86,5 +89,5 @@ inline void Binary(const std::filesystem::path& file,const Release& release){
     auto bytes=Read(file,MaximumBytes);if(bytes.size()!=release.bytes || HexHash(bytes)!=release.sha256)throw std::runtime_error("The downloaded update does not match its signed checksum.");
     DWORD type=0;if(!GetBinaryTypeW(file.c_str(),&type)||type!=SCS_64BIT_BINARY)throw std::runtime_error("The update is not a 64-bit Windows program.");
 }
-inline std::string ReleaseUrl(const Release& release){Version(release.version);return "https://github.com/"+std::string(Repository)+"/releases/download/v"+release.version+"/"+Asset;}
+inline std::string ReleaseUrl(const Release& release){Version(release.version);const auto tag=release.tag.empty()?"v"+release.version:release.tag;if(!Label(tag))throw std::runtime_error("Invalid release tag.");return "https://github.com/"+std::string(Repository)+"/releases/download/"+tag+"/"+Asset;}
 }
