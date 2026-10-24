@@ -3,6 +3,7 @@
 #endif
 #include "mics.h"
 #include "../../app/AppUpdates.h"
+#include "../../features/survival/AntiAfkState.h"
 #include "../../globals/globals.h"
 #include "../../variables/variables.h"
 #include "../../keys/keys.h"
@@ -258,6 +259,11 @@ void RenderMiscMenu() {
     ImGui::SetCursorPos(ImVec2(317,185));ImGui::TextWrapped("%s",OffsetUpdates::Status().c_str());
     ImGui::SetCursorPos(ImVec2(317,220));ImGui::TextDisabled("Source changes apply on the next launch.");
     if (!OffsetSourceUi::error.empty()) { ImGui::SetCursorPos(ImVec2(317,255));ImGui::TextWrapped("%s",OffsetSourceUi::error.c_str()); }
+    imGuiCustom::Checkbox("Anti-AFK",&AntiAfk::enabled,ImVec2(317,402));
+    if(AntiAfk::enabled&&!AntiAfk::error.empty()){
+        ImGui::SetCursorPos(ImVec2(317,430));ImGui::PushTextWrapPos(680);
+        ImGui::TextDisabled("%s",UiText::Tr(AntiAfk::error.c_str()));ImGui::PopTextWrapPos();
+    }
     float ry = 46.0f;
     imGuiCustom::Checkbox("Stream Proof", &variables::Misc::streamProof, ImVec2(12.0f, ry));
     imGuiCustom::Keybind("stream_key", &variables::Misc::streamKey, ImVec2(206.0f, ry - 1.0f), ImVec2(68.0f, 13.0f), &variables::Misc::streamKeyMode);

@@ -14,6 +14,7 @@ namespace OffsetUpdates {
 namespace {
 std::mutex stateMutex;
 std::once_flag loaded;
+std::map<std::string,std::uintptr_t> optionalFields;
 Selection selection;
 std::string currentStatus="Offsets will be selected when loading.",failure;
 std::filesystem::path Executable(){wchar_t path[32768]{};GetModuleFileNameW(nullptr,path,32768);return path;}
@@ -90,7 +91,8 @@ Resolution ResolveData(const std::string& version,const Selection& selected,cons
     try{Write(cache/std::filesystem::u8path(version+".json"),"{\"sha256\":"+OffsetData::Quote(hash)+",\"package\":"+OffsetData::Quote(body)+"}");}catch(...){status+=" (cache could not be saved)";}
     return {p,status};
 }
-void Apply(const OffsetData::Package& package,const std::string& version){OffsetData::Validate(package,version,Required());for(auto& f:OffsetCatalog::Fields())if(package.fields.at(f.name)>0xffffffffULL)throw std::runtime_error("Offset exceeds its range.");for(auto& f:OffsetCatalog::Fields())*f.active=static_cast<std::uintptr_t>(package.fields.at(f.name));Offsets::ClientVersion=version;}
+void Apply(const OffsetData::Package& package,const std::string& version){OffsetData::Validate(package,version,Required());for(auto& f:OffsetCatalog::Fields())if(package.fields.at(f.name)>0xffffffffULL)throw std::runtime_error("Offset exceeds its range.");std::map<std::string,std::uintptr_t> optional;for(const auto* name:{"ParticleEmitter.Rate","ParticleEmitter.Texture","ParticleEmitter.LocalTransparencyModifier","ParticleEmitter.Enabled","ParticleEmitter.Lifetime","Highlight.OutlineTransparency"})if(auto value=package.fields.find(name);value!=package.fields.end()){if(value->second<(std::string(name)=="Highlight.OutlineTransparency"?0x80:0x100)||value->second>=0x1000)throw std::runtime_error("Optional cosmetic offset exceeds its range.");optional[name]=static_cast<std::uintptr_t>(value->second);}for(auto& f:OffsetCatalog::Fields())*f.active=static_cast<std::uintptr_t>(package.fields.at(f.name));Offsets::ClientVersion=version;{std::lock_guard<std::mutex> lock(stateMutex);optionalFields=std::move(optional);}}
+std::uintptr_t OptionalField(const std::string& name){std::lock_guard<std::mutex> lock(stateMutex);const auto found=optionalFields.find(name);return found==optionalFields.end()?0:found->second;}
 bool Resolve(const std::string& version){
     auto selected=GetSelection();try{auto result=ResolveData(version,selected,Storage()/L"cache",FetchPublished);Apply(result.package,version);std::lock_guard<std::mutex> lock(stateMutex);currentStatus=result.status;failure.clear();return true;}
     catch(const std::exception& e){std::lock_guard<std::mutex> lock(stateMutex);failure=e.what();return false;}

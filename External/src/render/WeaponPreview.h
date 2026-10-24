@@ -11,6 +11,7 @@
 #include "PackedPreview.h"
 #include "PreviewCache.h"
 #include "PreviewThumbnail.h"
+#include "CustomSkinPreview.h"
 #include <d3dcompiler.h>
 #include <d3d11.h>
 #include <wrl/client.h>
@@ -238,7 +239,7 @@ public:
         if(!ok(device->CreateRasterizerState(&rd,&raster))||!ok(device->CreateDepthStencilState(&dd,&depthState)))return false;
         return ok(device->CreateShaderResourceView(texture.Get(),nullptr,&srv));
     }
-    void Render(ID3D11Device* device,ID3D11DeviceContext* context,float dt,bool skinOnly=false,bool avatar=false,bool occluded=false){
+    void Render(ID3D11Device* device,ID3D11DeviceContext* context,float dt,bool skinOnly=false,bool avatar=false,bool occluded=false,bool glockWeapon=false){
         if(!Init(device))return;
         if(dirty){
             vb.Reset();dirty=false;
@@ -251,16 +252,17 @@ public:
             }
         }
         using namespace variables::Weapons;
-        const float selectedSpeed=avatar?variables::ESP::nativeChamsAnimationSpeed:speed;
+        const auto weaponMaterial=MaterialForWeapon(glockWeapon);
+        const float selectedSpeed=avatar?variables::ESP::nativeChamsAnimationSpeed:weaponMaterial.speed;
         phase+=std::clamp(dt,0.f,.1f)*std::clamp(selectedSpeed,0.f,15.f);
         NativePattern::Material mat{};
-        const auto fill=avatar?(occluded?variables::ESP::nativeChamsOccludedColor:variables::ESP::nativeChamsColor):color;
-        const auto emissive=avatar?variables::ESP::nativeChamsGlowColor:glowColor;
+        const auto fill=avatar?(occluded?variables::ESP::nativeChamsOccludedColor:variables::ESP::nativeChamsColor):weaponMaterial.color;
+        const auto emissive=avatar?variables::ESP::nativeChamsGlowColor:weaponMaterial.glowColor;
         for(int k=0;k<3;++k){mat.color[k]=fill[k];mat.glow[k]=emissive[k];}
-        mat.color[3]=(avatar?variables::ESP::nativeChamsOpacity:opacity)*fill[3];
-        mat.glow[3]=avatar?(variables::ESP::nativeChamsGlow?variables::ESP::nativeChamsGlowStrength:0):(glow?glowStrength:0);
-        mat.mode=avatar?(occluded?variables::ESP::nativeChamsOccludedStyle:variables::ESP::nativeChamsStyle):nativeStyle;mat.time=phase;mat.depth_scale=1;
-        mat.pattern[0]=1.2f/std::clamp(variables::ESP::nativeChamsPatternSize,.25f,4.f)/(avatar?1.f:std::clamp(scale,.01f,100.f)*.1f);
+        mat.color[3]=(avatar?variables::ESP::nativeChamsOpacity:weaponMaterial.opacity)*fill[3];
+        mat.glow[3]=avatar?(variables::ESP::nativeChamsGlow?variables::ESP::nativeChamsGlowStrength:0):(weaponMaterial.glow?weaponMaterial.glowStrength:0);
+        mat.mode=avatar?(occluded?variables::ESP::nativeChamsOccludedStyle:variables::ESP::nativeChamsStyle):weaponMaterial.style;mat.time=phase;mat.depth_scale=1;
+        mat.pattern[0]=1.2f/std::clamp(variables::ESP::nativeChamsPatternSize,.25f,4.f)/(avatar?1.f:std::clamp(weaponMaterial.scale,.01f,100.f)*.1f);
         mat.pattern[3]=avatar?(!variables::ESP::nativeChamsOnly?1.f:0.f):(showOriginal?1.f:0.f);
         if(skinOnly){mat.color[3]=0;mat.pattern[3]=1;}
         auto dc=deferred.Get();dc->ClearState();auto target=rtv.Get();dc->OMSetRenderTargets(1,&target,dsv.Get());
@@ -312,9 +314,9 @@ inline ImVec2 ImageFit(ImVec2 available,float crop){
     const float width=(std::max)(1.f,(std::min)(available.x,available.y/(crop*2)));
     return ImVec2(width,width*crop*2);
 }
-inline void Draw(ID3D11Device* device,ID3D11DeviceContext* context,ImVec2 mainPos,ImVec2 mainSize){
+inline void Draw(ID3D11Device* device,ID3D11DeviceContext* context,ImVec2 mainPos,ImVec2 mainSize,bool custom=false,int selectedWeapon=-1){
     if(!viewer)viewer=std::make_unique<Viewer>();
-    static int weapon=0;
+    static int weapon=0;if(selectedWeapon>=0)weapon=selectedWeapon;
     const auto display=ImGui::GetIO().DisplaySize;
     const ImVec2 preferred=weapon?ImVec2(420,430):ImVec2(600,330);
     ImVec2 position{mainPos.x+mainSize.x+12,mainPos.y+42};
@@ -331,7 +333,8 @@ inline void Draw(ID3D11Device* device,ID3D11DeviceContext* context,ImVec2 mainPo
     ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize,1);
     if(ImGui::Begin("Weapon preview",&variables::Weapons::preview,ImGuiWindowFlags_NoCollapse|ImGuiWindowFlags_NoSavedSettings)){
         const int previous=weapon;
-        ImGui::RadioButton("AR-15",&weapon,0);ImGui::SameLine();ImGui::RadioButton("Glock",&weapon,1);
+        if(selectedWeapon<0){ImGui::RadioButton("AR-15",&weapon,0);ImGui::SameLine();ImGui::RadioButton("Glock",&weapon,1);}else ImGui::TextUnformatted(weapon?"Glock":"AR-15");
+        if(custom){CustomSkinPreview::Draw(device,context,weapon!=0);}else{
         if(weapon!=previous)ImGui::SetWindowSize(weapon?ImVec2(420,430):ImVec2(600,330));
         auto selection=Skins::PreviewSelection(weapon?"Glock 19":"AR-15");if(selection.empty())selection="Default";
 
@@ -340,7 +343,7 @@ inline void Draw(ID3D11Device* device,ID3D11DeviceContext* context,ImVec2 mainPo
         }
         viewer->Poll(weapon?"Glock 19":"AR-15",selection,true);
         if(skinViewers[weapon])viewer->AdoptComplete(*skinViewers[weapon]);
-        viewer->Render(device,context,ImGui::GetIO().DeltaTime);
+        viewer->Render(device,context,ImGui::GetIO().DeltaTime,false,false,false,weapon!=0);
         ImGui::TextUnformatted(viewer->snapshot.name.c_str());
         const auto available=ImGui::GetContentRegionAvail();
         const bool status=!viewer->error.empty()||!viewer->srv||!viewer->snapshot.status.empty()||variables::Weapons::hide;
@@ -354,6 +357,7 @@ inline void Draw(ID3D11Device* device,ID3D11DeviceContext* context,ImVec2 mainPo
         else if(!viewer->srv)ImGui::TextUnformatted("Preparing preview shader...");
         else if(!viewer->snapshot.status.empty())ImGui::TextWrapped("%s",viewer->snapshot.status.c_str());
         else if(variables::Weapons::hide)ImGui::TextUnformatted("Weapon hidden");
+        }
     }
     ImGui::End();
     ImGui::PopStyleVar(2);ImGui::PopStyleColor(5);

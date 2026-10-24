@@ -467,6 +467,9 @@
     <ClInclude Include="src\core\functions\skins\SkinMix.h">
       <Filter>Header Files\src\core\functions\skins</Filter>
     </ClInclude>
+    <ClInclude Include="src\core\functions\skins\GloveRuntime.h">
+      <Filter>Header Files\src\core\functions\skins</Filter>
+    </ClInclude>
     <ClInclude Include="src\core\keys\activation_key.h">
       <Filter>Header Files\src\core\keys</Filter>
     </ClInclude>
@@ -551,11 +554,39 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="src\core\functions\skins\GloveRuntime.h"><Filter>Header Files\src\core\functions\skins</Filter></ClInclude>
-    <ClInclude Include="src\core\functions\skins\SkinCatalogRules.h"><Filter>Header Files\src\core\functions\skins</Filter></ClInclude>
     <ClCompile Include="src\core\features\nvidia\ShadowPlayPatch.cpp"><Filter>Source Files\src\core</Filter></ClCompile>
-    <ClInclude Include="src\core\features\nvidia\ShadowPlayPatch.h"><Filter>Header Files\src\core\features</Filter></ClInclude>
+    <ClInclude Include="src\core\features\survival\AntiAfkState.h"><Filter>Header Files\src\core\features</Filter></ClInclude>
+    <ClInclude Include="src\core\features\survival\AntiAfk.h"><Filter>Header Files\src\core\features</Filter></ClInclude>
     <ClInclude Include="src\core\features\nvidia\ManualMap.h"><Filter>Header Files\src\core\features</Filter></ClInclude>
     <ClInclude Include="src\core\features\nvidia\NvidiaProtectBytes.h"><Filter>Header Files\src\core\features</Filter></ClInclude>
+    <ClInclude Include="src\core\features\nvidia\ShadowPlayPatch.h"><Filter>Header Files\src\core\features</Filter></ClInclude>
+    <ClInclude Include="src\render\RememberPage.h"><Filter>Header Files\src\render</Filter></ClInclude>
+    <ClInclude Include="src\core\functions\skins\SkinCatalogRules.h"><Filter>Header Files\src\core\features</Filter></ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="src\core\features\native\WeaponTextureRuntime.h" />
+    <ClInclude Include="src\core\features\native\TextureChoiceGate.h" />
+    <ClInclude Include="src\core\features\native\TextureProjectionRuntime.h" />
+    <ClInclude Include="src\core\app\TextureProjectionData.h" />
+    <ClInclude Include="src\core\app\TextureProjectionShader.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="src\core\app\CustomTextureData.h" />
+    <ClInclude Include="src\render\CustomSkinUi.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="src\core\app\CustomModelData.h"><Filter>Header Files\src\core</Filter></ClInclude>
+    <ClInclude Include="src\core\functions\skins\SkinLook.h"><Filter>Header Files\src\core</Filter></ClInclude>
+    <ClInclude Include="src\render\CustomSkinPreview.h"><Filter>Header Files\src\render</Filter></ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="src\core\app\SkinDownloads.cpp"><Filter>Source Files</Filter></ClCompile>
+    <ClInclude Include="src\render\CustomTextureViewer.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="src\render\SkinDownloadsUi.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="src\core\app\CustomShading.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="src\core\app\SkinDownloads.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="src\core\app\SkinDownloadData.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="src\core\functions\skins\SkinSelectionPolicy.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="src\core\features\native\WeaponOrnamentRuntime.h"><Filter>Header Files</Filter></ClInclude>
   </ItemGroup>
 </Project>

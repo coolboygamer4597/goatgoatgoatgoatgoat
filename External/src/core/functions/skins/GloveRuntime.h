@@ -8,6 +8,7 @@
 #include <vector>
 
 namespace GloveRuntime {
+inline bool ValidChildrenRange(std::uintptr_t begin,std::uintptr_t end,std::uintptr_t stride){return begin>=0x10000&&begin<0x00007FFFFFFFF000ULL&&end<0x00007FFFFFFFF000ULL&&end>=begin&&end-begin<=65536&&stride>=16&&stride<=64&&(end-begin)%stride==0;}
 using Size = std::array<float,3>;
 struct SizeChange {
     std::uintptr_t field=0;

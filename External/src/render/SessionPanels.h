@@ -10,24 +10,7 @@ inline bool restoreFocus=false;
 inline bool TakeRestoreFocus(){const bool requested=restoreFocus;restoreFocus=false;return requested;}
 inline bool Visible(){return variables::Misc::spectatorCounter||(variables::Misc::moderatorAlerts&&!SessionPresence::state.Notices().empty());}
 inline ImFont* Font(){auto font=imGuiCustom::GetFonts().InterBold;return font?font:ImGui::GetFont();}
-inline ImVec2 SpectatorPosition(const ImVec2& origin,const ImVec2& panel){
-    auto& x=variables::Misc::spectatorPanelX;auto& y=variables::Misc::spectatorPanelY;
-    if(auto window=ImGui::FindWindowByName("##spectator_counter")){
-        x=window->Pos.x-origin.x;y=window->Pos.y-origin.y;
-        return window->Pos;
-    }
-    if(!std::isfinite(x)||!std::isfinite(y)){x=20;y=80;}
-    ImVec2 position=origin+ImVec2(x,y);
-    const auto& monitors=ImGui::GetPlatformIO().Monitors;
-    bool accessible=monitors.empty();
-    for(const auto& monitor:monitors){
-        const auto end=monitor.WorkPos+monitor.WorkSize;
-        if(position.x+panel.x>monitor.WorkPos.x+24&&position.x<end.x-24&&
-           position.y+panel.y>monitor.WorkPos.y+24&&position.y<end.y-24)accessible=true;
-    }
-    if(!accessible){x=20;y=80;position=origin+ImVec2(x,y);}
-    return position;
-}
+inline float Clamp(float value,float maximum){return std::clamp(std::isfinite(value)?value:16.f,0.f,(std::max)(0.f,maximum));}
 inline void Begin(const char* name,ImVec2 position,ImVec2 size){
     ImGui::SetNextWindowPos(position,ImGuiCond_Always);
     ImGui::SetNextWindowSize(size,ImGuiCond_Always);
@@ -53,13 +36,13 @@ inline void Draw(){
     if(variables::Misc::spectatorCounter){
         const ImVec2 panel((std::min)(184.f,size.x),68);
         auto& x=variables::Misc::spectatorPanelX;auto& y=variables::Misc::spectatorPanelY;
-        const auto position=SpectatorPosition(origin,panel);
-        Begin("##spectator_counter",position,panel);
+        x=Clamp(x,size.x-panel.x);y=Clamp(y,size.y-panel.y);
+        Begin("##spectator_counter",origin+ImVec2(x,y),panel);
         ImGui::SetCursorPos(ImVec2(0,0));ImGui::InvisibleButton("##spectator_drag",panel);
         if(ImGui::IsItemActive()&&ImGui::IsMouseDragging(ImGuiMouseButton_Left)){
-            const auto position=ImGui::GetWindowPos()+ImGui::GetIO().MouseDelta;
-            x=position.x-origin.x;y=position.y-origin.y;
-            ImGui::SetWindowPos(position);
+            x=Clamp(x+ImGui::GetIO().MouseDelta.x,size.x-panel.x);
+            y=Clamp(y+ImGui::GetIO().MouseDelta.y,size.y-panel.y);
+            ImGui::SetWindowPos(origin+ImVec2(x,y));
         }
         if(ImGui::IsItemDeactivated()&&!variables::menuOpen)restoreFocus=true;
         auto draw=ImGui::GetWindowDrawList();const auto p=ImGui::GetWindowPos();

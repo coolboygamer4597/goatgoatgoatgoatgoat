@@ -33,8 +33,12 @@ struct Material {
     float draw_body[12];
     float body_status[4];
     NativeWorldDepth::Snapshot world_depth;
+    float projection_rows[12];
+    float projection_minimum[4];
+    float projection_inverse_span[4];
+    float projection_options[4];
 };
-static_assert(sizeof(Material) == 448, "cbuffer size changed - update the thunk and the test");
+static_assert(sizeof(Material) == 544, "cbuffer size changed - update the thunk and the test");
 static_assert(offsetof(Material, world_depth) == 352, "world snapshot packing changed");
 static_assert(offsetof(Material, live_view) == 224, "live camera packing changed");
 static_assert(offsetof(Material, pattern) == 48, "cbuffer packing changed");

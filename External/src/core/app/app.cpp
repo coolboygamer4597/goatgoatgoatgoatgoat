@@ -26,6 +26,7 @@
 #include "../tp_handler/tp_handler.h"
 #include "../functions/aim/aim.h"
 #include "../functions/aim/recoil.h"
+#include "../features/survival/AntiAfk.h"
 #include "../functions/aim/raycast_silent.h"
 #include "../functions/skins/skins.h"
 #include "../../render/render.h"
@@ -58,7 +59,6 @@ bool PassesMeshVisibilityChecks(std::uintptr_t character) {
         return true;
     struct VisibilityState {
         ULONGLONG checkedAt = 0;
-        int bodyParts = 0;
         int visibleParts = 0;
         std::vector<float> transparencies;
     };
@@ -68,11 +68,11 @@ bool PassesMeshVisibilityChecks(std::uintptr_t character) {
         cache.clear();
     auto& state = cache[character];
     const ULONGLONG now = GetTickCount64();
-    if (now - state.checkedAt >= 100) {
+    if (!state.checkedAt || now - state.checkedAt >= 100) {
         state.checkedAt = now;
-        state.bodyParts = 0;
         state.visibleParts = 0;
         state.transparencies.clear();
+        bool refreshLimbs = false;
         const auto& limbs = PlayerCache::GetLimbs(character);
         for (const auto address : {limbs.head, limbs.torso, limbs.lArm, limbs.rArm,
              limbs.lLeg, limbs.rLeg, limbs.upperTorso, limbs.lowerTorso,
@@ -81,19 +81,23 @@ bool PassesMeshVisibilityChecks(std::uintptr_t character) {
              limbs.lFoot, limbs.rUpperLeg, limbs.rLowerLeg, limbs.rFoot}) {
             if (!address)
                 continue;
-            ++state.bodyParts;
-            const float transparency = memory->read<float>(address + Offsets::BasePart::Transparency);
+            if (memory->read<std::uintptr_t>(address + Offsets::Instance::Parent) != character) {
+                refreshLimbs = true;
+                continue;
+            }
+            float transparency = 1.0f;
+            if (!memory->read_raw(address + Offsets::BasePart::Transparency, &transparency, sizeof(transparency)) ||
+                !std::isfinite(transparency) || transparency < 0.0f || transparency > 1.0f)
+                continue;
             const float fade = Cheat::Visuals::MeshOcclusion::PartFadeValue(address);
-            if (std::isfinite(transparency))
-                state.transparencies.push_back(transparency);
-
-            if (std::isfinite(fade) && fade > (std::isfinite(transparency) ? transparency : 0.0f))
-                state.transparencies.push_back(fade);
-            if (std::isfinite(transparency) && transparency < 0.999f)
-                ++state.visibleParts;
-            else if (std::isfinite(fade) && fade < 0.999f)
+            const float effective = std::isfinite(fade) && fade >= 0.0f && fade <= 1.0f
+                ? 1.0f - (1.0f - transparency) * (1.0f - fade) : transparency;
+            state.transparencies.push_back(effective);
+            if (effective < 0.999f)
                 ++state.visibleParts;
         }
+        if (refreshLimbs || state.transparencies.empty())
+            PlayerCache::limbCache.erase(character);
     }
     bool inTransparencyRange = false;
     const float lo = (std::min)(variables::ESP::meshTransparencyMin, variables::ESP::meshTransparencyMax);
@@ -104,7 +108,7 @@ bool PassesMeshVisibilityChecks(std::uintptr_t character) {
             break;
         }
     }
-    if (variables::ESP::meshInvisibleCheck && state.bodyParts > 0 && state.visibleParts == 0)
+    if (variables::ESP::meshInvisibleCheck && state.visibleParts == 0)
         return false;
     if (variables::ESP::meshTransparencyCheck && inTransparencyRange)
         return false;
@@ -630,6 +634,7 @@ std::int32_t Run() {
         }
         menuKeyWasDown = menuKeyDown;
 
+        AntiAfk::Tick();
         Recoil::Tick();
         SessionRoster::Tick();
         apply_game_fps_limit();
@@ -724,6 +729,7 @@ std::int32_t Run() {
                 nextFrame = nowFrame + std::chrono::microseconds(periodUs);
         }
     }
+    AntiAfk::Stop();
     Recoil::Stop();
     UiAssets::Shutdown();
     Cheat::Features::RaycastSilent::SetActive(false);
@@ -736,6 +742,7 @@ std::int32_t Run() {
     if (skinsThread.joinable())
         skinsThread.join();
     Cheat::Features::RaycastSilent::Remove();
+    WeaponVisuals::Refresh(true);
     Skins::Shutdown();
     if (tpThread.joinable())
         tpThread.join();

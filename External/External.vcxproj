@@ -29,6 +29,7 @@
     <ClCompile Include="main.cpp" />
     <ClCompile Include="src\core\app\app.cpp" />
     <ClCompile Include="src\core\app\AppUpdates.cpp" />
+    <ClCompile Include="src\core\app\SkinDownloads.cpp" />
     <ClCompile Include="src\core\functions\aim\aim.cpp" />
     <ClCompile Include="src\core\functions\aim\recoil.cpp" />
     <ClCompile Include="src\core\functions\aim\raycast_silent.cpp" />
@@ -75,6 +76,13 @@
     <ClInclude Include="src\core\app\PreviewUpdateData.h" />
     <ClInclude Include="src\core\app\UpdateTrust.h" />
     <ClInclude Include="src\core\app\AppUpdates.h" />
+    <ClInclude Include="src\render\CustomTextureViewer.h" />
+    <ClInclude Include="src\render\SkinDownloadsUi.h" />
+    <ClInclude Include="src\core\app\CustomShading.h" />
+    <ClInclude Include="src\core\app\SkinDownloads.h" />
+    <ClInclude Include="src\core\app\SkinDownloadData.h" />
+    <ClInclude Include="src\core\functions\skins\SkinSelectionPolicy.h" />
+    <ClInclude Include="src\core\features\native\WeaponOrnamentRuntime.h" />
     <ClInclude Include="src\render\AppUpdateUi.h" />
     <ClInclude Include="src\core\app\RuntimePaths.h" />
     <ClInclude Include="src\core\functions\aim\aim.h" />
@@ -265,6 +273,7 @@
     <ClInclude Include="src\core\functions\aim\silent_nearest_point.h" />
     <ClInclude Include="src\core\functions\settings\preferences.h" />
     <ClInclude Include="src\core\functions\skins\SkinMix.h" />
+    <ClInclude Include="src\core\functions\skins\GloveRuntime.h" />
     <ClInclude Include="src\core\keys\activation_key.h" />
     <ClInclude Include="src\core\keys\visual_keybind.h" />
     <ClInclude Include="src\core\net\game_info.h" />
@@ -294,11 +303,33 @@
     <ClInclude Include="src\render\SessionPanels.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="src\core\functions\skins\GloveRuntime.h" />
-    <ClInclude Include="src\core\functions\skins\SkinCatalogRules.h" />
     <ClCompile Include="src\core\features\nvidia\ShadowPlayPatch.cpp" />
-    <ClInclude Include="src\core\features\nvidia\ShadowPlayPatch.h" />
+    <ClInclude Include="src\core\features\survival\AntiAfkState.h" />
+    <ClInclude Include="src\core\features\survival\AntiAfk.h" />
     <ClInclude Include="src\core\features\nvidia\ManualMap.h" />
     <ClInclude Include="src\core\features\nvidia\NvidiaProtectBytes.h" />
+    <ClInclude Include="src\core\features\nvidia\ShadowPlayPatch.h" />
+    <ClInclude Include="src\render\RememberPage.h" />
+    <ClInclude Include="src\core\functions\skins\SkinCatalogRules.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="src\core\features\native\WeaponTextureRuntime.h" />
+    <ClInclude Include="src\core\features\native\TextureChoiceGate.h" />
+    <ClInclude Include="src\core\features\native\TextureProjectionRuntime.h" />
+    <ClInclude Include="src\core\app\TextureProjectionData.h" />
+    <ClInclude Include="src\core\app\TextureProjectionShader.h" />
+    <CustomWeaponTexture Include="$(ProjectDir)assets\custom-textures\*.png;$(ProjectDir)assets\custom-textures\*.gwm" />
+  </ItemGroup>
+  <Target Name="CopyCustomWeaponTextures" AfterTargets="Build">
+    <Copy SourceFiles="@(CustomWeaponTexture)" DestinationFolder="$(OutDir)custom-textures" SkipUnchangedFiles="true" />
+  </Target>
+  <ItemGroup>
+    <ClInclude Include="src\core\app\CustomTextureData.h" />
+    <ClInclude Include="src\render\CustomSkinUi.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="src\core\app\CustomModelData.h" />
+    <ClInclude Include="src\core\functions\skins\SkinLook.h" />
+    <ClInclude Include="src\render\CustomSkinPreview.h" />
   </ItemGroup>
 </Project>

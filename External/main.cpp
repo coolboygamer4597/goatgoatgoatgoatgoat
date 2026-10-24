@@ -8,6 +8,7 @@
 #include "src/render/StartupLoader.h"
 #include "src/render/menu/UiText.h"
 #include "src/render/ProtectedError.h"
+#include "src/render/WindowIdentity.h"
 
 static void LogLine(const char* text) {
     if (HANDLE h = CreateFileW(RuntimePaths::File(L"goatgoatgoat.log").c_str(), FILE_APPEND_DATA,

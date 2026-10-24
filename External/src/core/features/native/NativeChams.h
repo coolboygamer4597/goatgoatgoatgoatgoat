@@ -10,6 +10,7 @@ namespace NativeChams {
 
 void Prepare();
 const char* StartupStatus();
+const char* TextureTestStatus();
 void Tick();
 void Stop();
 bool WorldDepthNeeded();

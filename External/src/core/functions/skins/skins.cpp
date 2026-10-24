@@ -1,9 +1,11 @@
+#include "../../app/SkinDownloads.h"
 #ifndef IMGUI_DEFINE_MATH_OPERATORS
 #define IMGUI_DEFINE_MATH_OPERATORS
 #endif
 #include "skins.h"
 #include "SkinMix.h"
 #include "SkinCatalogRules.h"
+#include "SkinSelectionPolicy.h"
 #include "GloveRuntime.h"
 #include "../../variables/variables.h"
 #include "../../../render/WeaponPreview.h"
@@ -15,6 +17,8 @@
 #include "../../../sdk/RuntimeOffsets.h"
 #include "../../../sdk/sdk.h"
 #include "../../../render/menu/library.h"
+#include "../../../render/RetroUi.h"
+#include "../../app/AppUpdates.h"
 #include <Windows.h>
 #include <algorithm>
 #include <atomic>
@@ -42,7 +46,6 @@ constexpr std::uintptr_t kMotorGloveLink = 0x128;
 std::mutex g_stateMutex;
 std::vector<std::string> g_catalog;
 std::string g_selected;
-
 
 std::optional<std::string> g_queuedSelection;
 bool g_editorActive=false;
@@ -108,6 +111,7 @@ std::atomic<bool> g_gloveUnsupported{false};
 std::string g_activeGloveSkin;
 std::uintptr_t g_activeGloveModel = 0;
 std::uintptr_t g_activeGloveHome = 0;
+std::uintptr_t g_gloveTargetArm=0,g_gloveTargetModel=0;
 std::uintptr_t g_parkedStockModel = 0;
 struct GloveVisualSwap {
     std::uintptr_t stockPart = 0;
@@ -121,7 +125,7 @@ struct GloveVisualSwap {
     std::uint64_t sourceMotorPair[2] = {};
     std::uintptr_t sourceEnd = 0;
     std::vector<std::uint8_t> sourceEntries;
-    std::vector<std::uintptr_t> visualChildren;
+    std::vector<std::uintptr_t> visualChildren,stockVisualChildren;
 };
 struct GloveMeshChange {
     std::uintptr_t stockField = 0;
@@ -154,10 +158,7 @@ std::string g_lastLiveWeapon;
 std::string g_lastLiveName;
 std::string GloveSelection(const std::string& fallback){
     std::lock_guard<std::mutex> lock(g_stateMutex);
-    if(!g_editorActive)return fallback;
-    const auto pick=SkinMix::GlovesForWeapon(g_editorChoices,g_lastLiveWeapon.empty()?"AR-15":g_lastLiveWeapon);
-    if(pick!=g_requestedEditorGlove){g_requestedEditorGlove=pick;g_gloveRetry.Reset();g_gloveUnsupported.store(false);g_useInGameGlove.store(false);}
-    return pick;
+    return g_editorActive&&!g_requestedEditorGlove.empty()?g_requestedEditorGlove:fallback;
 }
 
 std::map<std::string, std::string> g_nativeNames;
@@ -401,13 +402,18 @@ bool BuildRecord(const std::string& weapon, const std::string& liveName,
     const std::string sourceName = sourceOverride.empty()
         ? weapon + "_" + skinName
         : sourceOverride;
-    const RBX::RbxInstance sourceModel = ResolveCatalogModel(container, sourceName);
+    const RBX::RbxInstance sourceModel = weapon=="AR-15"&&skinName=="0416"?ResolveCatalogModel(WeaponCatalogRoot().FindChild("Glock 19"),"Glock 19_0416"):ResolveCatalogModel(container, sourceName);
     if (!liveModel.Addr) {
         error = "catalog is missing " + liveName;
         return false;
     }
     if (!sourceModel.Addr) {
         error = "catalog is missing " + sourceName;
+        return false;
+    }
+    for(const auto& active:g_records)if(active.dirty&&
+        SkinSelectionPolicy::Overlaps(liveModel.Addr,sourceModel.Addr,active.live,active.source)){
+        error="the selected model is still used by another skin request";
         return false;
     }
     if (liveModel.Addr == sourceModel.Addr) {
@@ -845,6 +851,7 @@ bool RestoreGloveVisuals(std::string& error) {
                 return false;
             }
     }
+    for(const auto& swap:g_gloveVisualSwaps)for(auto child:swap.stockVisualChildren)if(!Wq(child+Offsets::Instance::Parent,swap.stockPart)){error="could not restore original glove layers";return false;}
     g_gloveVisualSwaps.clear();
     for (const auto& change : g_gloveMeshChanges) {
         if (!memory->write_raw(change.stockField, change.stockOriginal, 32) ||
@@ -868,7 +875,7 @@ bool RestoreGloveVisuals(std::string& error) {
         }
     }
     g_gloveJointChanges.clear();
-    g_activeGloveSkin.clear();
+    g_activeGloveSkin.clear();g_gloveTargetArm=0;g_gloveTargetModel=0;
     return true;
 }
 
@@ -984,16 +991,17 @@ bool SwapGlovePartVisuals(const RBX::RbxInstance& stockPart,
                           std::string& error) {
     const auto stockChildren = stockPart.GetChildList();
     const auto sourceChildren = sourcePart.GetChildList();
-    if (stockChildren.size() != 1 || sourceChildren.empty() ||
-        stockChildren.front().GetClass() != "Motor6D") {
+    const auto motor=std::find_if(stockChildren.begin(),stockChildren.end(),[](const auto& child){return child.GetClass()=="Motor6D";});
+    if (motor==stockChildren.end() || sourceChildren.empty()) {
         error = "glove parts do not match the supported joint layout";
         return false;
     }
-    const std::uintptr_t stockMotor = stockChildren.front().Addr;
+    const std::uintptr_t stockMotor = motor->Addr;
     std::uintptr_t sourceMotor = 0;
     GloveVisualSwap swap;
     swap.stockPart = stockPart.Addr;
     swap.sourcePart = sourcePart.Addr;
+    for(const auto& child:stockChildren)if(child.Addr!=stockMotor)swap.stockVisualChildren.push_back(child.Addr);
     for (const auto& child : sourceChildren) {
         const std::string cls = child.GetClass();
         if (cls == "Motor6D") {
@@ -1034,11 +1042,13 @@ bool SwapGlovePartVisuals(const RBX::RbxInstance& stockPart,
     const std::uintptr_t stockBegin = Rq(swap.stockVec);
     const std::uintptr_t sourceBegin = Rq(swap.sourceVec);
     const std::uintptr_t sourceEnd = Rq(swap.sourceVec + Offsets::Instance::ChildrenEnd);
-    if (!stockBegin || !sourceBegin || sourceEnd < sourceBegin) {
+    const auto stockEnd=Rq(swap.stockVec+Offsets::Instance::ChildrenEnd);
+    if (!GloveRuntime::ValidChildrenRange(stockBegin,stockEnd,Offsets::Instance::ChildrenStride)||!GloveRuntime::ValidChildrenRange(sourceBegin,sourceEnd,Offsets::Instance::ChildrenStride)) {
         error = "glove child vectors are unreadable";
         return false;
     }
-    swap.stockMotorEntry = stockBegin;
+    for(auto at=stockBegin,end=Rq(swap.stockVec+Offsets::Instance::ChildrenEnd);at+Offsets::Instance::ChildrenStride<=end;at+=Offsets::Instance::ChildrenStride)if(Rq(at)==stockMotor){swap.stockMotorEntry=at;break;}
+    if(!swap.stockMotorEntry){error="original glove joint entry is missing";return false;}
     swap.sourceBegin = sourceBegin;
     swap.sourceEnd = sourceEnd;
     swap.sourceEntries.resize(sourceEnd - sourceBegin);
@@ -1093,6 +1103,7 @@ bool SwapGlovePartVisuals(const RBX::RbxInstance& stockPart,
         return false;
     }
     g_gloveVisualSwaps.push_back(swap);
+    for(auto child:swap.stockVisualChildren)if(!Wq(child+Offsets::Instance::Parent,sourcePart.Addr)){error="could not preserve original glove layers";return false;}
     for (const std::uintptr_t child : swap.visualChildren) {
         if (!Wq(child + Offsets::Instance::Parent, stockPart.Addr)) {
             error = "could not attach a glove visual layer";
@@ -1132,14 +1143,15 @@ bool PlanGloveAssembly(const RBX::RbxInstance& tmpl, const RBX::RbxInstance& sto
     return true;
 }
 
-bool ApplyGloveVisuals(const std::string& selected, std::string& error) {
+std::pair<RBX::RbxInstance,RBX::RbxInstance> GloveTarget(const RBX::RbxInstance&){
+    const auto tmpl=FindPath(FindServiceInstance("ReplicatedStorage"),{"Models","Viewmodel","ArmModel"});return {tmpl,tmpl.FindChild("Default")};
+}
+bool ApplyGloveVisuals(const RBX::RbxInstance& liveArm,const std::string& selected, std::string& error) {
     if (!RestoreGloveVisuals(error))
         return false;
     const RBX::RbxInstance source = FindModelRecursive(GlovesCatalogRoot(),
         selected == "S1S1bow" ? "S1S1" : selected);
-    const RBX::RbxInstance tmpl = FindPath(FindServiceInstance("ReplicatedStorage"),
-        {"Models", "Viewmodel", "ArmModel"});
-    const RBX::RbxInstance stock = tmpl.FindChild("Default");
+    const auto target=GloveTarget(liveArm);const auto tmpl=target.first,stock=target.second;
     if (!source.Addr || !stock.Addr) {
         error = "glove catalog or stock template is missing";
         return false;
@@ -1163,7 +1175,7 @@ bool ApplyGloveVisuals(const std::string& selected, std::string& error) {
         if (!ApplySwapCore(g_gloveAssembly, error)) {
             std::string rollback; RestoreGloveVisuals(rollback); return false;
         }
-        g_activeGloveSkin = selected;
+        g_activeGloveSkin = selected;g_gloveTargetArm=tmpl.Addr;g_gloveTargetModel=stock.Addr;
         return true;
     }
     for (const char* name : {"LeftGlove", "RightGlove"}) {
@@ -1183,7 +1195,7 @@ bool ApplyGloveVisuals(const std::string& selected, std::string& error) {
             return false;
         }
     }
-    g_activeGloveSkin = selected;
+    g_activeGloveSkin = selected;g_gloveTargetArm=tmpl.Addr;g_gloveTargetModel=stock.Addr;
     return true;
 }
 
@@ -1229,7 +1241,6 @@ bool RestoreStockGloves(std::string& error) {
 
 void ApplyGlovesCore(const RBX::RbxInstance& armModel,
                      const std::string& selected, std::string& error) {
-    (void)armModel;
 
     for (auto& rec : g_gloveRecords) {
         if (rec.dirty)
@@ -1239,14 +1250,13 @@ void ApplyGlovesCore(const RBX::RbxInstance& armModel,
     }
     g_gloveRecords.clear();
     g_gloveActive.store(false, std::memory_order_relaxed);
-    if (ApplyGloveVisuals(selected, error))
+    if (ApplyGloveVisuals(armModel,selected, error))
         g_gloveActive.store(true, std::memory_order_relaxed);
 }
 
-bool PreflightGloves(const std::string& selected,std::string& error) {
+bool PreflightGloves(const RBX::RbxInstance& liveArm,const std::string& selected,std::string& error) {
     const auto source=FindModelRecursive(GlovesCatalogRoot(),selected=="S1S1bow"?"S1S1":selected);
-    const auto tmpl=FindPath(FindServiceInstance("ReplicatedStorage"),{"Models","Viewmodel","ArmModel"});
-    const auto stock=tmpl.FindChild("Default");
+    const auto target=GloveTarget(liveArm);const auto tmpl=target.first,stock=target.second;
     if (!source.Addr || !stock.Addr) {error="glove catalog or stock template is missing";return false;}
     if (NeedsGloveAssembly(source)) {
         std::vector<GloveArmLinkSwap> links;
@@ -1268,15 +1278,12 @@ bool PreflightGloves(const std::string& selected,std::string& error) {
 enum class GloveAttempt {Deferred,Applied,Failed};
 GloveAttempt TryApplyGloves(const RBX::RbxInstance& armModel,const std::string& selected,std::string& error) {
     const auto now=GloveRuntime::RetryGate::Clock::now();
-    const auto context=selected+"/"+std::to_string(armModel.Addr);
+    const auto context=selected+"/"+std::to_string(armModel.Addr)+"/"+std::to_string(GloveTarget(armModel).second.Addr);
     if (!g_gloveRetry.Ready(context,now)) return GloveAttempt::Deferred;
-    if (!PreflightGloves(selected,error)) {
-        g_gloveRetry.Failed(now);return GloveAttempt::Failed;
-    }
     {
         ProcessSuspend guard;
         if (!guard.ok()) error=guard.reason();
-        else ApplyGlovesCore(armModel,selected,error);
+        else if(RestoreGloveVisuals(error)&&PreflightGloves(armModel,selected,error))ApplyGlovesCore(armModel,selected,error);
     }
     if (!error.empty()||!g_gloveActive.load(std::memory_order_relaxed)) {
         if (error.empty()) error="glove application did not complete";
@@ -1515,6 +1522,7 @@ void ApplySelectedSkin(const RBX::RbxInstance& armModel,
             const bool pickWasGloveOnly =
                 g_pendingGlove.load(std::memory_order_relaxed) &&
                 g_pendingRevision.load(std::memory_order_relaxed) != 0;
+            const auto currentGloves=GloveTarget(armModel);
             const bool gloveNeeded = !g_gloveUnsupported.load(std::memory_order_relaxed) &&
                 (pickWasGloveOnly || IsGloveSkin(selected)) &&
                 (!g_gloveActive.load(std::memory_order_relaxed) ||
@@ -1527,7 +1535,7 @@ void ApplySelectedSkin(const RBX::RbxInstance& armModel,
                 std::string error;
                 const auto attempt=TryApplyGloves(armModel,selected,error);
                 if (attempt==GloveAttempt::Applied) {
-                    SetStatus("Gloves swapped ("+selected+") - your next equip shows them");
+                    SetStatus("Gloves equipped ("+selected+")");
                 } else if (attempt==GloveAttempt::Failed) {
                     if (error.find("glove parts do not match")!=std::string::npos ||
                         error.find("selected glove has")!=std::string::npos ||
@@ -1536,46 +1544,6 @@ void ApplySelectedSkin(const RBX::RbxInstance& armModel,
                     SetStatus("Glove swap failed: "+error);
                 }
             }
-        }
-    }
-
-    {
-        bool glovesArmed = false;
-        for (const auto& rec : g_gloveRecords)
-            if (rec.active && rec.dirty)
-                glovesArmed = true;
-        if (glovesArmed) {
-
-            if (!g_gloveWatcherRun.load(std::memory_order_relaxed)) {
-                if (g_gloveWatcher.joinable())
-                    g_gloveWatcher.join();
-                g_gloveWatcherRun.store(true, std::memory_order_relaxed);
-                g_gloveWatcher = std::thread([] {
-                    while (g_gloveWatcherRun.load(std::memory_order_relaxed) &&
-                           Globals::running.load(std::memory_order_relaxed)) {
-                        bool armed = false;
-                        std::string skinName;
-                        {
-                            std::lock_guard<std::mutex> serial(g_swapMutex);
-                            for (const auto& rec : g_gloveRecords)
-                                if (rec.active && rec.dirty) {
-                                    armed = true;
-                                    skinName = rec.skinName;
-                                    break;
-                                }
-                        }
-                        if (!armed) {
-                            std::this_thread::sleep_for(std::chrono::milliseconds(30));
-                            continue;
-                        }
-                        const RBX::RbxInstance arm = ResolveArmModel();
-                        if (arm.Addr)
-                            WeldPass(arm, skinName);
-                        std::this_thread::sleep_for(std::chrono::milliseconds(3));
-                    }
-                });
-            }
-            WeldPass(ResolveArmModel());
         }
     }
 
@@ -1672,8 +1640,9 @@ bool ApplySelectionFromUi() {
                 continue;
             }
             const RBX::RbxInstance folder = root.FindChild(candidate.c_str());
-            if (!folder.Addr ||
-                !ResolveCatalogModel(folder, candidate + "_" + selected).Addr)
+            const auto sourceFolder=candidate=="AR-15"&&selected=="0416"?root.FindChild("Glock 19"):folder;
+            const auto sourceName=candidate=="AR-15"&&selected=="0416"?std::string("Glock 19_0416"):candidate+"_"+selected;
+            if (!sourceFolder.Addr || !ResolveCatalogModel(sourceFolder,sourceName).Addr)
                 continue;
             SwapRecord* rec = FindRecord(candidate);
             if (rec && rec->active && rec->dirty &&
@@ -1731,7 +1700,8 @@ bool ApplySelectionFromUi() {
         !g_gloveUnsupported.load(std::memory_order_relaxed) &&
         IsGloveSkin(selected)) {
         std::string gloveError;
-        const auto attempt=TryApplyGloves(ResolveArmModel(),selected,gloveError);
+        const auto attempt=g_gloveActive.load(std::memory_order_relaxed)&&g_activeGloveSkin==selected
+            ?GloveAttempt::Applied:TryApplyGloves(ResolveArmModel(),selected,gloveError);
         if (attempt==GloveAttempt::Applied) {
             g_gloveActive.store(true, std::memory_order_relaxed);
             if (!applied.empty())
@@ -1841,6 +1811,7 @@ void ApplySoundsCore(){
     {std::lock_guard<std::mutex> lock(g_stateMutex);choices=g_editorChoices;active=g_editorActive;}
     if(!active)return;
     static auto next=std::chrono::steady_clock::time_point{};auto now=std::chrono::steady_clock::now();if(now<next)return;next=now+std::chrono::milliseconds(200);
+    g_soundPatches.erase(std::remove_if(g_soundPatches.begin(),g_soundPatches.end(),[](const SoundPatch& p){SoundValues current;std::uintptr_t buffer;std::uint64_t capacity;return !ReadSound(p.sound,current,buffer,capacity)||buffer!=p.buffer||capacity!=p.capacity||RBX::RbxInstance(p.sound).GetParent().Addr!=p.parent||current.id!=p.after.id;}),g_soundPatches.end());
     struct Change{SoundPatch patch;};std::vector<Change> changes;int missing=0,tooLong=0;
     auto collect=[&](RBX::RbxInstance target,const std::vector<SoundEntry>& donors,bool mix){
         for(const auto& item:Sounds(target)){
@@ -1956,10 +1927,10 @@ void RefreshCatalog(const RBX::RbxInstance& root) {
 
 bool ApplySelectionFromUi();
 
-bool ReleaseRequests(std::string& error){
-    const bool glovesChanged=g_gloveActive.load()||g_gloveAssembly.dirty||!g_gloveVisualSwaps.empty()||
+bool ReleaseRequests(std::string& error,bool keepGloves=false){
+    const bool glovesChanged=!keepGloves&&(g_gloveActive.load()||g_gloveAssembly.dirty||!g_gloveVisualSwaps.empty()||
         !g_gloveMeshChanges.empty()||!g_gloveSizeChanges.empty()||!g_gloveJointChanges.empty()||!g_gloveArmLinks.empty()||
-        std::any_of(g_gloveRecords.begin(),g_gloveRecords.end(),[](const SwapRecord& r){return r.dirty;});
+        std::any_of(g_gloveRecords.begin(),g_gloveRecords.end(),[](const SwapRecord& r){return r.dirty;}));
     const bool changed=!g_soundPatches.empty()||glovesChanged||
         std::any_of(g_records.begin(),g_records.end(),[](const SwapRecord& r){return r.dirty;});
     if(changed){
@@ -1967,11 +1938,11 @@ bool ReleaseRequests(std::string& error){
         if(!guard.ok()){error="Could not release previous choices; try again";return false;}
         RestoreSoundsCore();
         for(auto& r:g_records)if(r.dirty)RestoreCore(r);
-        for(auto& r:g_gloveRecords)if(r.dirty)RestoreCore(r);
+        if(!keepGloves)for(auto& r:g_gloveRecords)if(r.dirty)RestoreCore(r);
         if(glovesChanged)RestoreStockGloves(error);
         if(!error.empty())return false;
     }
-    g_records.clear();g_gloveRecords.clear();g_gloveActive.store(false);
+    g_records.clear();if(!keepGloves){g_gloveRecords.clear();g_gloveActive.store(false);}
     g_useInGameGlove.store(false);g_wantDefault.store(false);g_pendingGlove.store(false);
     g_gloveUnsupported.store(false);g_gloveRetry.Reset();ConsumePendingRevision();return true;
 }
@@ -1979,6 +1950,7 @@ bool ReleaseRequests(std::string& error){
 void SetSelection(const std::string& skin, bool) {
     std::lock_guard<std::mutex> lock(g_stateMutex);
     g_queuedSelection = SkinCatalogRules::Selection(skin);
+    variables::Weapons::texturePreset=variables::Weapons::glockTexturePreset=-1;
     g_status = "Queued skin: " + *g_queuedSelection;
 }
 
@@ -1998,12 +1970,16 @@ bool ProcessQueuedSelection() {
     {
         std::lock_guard<std::mutex> lock(g_stateMutex);
 
-
         if (!g_queuedSelection) return true;
         g_selected = std::move(*g_queuedSelection);
         g_queuedSelection.reset();
-        g_editorActive = false;
-        g_editorChoices = {};
+        g_editorActive = g_selected=="0416";
+        g_editorChoices = {};g_requestedEditorGlove.clear();
+        if(g_editorActive){
+            g_editorChoices.ar="Default";g_editorChoices.glock="0416";
+            g_requestedEditorGlove="Default";g_selected.clear();
+        }
+        variables::Weapons::texturePreset=variables::Weapons::glockTexturePreset=-1;
         g_status = g_selected == "Default"
             ? "Restoring the original catalog children vectors..."
             : "Swapping catalog children vectors for " + g_selected + "...";
@@ -2019,10 +1995,11 @@ bool ProcessQueuedSelection() {
 namespace Skins {
 WeaponPreview::Snapshot CapturePreview(const std::string& weapon,const std::string& skin){
     WeaponPreview::Snapshot offline;offline.name=weapon+" / "+skin;
-    if(PreviewCache::LoadModel(weapon,skin,offline.vertices))return offline;
+    const auto catalogWeapon=weapon=="AR-15"&&skin=="0416"?std::string("Glock 19"):weapon;
+    if(PreviewCache::LoadModel(catalogWeapon,skin,offline.vertices))return offline;
     std::unique_lock<std::mutex> lock(g_swapMutex);
     auto root=Globals::dataModel.FindChildByClass("ReplicatedStorage").FindChild("Models").FindChild("Weapons");
-    auto model=ResolveCatalogModel(root.FindChild(weapon),weapon+"_"+skin);
+    auto model=ResolveCatalogModel(root.FindChild(catalogWeapon),catalogWeapon+"_"+skin);
 
     for(const auto& record:g_records)if(record.dirty&&record.weapon==weapon){
         if(record.skinName==skin)model=RBX::RbxInstance(record.live);
@@ -2041,7 +2018,7 @@ std::string PreviewSelection(const std::string& weapon) {
 }
 std::string SavedSelection() {
     std::lock_guard<std::mutex> lock(g_stateMutex);
-    return g_queuedSelection ? *g_queuedSelection : g_selected;
+    return g_queuedSelection ? *g_queuedSelection : g_editorActive?g_editorChoices.ar:g_selected;
 }
 void RestoreSelection(const std::string& skin) {
     if(skin.empty() || skin.size()>128) return;
@@ -2074,22 +2051,61 @@ void Tick() {
     }
 }
 
-bool ApplyEditor(const SkinMix::Choices& draft,std::string& status){
-    if(!SkinMix::Valid(draft)||!EnsureDataModel()){status="Join the game before equipping settings";return false;}
+SkinMix::Choices EditorChoices(){
+    std::lock_guard<std::mutex> lock(g_stateMutex);
+    if(g_editorActive){auto choices=g_editorChoices;choices.look.present=false;return choices;}
+    SkinMix::Choices c;const auto skin=g_queuedSelection?*g_queuedSelection:g_selected;
+    if(!skin.empty()){c.ar=c.glock=skin;auto glove=g_gloveMembership.find(skin);if(glove!=g_gloveMembership.end()&&glove->second)c.arGloves=c.glockGloves=skin;}
+    return c;
+}
+std::string Canonical(std::string value,const std::vector<std::string>& options){
+    auto lower=[](std::string x){for(auto& c:x)c=static_cast<char>(std::tolower(static_cast<unsigned char>(c)));return x;};const auto key=lower(value);
+    for(const auto& option:options)if(lower(option)==key)return option;return value;
+}
+bool ApplyEditor(SkinMix::Choices draft,std::string& status){
+    if(!SkinMix::Valid(draft)){status="Invalid skin settings";return false;}
     {
         std::lock_guard<std::mutex> serial(g_swapMutex);
-        for(const auto& pick:std::vector<std::pair<std::string,std::string>>{{"AR-15",draft.ar},{"Glock 19",draft.glock},{draft.arSoundWeapon,draft.arSounds},{draft.glockSoundWeapon,draft.glockSounds}}){
-            if(!pick.second.empty()&&pick.second!="Default"&&!OriginalCatalog(pick.first,pick.second).Addr){status="Missing catalog model: "+pick.first+" / "+pick.second;return false;}
+        bool keepGloves=false;
+        {std::lock_guard<std::mutex> lock(g_stateMutex);
+            std::string wanted=g_requestedEditorGlove;
+            if(!g_editorActive||wanted.empty())wanted=SkinMix::GlovesForWeapon(draft,g_lastLiveWeapon.empty()?"AR-15":g_lastLiveWeapon);
+            else if(draft.arGloves!=g_editorChoices.arGloves)wanted=draft.arGloves;
+            else if(draft.glockGloves!=g_editorChoices.glockGloves)wanted=draft.glockGloves;
+            draft.arGloves=draft.glockGloves=wanted;keepGloves=g_editorActive&&g_requestedEditorGlove==wanted;
+            SkinSelectionPolicy::ResolveShared0416(g_editorActive?g_editorChoices.ar:g_selected,
+                g_editorActive?g_editorChoices.glock:g_selected,draft.ar,draft.glock,g_lastLiveWeapon=="Glock 19");
+            draft.ar=Canonical(draft.ar,g_slotCatalog["AR-15"]);draft.glock=Canonical(draft.glock,g_slotCatalog["Glock 19"]);
+            draft.arGloves=Canonical(draft.arGloves,g_gloveCatalog);draft.glockGloves=Canonical(draft.glockGloves,g_gloveCatalog);
+            draft.arSounds=Canonical(draft.arSounds,g_slotCatalog[draft.arSoundWeapon]);draft.glockSounds=Canonical(draft.glockSounds,g_slotCatalog[draft.glockSoundWeapon]);}
+        if(EnsureDataModel()){
+            for(const auto& pick:std::vector<std::pair<std::string,std::string>>{{draft.ar=="0416"?"Glock 19":"AR-15",draft.ar},{"Glock 19",draft.glock},{draft.arSoundWeapon,draft.arSounds},{draft.glockSoundWeapon,draft.glockSounds}})
+                if(!pick.second.empty()&&pick.second!="Default"&&!OriginalCatalog(pick.first,pick.second).Addr){status="Missing catalog model: "+pick.first+" / "+pick.second;return false;}
+            for(const auto& gloves:{draft.arGloves,draft.glockGloves})if(gloves!="Default"&&!IsGloveSkin(gloves)){status="This selection has no glove model: "+gloves;return false;}
+            status.clear();if(!ReleaseRequests(status,keepGloves))return false;
         }
-        for(const auto& gloves:{draft.arGloves,draft.glockGloves})if(gloves!="Default"&&!IsGloveSkin(gloves)){status="This selection has no glove model: "+gloves;return false;}
-        status.clear();if(!ReleaseRequests(status))return false;
-        std::lock_guard<std::mutex> lock(g_stateMutex);g_queuedSelection.reset();g_editorChoices=draft;g_editorActive=true;g_selected.clear();
+        std::lock_guard<std::mutex> lock(g_stateMutex);g_queuedSelection.reset();g_editorChoices=draft;g_requestedEditorGlove=draft.arGloves;g_editorActive=true;g_selected.clear();
     }
+    SkinLook::Apply(draft.look);
+    for(bool glock:{false,true}){auto& texture=variables::Weapons::TextureForWeapon(glock);if(CustomTextureData::Valid(texture)&&(glock?draft.glock:draft.ar)!=CustomTextureData::Presets[texture].skin)texture=-1;}
     g_gloveUnsupported.store(false);g_pendingRevision.fetch_add(1);
-    const bool applied=ApplySelectionFromUi();
-    status=applied?"Settings equipped; re-equip your weapon":"Settings pending; equip a weapon";
-    return applied;
+    const bool applied=EnsureDataModel()&&ApplySelectionFromUi();
+    status=applied?"Settings equipped":"Settings saved; waiting for the weapon";
+    return true;
 }
+bool SelectCustomSkin(bool isGlock,const std::string& skin,int texture){
+    if(texture!=-1&&!CustomTextureData::Supports(texture,isGlock))return false;
+    {std::lock_guard<std::mutex> lock(g_stateMutex);if(g_editorActive&&!g_queuedSelection&&(isGlock?g_editorChoices.glock:g_editorChoices.ar)==skin){variables::Weapons::TextureForWeapon(isGlock)=texture;return true;}}
+    auto c=EditorChoices();(isGlock?c.glock:c.ar)=skin;
+    if(skin=="0416"&&(isGlock?c.ar:c.glock)=="0416")(isGlock?c.ar:c.glock)="Default";
+    c.look.present=false;
+    std::string status;if(!ApplyEditor(c,status)){SetStatus(status);return false;}
+    variables::Weapons::TextureForWeapon(isGlock)=texture;return true;
+}
+std::string SavedEditorSelection(){std::lock_guard<std::mutex> lock(g_stateMutex);if(!g_editorActive)return {};auto choices=g_editorChoices;choices.look={};return SkinMix::Encode(choices);}
+bool RestoreEditorSelection(const std::string& value){SkinMix::Choices choices;if(!SkinMix::Decode(value,choices))return false;choices.look.present=false;std::string status;return ApplyEditor(choices,status);}
+bool CurrentWeaponIsGlock(){std::lock_guard<std::mutex> lock(g_stateMutex);return g_lastLiveWeapon=="Glock 19";}
+
 bool UnloadEditor(std::string& status){
     {
         std::lock_guard<std::mutex> serial(g_swapMutex);
@@ -2101,71 +2117,45 @@ bool UnloadEditor(std::string& status){
     status=restored?"Editor unloaded":"Restore pending";return restored;
 }
 void RenderEditor(){
-    static SkinMix::Choices draft;
-    static bool initialized=false;
-    static char presetName[49]="My mix";
-    static std::string message;
+    static int weapon=0,category=0;static char search[2][3][96]{};static std::string message;
+    auto draft=EditorChoices();const bool glock=weapon==1;
     std::map<std::string,std::vector<std::string>> slots;std::vector<std::string> gloves;
-    {
-        std::lock_guard<std::mutex> lock(g_stateMutex);slots=g_slotCatalog;gloves=g_gloveCatalog;
-        if(!initialized){draft=g_editorChoices;initialized=true;}
-    }
-    const auto offset=imGuiCustom::g_contentOffset;
-    auto selector=[&](const char* id,const char* label,std::string& selected,std::vector<std::string> options,float x,float y,bool sounds=false){
-        if(std::find(options.begin(),options.end(),"Default")==options.end())options.insert(options.begin(),"Default");
-        if(sounds)options.insert(options.begin(),"");
-        std::vector<const char*> labels;int index=0;
-        for(int i=0;i<int(options.size());++i){labels.push_back(options[i].empty()?"Use skin sounds":options[i].c_str());if(options[i]==selected)index=i;}
-        if(imGuiCustom::Combo(id,&index,labels.data(),int(labels.size()),ImVec2(x,y+imGuiCustom::ComboTop()),320,label))selected=options[index];
-    };
-    auto sounds=[&](const char* id,std::string& source,std::string& skin,float x){
-        std::vector<std::pair<std::string,std::string>> options{{"",""}};std::vector<std::string> names{"Use selected skin sounds"};
-        for(const auto& weapon:{std::string("AR-15"),std::string("Glock 19")}){
-            auto choices=slots[weapon];if(std::find(choices.begin(),choices.end(),"Default")==choices.end())choices.insert(choices.begin(),"Default");
-            for(const auto& pick:choices){options.emplace_back(weapon,pick);names.push_back(weapon+" / "+pick);}
-        }
-        std::vector<const char*> labels;int selected=0;
-        for(int i=0;i<int(options.size());++i){labels.push_back(names[i].c_str());if(!skin.empty()&&options[i]==std::make_pair(source,skin))selected=i;}
-        if(imGuiCustom::Combo(id,&selected,labels.data(),int(labels.size()),ImVec2(x,216+imGuiCustom::ComboTop()),320,"Sounds:")){
-            skin=options[selected].second;if(selected)source=options[selected].first;
+    {std::lock_guard<std::mutex> lock(g_stateMutex);slots=g_slotCatalog;gloves=g_gloveCatalog;}
+    const auto offset=imGuiCustom::g_contentOffset;const float left=12,width=ImGui::GetWindowWidth()-24-offset.x*2,col=(width-16)*.5f,right=left+col+16;
+    auto at=[&](float x,float y){ImGui::SetCursorPos(ImVec2(x,y)+offset);};
+    at(left,94);if(RetroUi::Choice("AR",weapon==0,ImVec2(col,28)))weapon=0;
+    at(right,94);if(RetroUi::Choice("Glock",weapon==1,ImVec2(col,28)))weapon=1;
+    const char* categories[]={"Weapon","Gloves (shared)","Sounds"};imGuiCustom::Combo("editor_category",&category,categories,3,ImVec2(left,132+imGuiCustom::ComboTop()),col,"Change:");
+    at(left,195);ImGui::SetNextItemWidth(col);ImGui::InputTextWithHint("##editor_search","Search available choices...",search[weapon][category],96);
+    at(left,226);ImGui::BeginChild("editor_choices",ImVec2(col,190),true);ImGuiTextFilter filter(search[weapon][category]);
+    auto select=[&](const std::string& label,const std::string& value,const std::string& source){
+        auto& selected=category==0?(glock?draft.glock:draft.ar):category==1?(glock?draft.glockGloves:draft.arGloves):(glock?draft.glockSounds:draft.arSounds);
+        auto& soundWeapon=glock?draft.glockSoundWeapon:draft.arSoundWeapon;
+        if(!filter.PassFilter(label.c_str()))return;
+        if(ImGui::Selectable(label.c_str(),selected==value&&(category!=2||value.empty()||soundWeapon==source))){
+            selected=value;if(category==2&&!value.empty())soundWeapon=source;draft.look.present=false;
+            if(ApplyEditor(draft,message)&&category==0)variables::Weapons::TextureForWeapon(glock)=-1;
         }
     };
-    ImGui::SetCursorPos(ImVec2(12+offset.x,51));ImGui::TextUnformatted("AR-15");
-    ImGui::SetCursorPos(ImVec2(367+offset.x,51));ImGui::TextUnformatted("Glock 19");
-    selector("mix_ar","Skin:",draft.ar,slots["AR-15"],12,76);
-    selector("mix_glock","Skin:",draft.glock,slots["Glock 19"],367,76);
-    selector("mix_ar_gloves","Gloves:",draft.arGloves,gloves,12,146);
-    selector("mix_glock_gloves","Gloves:",draft.glockGloves,gloves,367,146);
-    sounds("mix_ar_sound",draft.arSoundWeapon,draft.arSounds,12);
-    sounds("mix_glock_sound",draft.glockSoundWeapon,draft.glockSounds,367);
-    imGuiCustom::Checkbox("Mute local weapons",&draft.mute,ImVec2(12,292));
-    ImGui::SetCursorPos(ImVec2(12+offset.x,332));ImGui::SetNextItemWidth(320);ImGui::InputTextWithHint("##mix_name","Preset name",presetName,sizeof(presetName));
-    ImGui::SetCursorPos(ImVec2(367+offset.x,332));ImGui::SetNextItemWidth(320);
-    if(ImGui::BeginCombo("##saved_mixes","Saved presets")){
-        for(const auto& name:SkinMix::Presets())if(ImGui::Selectable(name.c_str())){strncpy_s(presetName,name.c_str(),_TRUNCATE);SkinMix::Load(name,draft,message);}
-        ImGui::EndCombo();
-    }
-    ImGui::SetCursorPos(ImVec2(12+offset.x,378));if(ImGui::Button("Equip selected settings",ImVec2(220,35)))ApplyEditor(draft,message);
-    ImGui::SameLine();if(ImGui::Button("Unload",ImVec2(105,35)))UnloadEditor(message);
-    ImGui::SetCursorPos(ImVec2(367+offset.x,378));if(ImGui::Button("Save preset",ImVec2(155,35)))SkinMix::Save(presetName,draft,message);
-    ImGui::SameLine();if(ImGui::Button("Load preset",ImVec2(155,35)))SkinMix::Load(presetName,draft,message);
-    std::string soundMessage;
-    {std::unique_lock<std::mutex> lock(g_swapMutex,std::try_to_lock);if(lock.owns_lock())soundMessage=g_soundStatus;}
-    if(!message.empty()||!soundMessage.empty()){
-        ImGui::SetCursorPos(ImVec2(12+offset.x,432));ImGui::PushTextWrapPos(700);
-        if(!message.empty())ImGui::TextWrapped("%s",message.c_str());
-        if(!soundMessage.empty())ImGui::TextWrapped("%s",soundMessage.c_str());
-        ImGui::PopTextWrapPos();
-    }
+    if(category==2){select("Use selected skin sounds","","");for(const auto& type:{std::string("AR-15"),std::string("Glock 19")}){auto choices=slots[type];if(std::find(choices.begin(),choices.end(),"Default")==choices.end())choices.insert(choices.begin(),"Default");for(const auto& skin:choices)select(type+" / "+skin,skin,type);}}
+    else{auto choices=category==1?gloves:slots[glock?"Glock 19":"AR-15"];if(std::find(choices.begin(),choices.end(),"Default")==choices.end())choices.insert(choices.begin(),"Default");if(category==0&&!glock&&std::find(choices.begin(),choices.end(),"0416")==choices.end())choices.push_back("0416");for(const auto& pick:choices)select(pick,pick,"");}
+    ImGui::EndChild();
+    at(right,155);ImGui::TextUnformatted("Active settings");
+    at(right,190);ImGui::Text("AR: %s",draft.ar.c_str());at(right,220);ImGui::Text("Glock: %s",draft.glock.c_str());
+    at(right,250);ImGui::Text("Gloves: %s",draft.arGloves.c_str());
+    at(right,287);ImGui::PushTextWrapPos(right+col);ImGui::TextUnformatted("Changes apply when selected. Gloves are shared and update on the next equip.");ImGui::PopTextWrapPos();
+    bool mute=draft.mute;imGuiCustom::Checkbox("Mute local weapons",&mute,ImVec2(left,437));if(mute!=draft.mute){draft.mute=mute;draft.look.present=false;ApplyEditor(draft,message);}
+    if(!message.empty()){at(left,464);ImGui::PushTextWrapPos(left+width);ImGui::TextWrapped("%s",message.c_str());ImGui::PopTextWrapPos();}
 }
 
 void RenderMenu() {
+    SkinDownloads::VisitPreviews();
     std::vector<std::string> catalog;
     std::string selected;
     {
         std::lock_guard<std::mutex> lock(g_stateMutex);
         catalog = g_catalog;
-        selected = g_queuedSelection ? *g_queuedSelection : g_selected;
+        selected = g_queuedSelection ? *g_queuedSelection : g_editorActive?(g_lastLiveWeapon=="Glock 19"?g_editorChoices.glock:g_editorChoices.ar):g_selected;
     }
 
     static char search[96]{};
@@ -2192,6 +2182,8 @@ void RenderMenu() {
         }
     }
     ImGui::EndChild();
+    ImGui::SetCursorPos(ImVec2(18.0f+offset.x,370.0f));
+    if(RetroUi::Choice("Download skin previews",false,ImVec2(266.0f,28.0f)))SkinDownloads::OpenPreviews();
 
 }
 

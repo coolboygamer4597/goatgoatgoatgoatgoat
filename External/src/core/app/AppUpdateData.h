@@ -50,8 +50,9 @@ inline void Signature(const std::string& payload,const std::string& signature){
     if(BCryptOpenAlgorithmProvider(&algorithm,BCRYPT_ECDSA_P256_ALGORITHM,nullptr,0)<0 || BCryptImportKeyPair(algorithm,nullptr,BCRYPT_ECCPUBLIC_BLOB,&key,const_cast<PUCHAR>(PublicKey),sizeof(PublicKey),0)<0 || BCryptVerifySignature(key,nullptr,digest.data(),32,bytes.data(),64,0)<0)throw std::runtime_error("The update signature could not be verified.");
 }
 inline constexpr std::size_t MaximumPreviewBytes=256*1024*1024;
-struct Previews{bool available=false;std::string sha256;std::size_t bytes=0,expanded=0,files=0;};
-struct Release{std::string version,notes,sha256,envelope;std::size_t bytes=0;Previews previews;};
+inline constexpr std::size_t MaximumAddonBytes=1024*1024*1024;
+struct Previews{bool available=false;std::string sha256;std::size_t bytes=0,expanded=0,files=0;std::string asset;};
+struct Release{std::string version,notes,sha256,envelope;std::size_t bytes=0;Previews previews,textures;};
 inline Release Manifest(const std::string& source){
     if(source.size()>32768)throw std::runtime_error("Update information is too large.");auto envelope=OffsetData::Parse(source);auto payload=envelope.At("payload").Str();Signature(payload,envelope.At("signature").Str());
     auto data=OffsetData::Parse(payload);if(OffsetData::Uint(data.At("schema"))!=1 || data.At("app").Str()!="GoatGoatGoat" || data.At("channel").Str()!="stable" || data.At("asset").Str()!=Asset)throw std::runtime_error("Unsupported application update.");
@@ -64,6 +65,21 @@ inline Release Manifest(const std::string& source){
         p.bytes=static_cast<std::size_t>(OffsetData::Uint(pack.At("bytes")));p.expanded=static_cast<std::size_t>(OffsetData::Uint(pack.At("expanded_bytes")));p.files=static_cast<std::size_t>(OffsetData::Uint(pack.At("files")));
         if(p.bytes<64||p.bytes>MaximumPreviewBytes||!p.expanded||p.expanded>512*1024*1024||p.files<4||p.files>2048)throw std::runtime_error("Invalid preview package size.");p.available=true;
     }
+    if(auto entry=data.object.find("textures");entry!=data.object.end()){
+        const auto& pack=entry->second;
+        if(pack.At("asset").Str()!="custom-textures.cab")throw std::runtime_error("Unsupported texture package.");
+        auto& p=result.textures;p.sha256=pack.At("sha256").Str();Unhex(p.sha256,32);
+        p.bytes=static_cast<std::size_t>(OffsetData::Uint(pack.At("bytes")));p.expanded=static_cast<std::size_t>(OffsetData::Uint(pack.At("expanded_bytes")));p.files=static_cast<std::size_t>(OffsetData::Uint(pack.At("files")));
+        if(p.bytes<64||p.bytes>MaximumPreviewBytes||!p.expanded||p.expanded>512*1024*1024||p.files<2||p.files>128)throw std::runtime_error("Invalid texture package size.");p.available=true;
+    }
+    if(auto entry=data.object.find("customs");entry!=data.object.end()){
+        const auto& pack=entry->second;auto& p=result.textures;
+        if(pack.At("asset").Str()!="custom-textures-v2.cab")throw std::runtime_error("Unsupported custom skin package.");
+        p.asset="custom-textures-v2.cab";p.sha256=pack.At("sha256").Str();Unhex(p.sha256,32);
+        p.bytes=static_cast<std::size_t>(OffsetData::Uint(pack.At("bytes")));p.expanded=static_cast<std::size_t>(OffsetData::Uint(pack.At("expanded_bytes")));p.files=static_cast<std::size_t>(OffsetData::Uint(pack.At("files")));
+        if(p.bytes<64||p.bytes>MaximumAddonBytes||!p.expanded||p.expanded>1024*1024*1024||p.files<2||p.files>512)throw std::runtime_error("Invalid custom skin package size.");p.available=true;
+    }
+    if(result.textures.asset.empty())result.textures.available=false;
     for(unsigned char c:result.notes)if(c<32 && c!='\n' && c!='\r' && c!='\t')throw std::runtime_error("Invalid release notes.");result.envelope=source;return result;
 }
 inline void Binary(const std::filesystem::path& file,const Release& release){

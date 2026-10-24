@@ -46,14 +46,12 @@ void RenderRecoil() {
     imGuiCustom::SliderFloat("recoil_strength",&percent,0,100,ImVec2(12,150),272,"Strength","%.0f%%");
     strength=percent/100.f;
     imGuiCustom::SliderFloat("recoil_pull",&pull,0,profile?160.f:1200.f,ImVec2(12,206),272,profile?"Vertical pull per shot":"Vertical pull per second","%.0f");
-
-}
-
-void RenderOtherGunMods() {
-    imGuiCustom::Checkbox("Automatic Glock",&variables::Aimbot::glockAutomatic,ImVec2(12,46));
-    float delay=static_cast<float>(variables::Aimbot::glockClickDelay);
-    imGuiCustom::SliderFloat("glock_delay",&delay,25,1000,ImVec2(12,102),272,"Shot interval (ms)","%.0f");
-    variables::Aimbot::glockClickDelay=static_cast<int>(delay+.5f);
+    if(profile){
+        imGuiCustom::Checkbox("Automatic Glock",&variables::Aimbot::glockAutomatic,ImVec2(12,255));
+        float delay=static_cast<float>(variables::Aimbot::glockClickDelay);
+        imGuiCustom::SliderFloat("glock_delay",&delay,25,1000,ImVec2(12,305),272,"Shot interval (ms)","%.0f");
+        variables::Aimbot::glockClickDelay=static_cast<int>(delay+.5f);
+    }
 }
 
 void RenderAimChecks() {

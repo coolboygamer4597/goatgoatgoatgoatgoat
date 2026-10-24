@@ -1,4 +1,5 @@
 #include "AppUpdates.h"
+#include "SkinDownloads.h"
 #include "AppUpdateData.h"
 #include "PreviewUpdateData.h"
 #include <winhttp.h>
@@ -27,6 +28,7 @@ std::wstring Identifier(){GUID id{};if(FAILED(CoCreateGuid(&id)))throw std::runt
 void Write(const Path& path,const std::string& text){std::filesystem::create_directories(path.parent_path());auto temporary=path;temporary+=L".tmp";{std::ofstream out(temporary,std::ios::binary|std::ios::trunc);if(!out||!out.write(text.data(),text.size())||!out.flush())throw std::runtime_error("Could not save the update.");}if(!MoveFileExW(temporary.c_str(),path.c_str(),MOVEFILE_REPLACE_EXISTING|MOVEFILE_WRITE_THROUGH))throw std::runtime_error("Could not save update settings.");}
 void Log(const std::string& message){try{std::filesystem::create_directories(Storage());std::ofstream(Storage()/L"update.log",std::ios::app)<<GetTickCount64()<<" "<<message<<"\n";}catch(...){}}
 void Load(const std::shared_ptr<Manager>& s){std::call_once(s->loaded,[&]{try{auto values=OffsetData::Parse(AppUpdateData::Read(Storage()/L"settings.json",4096));s->state.automatic=values.At("automatic").text=="true";s->skipped=values.At("skipped").Str();if(auto value=values.object.find("previews_declined");value!=values.object.end())s->previewDeclined=value->second.Str();if(!s->skipped.empty())AppUpdateData::Version(s->skipped);}catch(...){s->state.automatic=true;s->skipped.clear();}});}
+std::string OptionalKey(const AppUpdateData::Release& release){return release.version+"/"+(release.previews.available?release.previews.sha256:"-")+"/"+(release.textures.available?release.textures.sha256:"-");}
 void Save(const Manager& s){Write(Storage()/L"settings.json","{\"automatic\":"+std::string(s.state.automatic?"true":"false")+",\"skipped\":"+OffsetData::Quote(s.skipped)+",\"previews_declined\":"+OffsetData::Quote(s.previewDeclined)+"}");}
 struct Http{HINTERNET h=nullptr;~Http(){if(h)WinHttpCloseHandle(h);}};
 struct Address{std::wstring host,path;};
@@ -47,7 +49,7 @@ std::string Fetch(std::wstring url,std::size_t maximum,const std::shared_ptr<Man
         if(!request.h||!WinHttpSendRequest(request.h,L"Cache-Control: no-cache\r\n",static_cast<DWORD>(-1),WINHTTP_NO_REQUEST_DATA,0,0,0)||!WinHttpReceiveResponse(request.h,nullptr))throw std::runtime_error("Could not reach the update server. You can continue with this version.");
         DWORD code=0,size=sizeof(code);if(!WinHttpQueryHeaders(request.h,WINHTTP_QUERY_STATUS_CODE|WINHTTP_QUERY_FLAG_NUMBER,WINHTTP_HEADER_NAME_BY_INDEX,&code,&size,WINHTTP_NO_HEADER_INDEX))throw std::runtime_error("Invalid update server response.");
         if(code==301||code==302||code==303||code==307||code==308){size=0;WinHttpQueryHeaders(request.h,WINHTTP_QUERY_LOCATION,WINHTTP_HEADER_NAME_BY_INDEX,nullptr,&size,WINHTTP_NO_HEADER_INDEX);if(!size||size>32768)throw std::runtime_error("Invalid update redirect.");std::vector<wchar_t> location(size/sizeof(wchar_t)+1);if(!WinHttpQueryHeaders(request.h,WINHTTP_QUERY_LOCATION,WINHTTP_HEADER_NAME_BY_INDEX,location.data(),&size,WINHTTP_NO_HEADER_INDEX))throw std::runtime_error("Invalid update redirect.");url=location.data();if(!url.empty()&&url[0]==L'/')url=L"https://"+address.host+url;continue;}
-        if(code==404)throw std::runtime_error("No update has been published yet. You can continue with this version.");if(code!=200)throw std::runtime_error("Update server returned HTTP "+std::to_string(code)+". You can continue with this version.");
+        if(code==404)throw std::runtime_error(address.host==L"raw.githubusercontent.com"?"No update has been published yet. You can continue with this version.":"The requested download is unavailable on the server. Please retry later.");if(code!=200)throw std::runtime_error("Update server returned HTTP "+std::to_string(code)+". You can continue with this version.");
         std::string bytes;char buffer[65536];DWORD count=0;std::size_t received=0;std::ofstream file;
         if(!output.empty()){file.open(output,std::ios::binary|std::ios::trunc);if(!file)throw std::runtime_error("Could not save the preview download.");}
         do{if(s->cancel||(cancelled&&cancelled->load())||GetTickCount64()-started>(!output.empty()?900000ULL:maximum>32768?120000ULL:12000ULL))throw std::runtime_error("Update download cancelled or timed out.");if(!WinHttpReadData(request.h,buffer,sizeof(buffer),&count))throw std::runtime_error("The update download was interrupted.");if(count>maximum-received)throw std::runtime_error("The update download exceeds its size limit.");received+=count;
@@ -63,7 +65,7 @@ bool StartProcess(const Path& executable,const std::wstring& arguments,bool hidd
 std::uint64_t Started(HANDLE process){FILETIME start{},exit{},kernel{},user{};if(!GetProcessTimes(process,&start,&exit,&kernel,&user))throw std::runtime_error("Could not identify the running program.");return(static_cast<std::uint64_t>(start.dwHighDateTime)<<32)|start.dwLowDateTime;}
 std::uint64_t Number(const std::string& text){std::uint64_t number=0;auto result=std::from_chars(text.data(),text.data()+text.size(),number);if(result.ec!=std::errc()||result.ptr!=text.data()+text.size())throw std::runtime_error("Invalid updater request.");return number;}
 bool Restore(const Path& target,const Path& backup,const std::string& hash){try{if(Normal(target)&&AppUpdateData::HexHash(AppUpdateData::Read(target,AppUpdateData::MaximumBytes))==hash)return true;if(!Normal(backup)||AppUpdateData::HexHash(AppUpdateData::Read(backup,AppUpdateData::MaximumBytes))!=hash)return false;Path failed=target;failed+=L".failed-update";if(Normal(target))CopyFileW(target.c_str(),failed.c_str(),TRUE);return MoveFileExW(backup.c_str(),target.c_str(),MOVEFILE_REPLACE_EXISTING|MOVEFILE_WRITE_THROUGH)!=FALSE;}catch(...){return false;}}
-void Cleanup(){try{const auto root=Storage()/L"stage";if(!std::filesystem::exists(root)||!Normal(root))return;for(const auto& item:std::filesystem::directory_iterator(root)){auto path=item.path();if(!Identifier(path.filename().wstring())||!Normal(path)||!item.is_directory()||std::filesystem::file_time_type::clock::now()-item.last_write_time()<std::chrono::hours(24))continue;std::error_code error;for(const auto* name:{L"helper.exe",L"download.exe",L"previews.cab",L"request.json",L"request.json.tmp"}){auto file=path/name;if(Normal(file)&&std::filesystem::is_regular_file(file))std::filesystem::remove(file,error);}std::filesystem::remove(path,error);}}catch(...){}}
+void Cleanup(){try{const auto root=Storage()/L"stage";if(!std::filesystem::exists(root)||!Normal(root))return;for(const auto& item:std::filesystem::directory_iterator(root)){auto path=item.path();if(!Identifier(path.filename().wstring())||!Normal(path)||!item.is_directory()||std::filesystem::file_time_type::clock::now()-item.last_write_time()<std::chrono::hours(24))continue;std::error_code error;for(const auto* name:{L"helper.exe",L"download.exe",L"previews.cab",L"preview-cache.cab",L"custom-textures.cab",L"custom-textures-v2.cab",L"request.json",L"request.json.tmp"}){auto file=path/name;if(Normal(file)&&std::filesystem::is_regular_file(file))std::filesystem::remove(file,error);}std::filesystem::remove(path,error);}}catch(...){}}
 int Apply(const Path& request){
     auto stage=request.parent_path();if(request.filename()!=L"request.json"||!Identifier(stage.filename().wstring())||stage.parent_path()!=Storage()/L"stage"||!Normal(request)||Executable()!=stage/L"helper.exe")throw std::runtime_error("Invalid updater request location.");
     auto data=OffsetData::Parse(AppUpdateData::Read(request,65536));auto release=AppUpdateData::Manifest(data.At("envelope").Str());if(AppUpdateData::Compare(release.version,GOAT_APP_VERSION)<=0)throw std::runtime_error("The update is not newer than this build.");
@@ -86,10 +88,11 @@ void SetAutomatic(bool enabled){auto s=Shared();Load(s);std::lock_guard<std::mut
 void SuppressStartupPrompt(){auto s=Shared();std::lock_guard<std::mutex> lock(s->mutex);s->state.suppressed=true;}
 void Check(bool manual){
     auto s=Shared();Load(s);{std::lock_guard<std::mutex> lock(s->mutex);if(s->state.phase==Phase::Checking||s->state.phase==Phase::Downloading||s->state.phase==Phase::Ready||s->state.phase==Phase::HandedOff||s->state.previewPhase==PreviewPhase::Downloading)return;s->state.phase=Phase::Checking;s->state.manual=manual;s->state.message="Checking for updates...";if(manual)s->state.suppressed=false;}
-    try{std::thread([s,manual]{try{auto text=Fetch(L"https://raw.githubusercontent.com/coolboygamer4597/goatgoatgoatgoatgoat/updates/stable.json",32768,s);auto release=AppUpdateData::Manifest(text);const bool missing=!PreviewUpdateData::Present(Executable().parent_path()/L"preview-cache");std::lock_guard<std::mutex> lock(s->mutex);s->release=release;s->state.version=release.version;s->state.notes=release.notes;
+    try{std::thread([s,manual]{try{auto text=Fetch(L"https://raw.githubusercontent.com/coolboygamer4597/goatgoatgoatgoatgoat/updates/stable.json",32768,s);auto release=AppUpdateData::Manifest(text);const bool missing=false,texturesMissing=false;std::lock_guard<std::mutex> lock(s->mutex);s->release=release;s->state.version=release.version;s->state.notes=release.notes;
         bool newer=AppUpdateData::Compare(release.version,GOAT_APP_VERSION)>0;bool skipped=!s->skipped.empty()&&AppUpdateData::Compare(release.version,s->skipped)==0;s->state.phase=newer&&(!skipped||s->state.manual)?Phase::Available:Phase::Idle;s->state.message=newer&&skipped?"This version was skipped.":"You have the latest published version.";
+        s->state.texturesAvailable=release.textures.available;s->state.texturesMissing=texturesMissing;s->state.textureBytes=release.textures.bytes;++s->state.optionalRevision;
         s->state.previewsAvailable=release.previews.available;s->state.previewsMissing=missing;s->state.previewBytes=release.previews.bytes;s->state.previewPhase=PreviewPhase::Idle;s->updateAfterPreviews=false;
-        if(!newer&&missing&&release.previews.available&&(s->previewDeclined!=GOAT_APP_VERSION||manual))s->state.previewPhase=PreviewPhase::Offered;
+
     }catch(const std::exception& error){std::lock_guard<std::mutex> lock(s->mutex);s->state.phase=Phase::Error;s->state.message=error.what();}}).detach();}catch(...){std::lock_guard<std::mutex> lock(s->mutex);s->state.phase=Phase::Error;s->state.message="Could not start the update check.";}
 }
 void Skip(){auto s=Shared();std::lock_guard<std::mutex> lock(s->mutex);if(s->state.phase==Phase::Available){s->skipped=s->state.version;try{Save(*s);}catch(const std::exception& error){Log(error.what());}}s->state.phase=Phase::Idle;s->state.manual=false;s->state.message.clear();}
@@ -103,35 +106,50 @@ void Download(){
         if(s->cancel)throw std::runtime_error("Update cancelled.");std::lock_guard<std::mutex> lock(s->mutex);s->request=stage/L"request.json";s->state.phase=Phase::Ready;s->state.message="Update verified. Restarting...";s->state.progress=1;
     }catch(const std::exception& error){if(copied){std::error_code ignored;std::filesystem::remove(replacement,ignored);}std::lock_guard<std::mutex> lock(s->mutex);s->state.phase=Phase::Error;s->state.manual=true;s->state.message=error.what();}}).detach();}catch(...){std::lock_guard<std::mutex> lock(s->mutex);s->state.phase=Phase::Error;s->state.manual=true;s->state.message="Could not start the update download.";}
 }
-void OfferPreviewsForUpdate(){auto s=Shared();std::lock_guard<std::mutex> lock(s->mutex);if(s->state.phase==Phase::Available&&s->state.previewsAvailable&&s->state.previewsMissing){s->updateAfterPreviews=true;s->state.previewPhase=PreviewPhase::Offered;}}
+void OfferPreviewsForUpdate(){auto s=Shared();std::lock_guard<std::mutex> lock(s->mutex);if(s->state.phase==Phase::Available&&(s->state.previewsMissing||s->state.texturesMissing)){s->updateAfterPreviews=true;++s->state.optionalRevision;s->state.previewPhase=PreviewPhase::Offered;}}
 void SkipPreviews(){
     auto s=Shared();bool update=false;{
         std::lock_guard<std::mutex> lock(s->mutex);if(s->state.previewPhase==PreviewPhase::Downloading){s->previewCancel=true;return;}
-        s->previewDeclined=s->updateAfterPreviews?s->release.version:GOAT_APP_VERSION;s->state.previewPhase=PreviewPhase::Idle;update=s->updateAfterPreviews;s->updateAfterPreviews=false;
+        s->previewDeclined=OptionalKey(s->release);s->state.previewPhase=PreviewPhase::Idle;update=s->updateAfterPreviews;s->updateAfterPreviews=false;
         try{Save(*s);}catch(const std::exception& error){Log(error.what());}
     }if(update)Download();
 }
-void DownloadPreviews(){
+void DownloadPreviews(){DownloadAddons(true,false);}
+void DownloadAddons(bool previews,bool textures){
     auto s=Shared();AppUpdateData::Release release;{
-        std::lock_guard<std::mutex> lock(s->mutex);if(!s->state.previewsAvailable||s->state.previewPhase==PreviewPhase::Downloading||s->state.phase==Phase::Downloading||s->state.phase==Phase::Ready||s->state.phase==Phase::HandedOff)return;
-        release=s->release;s->previewCancel=false;s->state.previewPhase=PreviewPhase::Downloading;s->state.previewProgress=0;s->state.previewMessage="Downloading skin previews...";
+        std::lock_guard<std::mutex> lock(s->mutex);
+        if(s->state.previewPhase==PreviewPhase::Downloading||s->state.phase==Phase::Downloading||s->state.phase==Phase::Ready||s->state.phase==Phase::HandedOff)return;
+        previews=previews&&s->state.previewsAvailable&&s->state.previewsMissing;
+        textures=textures&&s->state.texturesAvailable&&s->state.texturesMissing;
+        if(!previews&&!textures)return;
+        release=s->release;s->previewCancel=false;s->state.previewPhase=PreviewPhase::Downloading;s->state.previewProgress=0;s->state.previewMessage="Downloading optional add-ons...";
     }
-    try{std::thread([s,release]{Path archive,storage;bool update=false;
+    try{std::thread([s,release,previews,textures]{Path storage;std::vector<Path> archives;bool update=false;
         try{
-            const auto id=Identifier();storage=Storage()/L"stage"/id;std::filesystem::create_directories(storage);if(!Normal(storage))throw std::runtime_error("Preview download storage is unavailable.");archive=storage/L"previews.cab";
-            const auto base=Executable().parent_path();if(!Normal(base))throw std::runtime_error("The program folder is not supported for preview downloads.");
-            const std::string url="https://github.com/"+std::string(AppUpdateData::Repository)+"/releases/download/v"+release.version+"/preview-cache.cab";
-            Fetch(std::wstring(url.begin(),url.end()),release.previews.bytes,s,[s,release](std::size_t received){std::lock_guard<std::mutex> lock(s->mutex);s->state.previewProgress=.9f*static_cast<float>(received)/release.previews.bytes;},archive,&s->previewCancel);
-            {std::lock_guard<std::mutex> lock(s->mutex);s->state.previewMessage="Verifying and installing skin previews...";}
-            PreviewUpdateData::Install(archive,release.previews,base/L"preview-cache",base/(L".preview-cache-stage-"+id),base/(L".preview-cache-previous-"+id),s->previewCancel);
-            {std::lock_guard<std::mutex> lock(s->mutex);s->state.previewPhase=PreviewPhase::Complete;s->state.previewsMissing=false;s->state.previewProgress=1;s->state.previewMessage="Skin previews installed.";update=s->updateAfterPreviews;s->updateAfterPreviews=false;
-                if(!update){s->state.manual=true;s->state.message="Skin previews are installed and ready for the skin changer.";}}
+            const auto id=Identifier();storage=Storage()/L"stage"/id;std::filesystem::create_directories(storage);if(!Normal(storage))throw std::runtime_error("Add-on storage is unavailable.");
+            const auto base=Executable().parent_path();if(!Normal(base))throw std::runtime_error("The program folder is not supported for add-on downloads.");
+            const std::size_t total=(previews?release.previews.bytes:0)+(textures?release.textures.bytes:0);std::size_t complete=0;
+            for(int kind=0;kind<2;++kind){
+                if(kind==0?!previews:!textures)continue;
+                const auto& package=kind?release.textures:release.previews;
+                const std::string asset=kind?(package.asset.empty()?"custom-textures.cab":package.asset):"preview-cache.cab";const std::wstring folder=kind?L"custom-textures":L"preview-cache";
+                const auto archive=storage/Path(asset);archives.push_back(archive);
+                {std::lock_guard<std::mutex> lock(s->mutex);s->state.previewMessage=kind?"Downloading custom textures...":"Downloading skin previews...";}
+                const std::string url="https://github.com/"+std::string(AppUpdateData::Repository)+"/releases/download/v"+release.version+"/"+asset;
+                Fetch(std::wstring(url.begin(),url.end()),package.bytes,s,[s,complete,total](std::size_t received){std::lock_guard<std::mutex> lock(s->mutex);s->state.previewProgress=.9f*static_cast<float>(complete+received)/total;},archive,&s->previewCancel);
+                {std::lock_guard<std::mutex> lock(s->mutex);s->state.previewMessage=kind?"Verifying and installing custom textures...":"Verifying and installing skin previews...";}
+                PreviewUpdateData::Install(archive,package,base/folder,base/(L"."+folder+L"-stage-"+id),base/(L"."+folder+L"-previous-"+id),s->previewCancel,kind?PreviewUpdateData::Kind::Textures:PreviewUpdateData::Kind::Previews);
+                complete+=package.bytes;
+                {std::lock_guard<std::mutex> lock(s->mutex);if(kind)s->state.texturesMissing=false;else s->state.previewsMissing=false;}
+            }
+            {std::lock_guard<std::mutex> lock(s->mutex);s->state.previewPhase=PreviewPhase::Complete;s->state.previewProgress=1;s->state.previewMessage="Selected add-ons installed.";update=s->updateAfterPreviews;s->updateAfterPreviews=false;
+                if(!update){s->state.manual=true;s->state.message="Your selected optional add-ons are installed and ready.";}}
         }catch(const std::exception& error){std::lock_guard<std::mutex> lock(s->mutex);s->state.previewPhase=PreviewPhase::Error;s->state.previewMessage=error.what();}
-        if(!archive.empty()){std::error_code ignored;std::filesystem::remove(archive,ignored);std::filesystem::remove(storage,ignored);}
+        for(const auto& archive:archives){std::error_code ignored;std::filesystem::remove(archive,ignored);}if(!storage.empty()){std::error_code ignored;std::filesystem::remove(storage,ignored);}
         if(s->previewCancel&&!s->cancel)SkipPreviews();else if(update&&!s->cancel)Download();
-    }).detach();}catch(...){std::lock_guard<std::mutex> lock(s->mutex);s->state.previewPhase=PreviewPhase::Error;s->state.previewMessage="Could not start the preview download.";}
+    }).detach();}catch(...){std::lock_guard<std::mutex> lock(s->mutex);s->state.previewPhase=PreviewPhase::Error;s->state.previewMessage="Could not start the add-on download.";}
 }
 bool Launch(){auto s=Shared();std::lock_guard<std::mutex> lock(s->mutex);if(s->state.phase!=Phase::Ready)return false;if(!StartProcess(s->request.parent_path()/L"helper.exe",L"--apply-update "+Quote(s->request.wstring()),true)){s->state.phase=Phase::Error;s->state.manual=true;s->state.message="Could not start the updater. Your current version is unchanged.";return false;}s->state.phase=Phase::HandedOff;return true;}
-void Shutdown(){auto s=Shared();s->cancel=true;s->previewCancel=true;}
+void Shutdown(){SkinDownloads::Shutdown();auto s=Shared();s->cancel=true;s->previewCancel=true;}
 bool HelperMode(int& exitCode){int count=0;auto arguments=CommandLineToArgvW(GetCommandLineW(),&count);if(!arguments)return false;struct Free{LPWSTR* p;~Free(){LocalFree(p);}} free{arguments};if(count<2||std::wstring(arguments[1])!=L"--apply-update")return false;exitCode=1;try{if(count!=3)throw std::runtime_error("Invalid updater arguments.");exitCode=Apply(Path(arguments[2]));}catch(const std::exception& error){Log(error.what());}return true;}
 }

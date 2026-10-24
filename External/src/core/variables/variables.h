@@ -86,6 +86,14 @@ inline bool nativeChamsWalls = true;
 
 namespace Weapons {
 inline bool preview = true;
+inline constexpr int customTextureCount=109;
+inline int texturePreset=-1,glockTexturePreset=-1;
+inline std::array<bool,customTextureCount> textureCleanSurface=[] {std::array<bool,customTextureCount> values{};values.fill(true);return values;}();
+inline bool modelCleanup=true;
+inline bool removeX5Outline=true;
+inline bool textureShading=true;
+inline float textureShadingIntensity=1;
+inline float textureShadowIntensity=0;
 struct LimbMaterial {
     bool enabled=false,glow=false;
     int style=0;
@@ -99,6 +107,23 @@ inline bool glow=false;
 inline float opacity=.9f,speed=10,scale=1,glowStrength=.4f;
 inline int nativeStyle=0;
 inline float color[4]={.5f,.75f,1,1},glowColor[4]={1,.75f,.2f,1};
+inline bool separateWeapons=false,weaponMaterialsInitialized=false;
+inline LimbMaterial arMaterial,glockMaterial,arArms,glockArms,arGloves,glockGloves;
+inline bool separateArms=false,separateGloves=false,armMaterialsInitialized=false,gloveMaterialsInitialized=false;
+inline LimbMaterial SharedMaterial(){
+    LimbMaterial m;m.enabled=native;m.glow=glow;m.style=nativeStyle;m.opacity=opacity;m.speed=speed;m.scale=scale;m.glowStrength=glowStrength;
+    for(int i=0;i<4;++i){m.color[i]=color[i];m.glowColor[i]=glowColor[i];}return m;
+}
+inline LimbMaterial MaterialForWeapon(bool isGlock){return separateWeapons?(isGlock?glockMaterial:arMaterial):SharedMaterial();}
+inline void SeparateWeapons(bool enabled){if(enabled&&!weaponMaterialsInitialized){arMaterial=glockMaterial=SharedMaterial();weaponMaterialsInitialized=true;}separateWeapons=enabled;}
+inline int& TextureForWeapon(bool isGlock){return isGlock?glockTexturePreset:texturePreset;}
+inline bool AnyNative(){return separateWeapons?(arMaterial.enabled||glockMaterial.enabled):native;}
+inline bool AnyLimb(bool glove){return glove?(separateGloves?(arGloves.enabled||glockGloves.enabled):gloves.enabled):(separateArms?(arArms.enabled||glockArms.enabled):arms.enabled);}
+inline LimbMaterial MaterialForLimb(bool isGlock,bool glove){return glove?(separateGloves?(isGlock?glockGloves:arGloves):gloves):(separateArms?(isGlock?glockArms:arArms):arms);}
+inline void SeparateLimbs(bool glove,bool enabled){auto& initialized=glove?gloveMaterialsInitialized:armMaterialsInitialized;if(enabled&&!initialized){if(glove)arGloves=glockGloves=gloves;else arArms=glockArms=arms;initialized=true;}(glove?separateGloves:separateArms)=enabled;}
+inline LimbMaterial& LimbProfile(bool isGlock,bool glove){return glove?(separateGloves?(isGlock?glockGloves:arGloves):gloves):(separateArms?(isGlock?glockArms:arArms):arms);}
+inline void SetSharedMaterial(const LimbMaterial& m){native=m.enabled;glow=m.glow;nativeStyle=m.style;opacity=m.opacity;speed=m.speed;scale=m.scale;glowStrength=m.glowStrength;for(int i=0;i<4;++i){color[i]=m.color[i];glowColor[i]=m.glowColor[i];}}
+
 }
 
 namespace Misc {

@@ -3,9 +3,11 @@
 #endif
 #include "render.h"
 #include "AppUpdateUi.h"
+#include "CustomSkinUi.h"
 #include "WindowIdentity.h"
 #include "../core/app/RuntimePaths.h"
 #include "RetroUi.h"
+#include "RememberPage.h"
 #include "../core/features/nvidia/ShadowPlayPatch.h"
 #include "MenuMotion.h"
 #include "OverlayLifecycle.h"
@@ -399,10 +401,10 @@ constexpr PrimTabDef kTabs[]={{"AIM",""},{"VISUALS",""},{"SYSTEM",""},{"SKINS","
 constexpr int kTabCount=4;
 struct PrimSubTabDef {const char* label;const char* desc;};
 constexpr PrimSubTabDef kSubTabs[kTabCount][6]={
-    {{"Silent Aim",""},{"Checks",""},{"Recoil",""},{"Other gun mods",""}},
+    {{"Silent Aim",""},{"Checks",""},{"Recoil",""},{"",""}},
     {{"Mesh",""},{"Native",""},{"Target checks",""}},
     {{"General",""},{"Players",""},{"Appearance",""},{"",""}},
-    {{"Skin Changer",""},{"Custom skin\noverlay",""},{"Skin editor",""}}
+    {{"Skin Changer",""},{"Custom skin",""}}
 };
 int SubTabCount(int tab){int n=0;for(int i=0;i<6;++i)if(kSubTabs[tab][i].label && kSubTabs[tab][i].label[0])++n;return n;}
 
@@ -454,6 +456,7 @@ void PrimContent(const char* id, const char* title, const ImVec2& pos, const ImV
 
 void OverlayWindow::RenderMenu() {
     if(!variables::menuOpen){
+        CustomSkinPreview::Suspend();
         SadblobVideo::Update(d3dDevice,d3dContext,false,variables::Theme::sadblobStyle);
         if (variables::Misc::showInTaskbar) {
             DesktopUi::PrepareMenu(true);
@@ -522,12 +525,9 @@ void OverlayWindow::RenderMenu() {
         else if(sub==1)
             PrimContent("aim_checks", "Checks", childPos, childSize,
                 [] { Settings::RenderAimChecks(); });
-        else if(sub==2)
+        else
             PrimContent("aim_recoil", "Recoil dampening", childPos, childSize,
                 [] { Settings::RenderRecoil(); });
-        else
-            PrimContent("aim_other_gun_mods", "Other gun mods", childPos, childSize,
-                [] { Settings::RenderOtherGunMods(); });
         break;
     }
     case 1: {
@@ -651,40 +651,13 @@ void OverlayWindow::RenderMenu() {
             [] { Mics::RenderMiscMenu(); });
         break;
     case 3:
-        if(sub==1)PrimContent("skin_overlay", "Custom skin overlay",childPos,childSize,
-            []{const auto base=ImGui::GetWindowPos();auto dl=ImGui::GetWindowDrawList();
-
-                    using namespace variables::Weapons;
-                    static int group=0;const char* groups[]={"Weapon","Arms","Gloves"};
-                    imGuiCustom::Combo("weapon_group",&group,groups,3,ImVec2(12,51),272,"Customize:");
-                    auto& limb=group==2?gloves:arms;
-                    float* selectedColor=group?limb.color:color;
-                    float* selectedGlow=group?limb.glowColor:glowColor;
-                    float y=116;
-                    auto check=[&](const char* label,bool* v){imGuiCustom::Checkbox(label,v,ImVec2(12,y));y+=imGuiCustom::CheckStep();};
-                    auto slider=[&](const char* id,float* v,float lo,float hi,const char* label){imGuiCustom::SliderFloat(id,v,lo,hi,ImVec2(12,y+imGuiCustom::SliderTop()),272,label,"%.2f");y+=imGuiCustom::SliderStep();};
-                    imGuiCustom::ColorSquare("weapon_color",reinterpret_cast<ImVec4*>(selectedColor),ImVec2(264,116));
-                    slider("weapon_opacity",group?&limb.opacity:&opacity,0,1,"Opacity");
-                    imGuiCustom::Combo("weapon_native_style",group?&limb.style:&nativeStyle,Cheat::Visuals::NativeChams::ShaderNames(),Cheat::Visuals::NativeChams::ShaderNameCount(),ImVec2(12,y+imGuiCustom::ComboTop()),272,"Style:");
-                    y+=imGuiCustom::ComboStep()+imGuiCustom::ComboTop();
-                    slider("weapon_speed",group?&limb.speed:&speed,0,15,"Animation Speed");slider("weapon_scale",group?&limb.scale:&scale,group?.1f:.01f,group?8.f:100.f,"Pattern Size");
-                    check("Glow",group?&limb.glow:&glow);
-                    imGuiCustom::ColorSquare("weapon_glow",reinterpret_cast<ImVec4*>(selectedGlow),ImVec2(264,y-imGuiCustom::CheckStep()+1));
-                    slider("weapon_glow_strength",group?&limb.glowStrength:&glowStrength,0,2,"Glow Strength");
-                    y=51;
-                    auto right=[&](const char* label,bool* v){imGuiCustom::Checkbox(label,v,ImVec2(317,y));y+=imGuiCustom::CheckStep();};
-                    right("Weapon chams",&native);right("Arm chams",&arms.enabled);right("Glove chams",&gloves.enabled);
-                    right("Show original gun",&showOriginal);
-                    y+=12;right("Hide weapon and arms",&hide);right("First-person weapon",&viewmodel);right("AR-15",&ar15);right("Glock",&glock);right("Show weapon preview",&preview);
-            });
-        else if(sub==2)PrimContent("skin_editor","Skin editor",childPos,childSize,
-            []{Skins::RenderEditor();});
+        if(sub==1)PrimContent("skin_overlay", "Custom skin",childPos,childSize,[]{CustomSkinUi::Draw();});
         else PrimContent("skins_main", "Skin Changer", childPos, childSize,
             [this] { Skins::RenderMenu();WeaponPreview::DrawSkins(d3dDevice,d3dContext,Skins::SavedSelection()); });
         break;
     }
 
-    imGuiCustom::Checkbox("Remember this page",&Preferences::saveTabs[tab],ImVec2(735,610));
+    if(MenuNavigation::RememberPage(Preferences::saveTabs[tab]))Preferences::Save();
     ImGui::SetNextWindowSize(ImVec2(380,176));
     ImGui::SetNextWindowPos(w+ImVec2(280,270),ImGuiCond_Appearing);
     if(ImGui::BeginPopupModal("Close program?",nullptr,ImGuiWindowFlags_NoDecoration|ImGuiWindowFlags_NoMove)){
@@ -698,7 +671,8 @@ void OverlayWindow::RenderMenu() {
     ImGui::End();
 
     if(tab==3&&sub==1&&variables::Weapons::preview)
-        WeaponPreview::Draw(d3dDevice,d3dContext,w,ImVec2(kMenuW,kMenuH));
+        WeaponPreview::Draw(d3dDevice,d3dContext,w,ImVec2(kMenuW,kMenuH),CustomSkinUi::previewCustom,CustomSkinUi::previewWeapon);
+    else CustomSkinPreview::Suspend();
     if(tab==1&&sub==1&&variables::ESP::nativePreview)
         WeaponPreview::DrawAvatar(d3dDevice,d3dContext,w,ImVec2(kMenuW,kMenuH));
     for(auto* window:GImGui->Windows){
@@ -796,6 +770,7 @@ bool OverlayWindow::EndFrame() {
 }
 
 void OverlayWindow::Cleanup() {
+    CustomSkinPreview::Shutdown();
     WeaponPreview::Shutdown();
     SadblobVideo::Shutdown();
     ImGui::DestroyPlatformWindows();

@@ -12,6 +12,12 @@ inline void Save(){std::ofstream f(PreferencePath());f<<language;}
 inline const char* Tr(const char* text){
  if(!text || language==1)return text;
  static const std::unordered_map<std::string_view,const char*> words={
+  {"Remember this page","Husk denne siden"},
+  {"Waiting for Roblox","Venter på Roblox"},
+  {"Anti-AFK unavailable for this client","Anti-AFK er ikke tilgjengelig for denne klienten"},
+  {"Anti-AFK could not access Roblox","Anti-AFK fikk ikke tilgang til Roblox"},
+  {"Anti-AFK flags could not be verified","Anti-AFK-innstillingene kunne ikke bekreftes"},
+  {"Anti-AFK could not update the timeout","Anti-AFK kunne ikke endre tidsgrensen"},
   {"Aim","Sikte"},
   {"Visuals","Visuelt"},
   {"Misc","Diverse"},

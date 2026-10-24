@@ -24,4 +24,5 @@ std::string FetchPublished(const std::string& relative);
 OffsetData::Package LocalPackage(const std::filesystem::path& file,const std::string& version);
 Resolution ResolveData(const std::string& version,const Selection& selection,const std::filesystem::path& cache,const Fetch& fetch);
 void Apply(const OffsetData::Package& package,const std::string& version);
+std::uintptr_t OptionalField(const std::string& name);
 }

@@ -1,6 +1,8 @@
 #include "../../features/TargetLabels.h"
 #pragma once
 #include "../../variables/variables.h"
+#include "../../app/CustomTextureData.h"
+#include "../../features/survival/AntiAfkState.h"
 #include "../../variables/player_rules.h"
 #include "../skins/skins.h"
 #include <filesystem>
@@ -82,7 +84,32 @@ inline std::vector<Field>& Fields(){static auto fields=[] {std::vector<Field> ou
         Add(out,1,"ESP.meshDistance",variables::ESP::meshDistance);
         Add(out,3,"Weapons.native",variables::Weapons::native);
         Add(out,3,"Weapons.preview",variables::Weapons::preview);
+        Add(out,3,"Weapons.separate",variables::Weapons::separateWeapons);
+        Add(out,3,"Weapons.splitInitialized",variables::Weapons::weaponMaterialsInitialized);
+        Add(out,3,"Weapons.texturePreset",variables::Weapons::texturePreset);
+        Add(out,3,"Weapons.glockTexturePreset",variables::Weapons::glockTexturePreset);
+        Add(out,3,"Weapons.modelCleanup",variables::Weapons::modelCleanup);
+        Add(out,3,"Weapons.removeX5Outline",variables::Weapons::removeX5Outline);
+        Add(out,3,"Weapons.textureShading",variables::Weapons::textureShading);
+        Add(out,3,"Weapons.textureShadingIntensity",variables::Weapons::textureShadingIntensity);
+        Add(out,3,"Weapons.textureShadowIntensity",variables::Weapons::textureShadowIntensity);
+        for(int slot=0;slot<2;++slot){
+            auto& m=slot?variables::Weapons::glockMaterial:variables::Weapons::arMaterial;
+            const std::string key=slot?"Weapons.glockMaterial.":"Weapons.arMaterial.";
+            Add(out,3,key+"enabled",m.enabled);Add(out,3,key+"style",m.style);Add(out,3,key+"opacity",m.opacity);Add(out,3,key+"speed",m.speed);Add(out,3,key+"scale",m.scale);
+            Add(out,3,key+"glow",m.glow);Add(out,3,key+"glowStrength",m.glowStrength);
+            for(int i=0;i<4;++i){Add(out,3,key+"color."+std::to_string(i),m.color[i]);Add(out,3,key+"glowColor."+std::to_string(i),m.glowColor[i]);}
+        }
 
+        Add(out,3,"Weapons.separateArms",variables::Weapons::separateArms);Add(out,3,"Weapons.separateGloves",variables::Weapons::separateGloves);
+        Add(out,3,"Weapons.armMaterialsInitialized",variables::Weapons::armMaterialsInitialized);Add(out,3,"Weapons.gloveMaterialsInitialized",variables::Weapons::gloveMaterialsInitialized);
+        for(int slot=0;slot<2;++slot)for(int glove=0;glove<2;++glove){
+            auto& m=glove?(slot?variables::Weapons::glockGloves:variables::Weapons::arGloves):(slot?variables::Weapons::glockArms:variables::Weapons::arArms);
+            const std::string key=std::string("Weapons.")+(slot?"glock":"ar")+(glove?"Gloves.":"Arms.");
+            Add(out,3,key+"enabled",m.enabled);Add(out,3,key+"style",m.style);Add(out,3,key+"opacity",m.opacity);Add(out,3,key+"speed",m.speed);Add(out,3,key+"scale",m.scale);
+            Add(out,3,key+"glow",m.glow);Add(out,3,key+"glowStrength",m.glowStrength);
+            for(int i=0;i<4;++i){Add(out,3,key+"color."+std::to_string(i),m.color[i]);Add(out,3,key+"glowColor."+std::to_string(i),m.glowColor[i]);}
+        }
         Add(out,3,"Weapons.showOriginal.v2",variables::Weapons::showOriginal);
         for(int group=0;group<2;++group){
             auto& m=group?variables::Weapons::gloves:variables::Weapons::arms;
@@ -136,6 +163,7 @@ inline std::vector<Field>& Fields(){static auto fields=[] {std::vector<Field> ou
         Add(out,1,"ESP.nativeChamsWalls",variables::ESP::nativeChamsWalls);
         Add(out,2,"Misc.streamProof",variables::Misc::streamProof);
         Add(out,2,"Misc.nvidiaStreamproof",variables::Misc::nvidiaStreamproof);
+        Add(out,2,"System.antiAfk",AntiAfk::enabled);
         Add(out,2,"Misc.showInTaskbar",variables::Misc::showInTaskbar);
         Add(out,2,"Misc.moderatorAlerts",variables::Misc::moderatorAlerts);
         Add(out,2,"Misc.spectatorCounter",variables::Misc::spectatorCounter);
@@ -212,7 +240,7 @@ inline std::string Serialize(){
  for(auto& f:Fields())if(f.tab<0 || saveTabs[f.tab])out<<f.name<<"="<<f.get()<<"\n";
  if(saveTabs[2])for(const auto& p:PlayerRules::rules)if(p.second.aim||p.second.esp)
   out<<"Player."<<p.first<<"="<<p.second.aim<<" "<<p.second.esp<<"\n";
- if(saveTabs[3])out<<"Skin.selection="<<Skins::SavedSelection()<<"\n";
+ if(saveTabs[3])out<<"Skin.selection="<<Skins::SavedSelection()<<"\nSkin.editor="<<Skins::SavedEditorSelection()<<"\n";
  return out.str();
 }
 inline void Apply(const std::string& text){
@@ -220,11 +248,20 @@ inline void Apply(const std::string& text){
  while(std::getline(in,line)){auto p=line.find('=');if(p!=std::string::npos)values[line.substr(0,p)]=line.substr(p+1);}
  for(int i=0;i<4;++i)saveTabs[i]=values["Save."+std::to_string(i)]=="1";
  for(auto& f:Fields()){auto it=values.find(f.name);if(it!=values.end() && (f.tab<0||saveTabs[f.tab]))f.set(it->second);}
+ if(saveTabs[3]&&variables::Weapons::separateWeapons&&!variables::Weapons::weaponMaterialsInitialized)variables::Weapons::SeparateWeapons(true);
+ variables::Weapons::texturePreset=std::clamp(variables::Weapons::texturePreset,-1,variables::Weapons::customTextureCount-1);
+ variables::Weapons::glockTexturePreset=std::clamp(variables::Weapons::glockTexturePreset,-1,variables::Weapons::customTextureCount-1);
+ if(variables::Weapons::glockTexturePreset>=0&&!CustomTextureData::Supports(variables::Weapons::glockTexturePreset,true))variables::Weapons::glockTexturePreset=-1;
+ if(saveTabs[3]){
+    for(int slot=0;slot<2;++slot){const std::string key=slot?"Weapons.glockMaterial.enabled":"Weapons.arMaterial.enabled";if(!values.count(key))(slot?variables::Weapons::glockMaterial:variables::Weapons::arMaterial).enabled=variables::Weapons::native;}
+    if(variables::Weapons::separateArms&&!variables::Weapons::armMaterialsInitialized)variables::Weapons::SeparateLimbs(false,true);
+    if(variables::Weapons::separateGloves&&!variables::Weapons::gloveMaterialsInitialized)variables::Weapons::SeparateLimbs(true,true);
+ }
  if(saveTabs[2])for(const auto& p:values)if(p.first.rfind("Player.",0)==0){
   std::istringstream idText(p.first.substr(7));std::uint64_t id=0;PlayerRules::Rule rule;
   std::istringstream flags(p.second);if(idText>>id && id && flags>>rule.aim>>rule.esp)PlayerRules::rules[id]=rule;
  }
- if(saveTabs[3]){auto it=values.find("Skin.selection");if(it!=values.end())Skins::RestoreSelection(it->second);}
+ if(saveTabs[3]){auto editor=values.find("Skin.editor");if(editor==values.end()||!Skins::RestoreEditorSelection(editor->second)){auto it=values.find("Skin.selection");if(it!=values.end())Skins::RestoreSelection(it->second);}}
  variables::Theme::preset=(std::max)(0,(std::min)(16,variables::Theme::preset));
  variables::Theme::sadblobStyle=(std::max)(0,(std::min)(6,variables::Theme::sadblobStyle));
  variables::menuKey=variables::menuKey>0&&variables::menuKey<1024?variables::menuKey:VK_INSERT;

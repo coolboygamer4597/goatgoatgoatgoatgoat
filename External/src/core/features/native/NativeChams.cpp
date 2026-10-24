@@ -1,5 +1,18 @@
 #define IMGUI_DEFINE_MATH_OPERATORS
 #include "NativeChams.h"
+#include "WeaponTextureRuntime.h"
+#include "NativeReplacement.h"
+#include "NativeReplacementCode.h"
+#include "NativeReplacementRuntime.h"
+#include "TextureChoiceGate.h"
+#include "TextureProjectionRuntime.h"
+#include "../../app/TextureProjectionData.h"
+#include "../../app/TextureProjectionShader.h"
+#include "../../app/CustomShading.h"
+#include "../../app/CustomTextureData.h"
+#include "../../../render/PreviewCache.h"
+#include <atomic>
+#include <future>
 #include "NativePattern.h"
 #include "NativePreparation.h"
 #include "NativeOcclusion.h"
@@ -32,6 +45,8 @@
 #include <vector>
 #include <unordered_map>
 #include <tuple>
+
+static_assert(NativeDepthCapture::data+sizeof(NativeDepthCapture::Cache)<=WeaponTextureRuntime::createTexture);
 
 namespace App {
 bool PassesVisibilityChecks(std::uintptr_t character);
@@ -94,6 +109,7 @@ constexpr std::uint32_t k_attachment_visible_standard = 0x378;
 constexpr std::uint32_t k_attachment_visible_reversed = 0x380;
 constexpr std::uint32_t k_viewport_get_fn = 0x388;
 constexpr std::uint64_t k_character_attachment = 0x200;
+constexpr std::uint64_t k_hidden_cosmetic = 0x10000;
 constexpr std::uint32_t k_capture_fn = NativeDepthCapture::function;
 constexpr std::uint32_t k_capture_srv_get = NativeDepthCapture::getSrv;
 constexpr std::uint32_t k_capture_srv_set = NativeDepthCapture::setSrv;
@@ -173,6 +189,10 @@ cbuffer Cham : register(b13)
     float4 worldView[4];
     float4 worldCameraRange;
     float4 worldInfo;
+    float4 projectionRows[3];
+    float4 projectionMinimum;
+    float4 projectionInverseSpan;
+    float4 projectionOptions;
 };
 Texture2D<float> avatarFreeDepth : register(t12);
 
@@ -198,10 +218,6 @@ float hash21(float2 p)
     h ^= h >> 16;
     return float(h & 0x00ffffffu) / 16777216.0;
 }
-
-
-
-
 
 float3 hue_rot(float3 c, float h)
 {
@@ -316,9 +332,63 @@ float3 palette(float f)
 }
 )HLSL";
 
+constexpr char k_hlsl_projection[]=R"HLSL(
+Texture2D<float4> projectedColor:register(t3);
+Texture2D<float4> projectedMaterial:register(t5);
+float4 projected_read(Texture2D<float4> image,float2 uv)
+{
+    uint width,height;image.GetDimensions(width,height);
+    float2 p=uv*float2(width,height)-.5;
+    int2 lo=int2(floor(p)),hi=lo+1,maximum=int2(width,height)-1;
+    float2 f=frac(p);lo=clamp(lo,0,maximum);hi=clamp(hi,0,maximum);
+    return lerp(lerp(image.Load(int3(lo,0)),image.Load(int3(hi.x,lo.y,0)),f.x),lerp(image.Load(int3(lo.x,hi.y,0)),image.Load(int3(hi,0)),f.x),f.y);
+}
+float4 projected_sample(Texture2D<float4> image,float3 surfacePoint,float3 normal)
+{
+    float3 weights=projected_weights(normal);
+    return projected_read(image,projected_axis_uv(surfacePoint,normal,projectionMinimum.xyz,projectionInverseSpan.xyz,0))*weights.x
+        +projected_read(image,projected_axis_uv(surfacePoint,normal,projectionMinimum.xyz,projectionInverseSpan.xyz,1))*weights.y
+        +projected_read(image,projected_axis_uv(surfacePoint,normal,projectionMinimum.xyz,projectionInverseSpan.xyz,2))*weights.z;
+}
+float3 projected_linear(float3 color)
+{
+    color=saturate(color);
+    return lerp(color/12.92,pow((color+.055)/1.055,2.4),step(.04045,color));
+}
+float3 projected_point(float3 surfacePoint)
+{
+    return float3(dot(projectionRows[0].xyz,surfacePoint)+projectionRows[0].w,dot(projectionRows[1].xyz,surfacePoint)+projectionRows[1].w,dot(projectionRows[2].xyz,surfacePoint)+projectionRows[2].w);
+}
+float3 projected_eye()
+{
+    float3 a=float3(length(liveView[0].xyz),length(liveView[1].xyz),length(liveView[3].xyz));
+    if(all(a>.0001))return-liveView[0].w*liveView[0].xyz/(a.x*a.x)-liveView[1].w*liveView[1].xyz/(a.y*a.y)-liveView[3].w*liveView[3].xyz/(a.z*a.z);
+    return camPos.xyz;
+}
+Out projected_ps(float4 pos)
+{
+    float3 world=frag_world(pos),surfacePoint=projected_point(frag_local(pos));
+    float3 n=cross(ddx(surfacePoint),ddy(surfacePoint)),nw=cross(ddx(world),ddy(world));
+    n*=rsqrt(max(dot(n,n),1e-16));nw*=rsqrt(max(dot(nw,nw),1e-16));
+    float3 view=normalize(projected_eye()-world);
+    if(dot(nw,view)<0){n=-n;nw=-nw;}
+    float3 color=projected_linear(projected_sample(projectedColor,surfacePoint,n).rgb);
+    if(projectionOptions.x>.5){
+        float2 mr=projected_sample(projectedMaterial,surfacePoint,n).rg;
+        float3 light=normalize(-.35*camRight.xyz+.8*camUp.xyz-.65*camFwd.xyz),halfway=normalize(light+view);
+        float rough=clamp(mr.y,.16,1);
+        float3 litColor=color;
+        litColor=litColor*(.65+.35*saturate(dot(nw,light)))+lerp(.04,litColor,saturate(mr.x))*pow(saturate(dot(nw,halfway)),lerp(128,8,rough))*(.15+.2*(1-rough));
+        color=saturate(litColor);
+    }
+    Out result;result.c=float4(saturate(color),1);result.z=saturate(pos.z);return result;
+}
+)HLSL";
+
 constexpr char k_hlsl_body[] = R"HLSL(
 Out ps_main(float4 pos : SV_POSITION, bool frontFace : SV_IsFrontFace)
 {
+    if(mode==32)return projected_ps(pos);
 
     if (bodyStatus.z > 0.5 && !frontFace) discard;
 
@@ -742,6 +812,9 @@ struct Hook {
 	std::uint8_t occl = 0;
 	std::uintptr_t occl_addr = 0;
 	int occl_reverts = 0;
+    std::uintptr_t projection_thunk=0;
+    std::size_t projection_thunk_n=0;
+    bool projection_enabled=false;
 };
 
 Hook g{};
@@ -918,6 +991,7 @@ std::uintptr_t find_dll_cave(std::size_t need, std::uintptr_t ignore)
 
 							if (g.cave && aligned < g.cave + g.cave_n && g.cave < aligned + need)
 								continue;
+							if(g.projection_thunk&&aligned<g.projection_thunk+g.projection_thunk_n&&g.projection_thunk<aligned+need)continue;
 							if (g.draw_cave && aligned < g.draw_cave + g.draw_cave_n && g.draw_cave < aligned + need)
 								continue;
 							return aligned;
@@ -1429,7 +1503,7 @@ bool compile(const char* entry, const char* model, std::vector<std::uint8_t>& ou
 {
 	ID3DBlob* blob = nullptr;
 	ID3DBlob* err = nullptr;
-	const std::string source = std::string(k_hlsl_head) + k_hlsl_body + k_hlsl_styles;
+	const std::string source = std::string(k_hlsl_head) + TextureProjectionShader::Coordinates + k_hlsl_projection + k_hlsl_body + k_hlsl_styles;
 	const HRESULT hr = D3DCompile(
 		source.data(), source.size(), nullptr, nullptr, nullptr,
 		entry, model, D3DCOMPILE_OPTIMIZATION_LEVEL3, 0, &blob, &err);
@@ -1511,6 +1585,8 @@ std::vector<std::uint8_t> make_present_thunk(std::uintptr_t state, std::uintptr_
 std::vector<std::uint8_t> make_create_stub(std::uintptr_t state)
 {
 	std::vector<std::uint8_t> c;
+    NativeReplacementRuntime::AppendCommands(c,state);
+    WeaponTextureRuntime::AppendCommands(c,state);
 
 	const auto store_hr = [&]
 	{
@@ -1643,9 +1719,81 @@ std::vector<std::uint8_t> make_create_stub(std::uintptr_t state)
 	return c;
 }
 
+std::vector<std::uint8_t> make_projection_thunk(){
+    std::vector<std::uint8_t> c;
+    auto bytes=[&](std::initializer_list<std::uint8_t> data){c.insert(c.end(),data);};
+    auto disp32=[&](std::uint32_t value){const auto* data=reinterpret_cast<const std::uint8_t*>(&value);c.insert(c.end(),data,data+4);};
+    bytes({0x48,0x81,0xEC});disp32(0xF8);
+    bytes({0x48,0x89,0x8C,0x24});disp32(0xE0);bytes({0x48,0x8B,0x41,0x58,0x48,0x89,0x44,0x24,0x58});
+    auto draw=[&]{
+        bytes({0x4C,0x8B,0x94,0x24});disp32(0xE0);
+        for(std::uint32_t i=0;i<4;++i){bytes({0x49,0x8B,0x82});disp32(0x180+i*8);bytes({0x48,0x89,0x44,0x24,static_cast<std::uint8_t>(0x20+i*8)});}
+        bytes({0x48,0x89,0xF1,0x48,0x89,0xDA,0x4D,0x89,0xE0,0x4D,0x89,0xE9,0x49,0x8B,0x86});disp32(offsetof(RemoteState,orig_draw));append_call_rax(c);bytes({0x48,0x89,0xC7});
+    };
+    const TextureProjectionRuntime::Layout layout{offsetof(RemoteState,ps),offsetof(RemoteState,cb),offsetof(RemoteState,fn_psget),offsetof(RemoteState,fn_psset),offsetof(RemoteState,fn_pscbget),offsetof(RemoteState,fn_pscb),offsetof(RemoteState,fn_update),offsetof(Target,mat),offsetof(Target,mat)+offsetof(NativePattern::Material,mode)};
+    bytes({0x48,0x8B,0x44,0x24,0x58,0xF7,0x80});disp32(offsetof(Target,weapon));disp32(WeaponTextureRuntime::projectionFlag|NativeReplacementRuntime::modelFlag);const auto ordinary=append_jcc32(c,0x04);
+    auto update_frame=[&]{
+    bytes({0x48,0x8B,0x44,0x24,0x58});
+    bytes({0xC7,0x80}); disp32(offsetof(Target,mat)+offsetof(NativePattern::Material,body_status)); disp32(0);
+    bytes({0x4C,0x8B,0x90}); disp32(offsetof(Target,liveBody));
+    bytes({0x4D,0x85,0xD2});
+    const auto noBodyCache=append_jcc32(c,0x04);
+    bytes({0x41,0x8B,0x8E}); disp32(offsetof(RemoteState,entered));
+    bytes({0x41,0x39,0x4A,0x08});
+    const auto bodyCached=append_jcc32(c,0x04);
+    bytes({0x41,0x89,0x4A,0x08});
+    bytes({0x41,0xC7,0x42,0x0C,0,0,0,0});
+    bytes({0x49,0x8B,0x86}); disp32(k_body_reader_off);
+    bytes({0x48,0x85,0xC0});
+    const auto noBodyReader=append_jcc32(c,0x04);
+    bytes({0x4C,0x89,0x94,0x24}); disp32(0x98);
+    bytes({0x48,0xC7,0xC1,0xFF,0xFF,0xFF,0xFF});
+    bytes({0x49,0x8B,0x12});
+    bytes({0x4D,0x8D,0x42,0x10});
+    bytes({0x41,0xB9,0x30,0,0,0});
+    bytes({0x48,0xC7,0x44,0x24,0x20,0,0,0,0});
+    append_call_rax(c);
+    bytes({0x4C,0x8B,0x94,0x24}); disp32(0x98);
+    bytes({0x41,0x89,0x42,0x0C});
+    patch_rel32(c,bodyCached,c.size());
+    patch_rel32(c,noBodyReader,c.size());
+    bytes({0x41,0x83,0x7A,0x0C,0});
+    const auto bodyFailed=append_jcc32(c,0x04);
+    bytes({0x48,0x8B,0x44,0x24,0x58});
+    for(std::uint32_t row=0;row<3;++row) {
+        bytes({0x41,0x0F,0x10,0x82}); disp32(16+row*16);
+        bytes({0x0F,0x11,0x80}); disp32(offsetof(Target,mat)+offsetof(NativePattern::Material,draw_body)+row*16);
+    }
+    bytes({0xC7,0x80}); disp32(offsetof(Target,mat)+offsetof(NativePattern::Material,body_status)); disp32(0x3f800000);
+    patch_rel32(c,noBodyCache,c.size());
+    patch_rel32(c,bodyFailed,c.size());
 
+	bytes({ 0x48, 0x8B, 0x44, 0x24, 0x58 });
+	bytes({ 0x4C, 0x8B, 0x90 }); disp32(offsetof(Target, viewMatrix));
+	bytes({ 0x4D, 0x85, 0xD2 });
+	const auto noLiveCamera = append_jcc32(c, 0x04);
+	for (std::uint32_t row = 0; row < 4; ++row) {
+		bytes({ 0x41, 0x0F, 0x10, 0x82 }); disp32(row * 16);
+		bytes({ 0x0F, 0x11, 0x80 });
+		disp32(offsetof(Target, mat) + offsetof(NativePattern::Material, live_view) + row * 16);
+	}
+	patch_rel32(c, noLiveCamera, c.size());
+    bytes({0x48,0x8B,0x44,0x24,0x58});
+    bytes({0xC7,0x80});disp32(offsetof(Target,mat)+offsetof(NativePattern::Material,body_status)+8);disp32(0);
 
-std::vector<std::uint8_t> make_draw_thunk(std::uintptr_t state)
+    };
+    bytes({0x48,0x8B,0x44,0x24,0x58,0xF7,0x80});disp32(offsetof(Target,weapon));disp32(NativeReplacementRuntime::modelFlag);const auto ordinaryModel=append_jcc32(c,0x04);
+    bytes({0xF7,0x80});disp32(offsetof(Target,weapon));disp32(NativeReplacementRuntime::primaryFlag);const auto secondaryModel=append_jcc32(c,0x04);
+    update_frame();
+    bytes({0x49,0x8B,0x4E,0x18,0x49,0x8B,0x96});disp32(offsetof(RemoteState,cb));bytes({0x45,0x31,0xC0,0x45,0x31,0xC9,0x48,0x8B,0x44,0x24,0x58,0x48,0x83,0xC0,8,0x48,0x89,0x44,0x24,0x20,0x48,0xC7,0x44,0x24,0x28,0,0,0,0,0x48,0xC7,0x44,0x24,0x30,0,0,0,0,0x41,0xFF,0x96});disp32(offsetof(RemoteState,fn_update));
+    bytes({0x49,0x8B,0x8E});disp32(NativeReplacementRuntime::request);bytes({0x49,0x8B,0x96});disp32(offsetof(RemoteState,cb));bytes({0x4C,0x8B,0x44,0x24,0x58,0x49,0x83,0xC0,8,0x45,0x8B,0x8E});disp32(offsetof(RemoteState,entered));bytes({0x41,0xFF,0x96});disp32(NativeReplacementRuntime::draw);bytes({0x84,0xC0});const auto modelDrawn=append_jcc32(c,0x05);draw();const auto modelDone=([&]{bytes({0xE9});disp32(0);return c.size()-4;})();patch_rel32(c,secondaryModel,c.size());patch_rel32(c,modelDrawn,c.size());bytes({0x31,0xFF});const auto modelDoneTwo=([&]{bytes({0xE9});disp32(0);return c.size()-4;})();patch_rel32(c,ordinaryModel,c.size());
+    TextureProjectionRuntime::Append(c,layout,update_frame,draw);
+    bytes({0xE9});disp32(0);const auto finished=c.size()-4;patch_rel32(c,ordinary,c.size());draw();patch_rel32(c,finished,c.size());
+    patch_rel32(c,modelDone,c.size());patch_rel32(c,modelDoneTwo,c.size());
+    bytes({0x48,0x81,0xC4});disp32(0xF8);bytes({0xC3});return c;
+}
+
+std::vector<std::uint8_t> make_draw_thunk(std::uintptr_t state,bool projection=true)
 {
 	std::vector<std::uint8_t> c;
 	auto bytes = [&](std::initializer_list<std::uint8_t> v) { c.insert(c.end(), v); };
@@ -1871,6 +2019,7 @@ std::vector<std::uint8_t> make_draw_thunk(std::uintptr_t state)
 	bytes({0x48,0x85,0xC9});
 	const auto colorPass=append_jcc32(c,0x05);
 	bytes({0x41,0xFF,0x86}); disp32(k_depth_passes_off);
+    bytes({0x48,0x8B,0x44,0x24,0x58,0xF7,0x80});disp32(offsetof(Target,weapon));disp32(NativeReplacementRuntime::modelFlag);const auto modelDepth=append_jcc32(c,0x05);
     attachment_draw();
     bytes({0x49,0xC7,0x46,0x70,0,0,0,0});
     bytes({0x48,0x89,0xF8});
@@ -1879,6 +2028,9 @@ std::vector<std::uint8_t> make_draw_thunk(std::uintptr_t state)
 	patch_rel32(c,colorPass,c.size());
 	bytes({0x48,0x8B,0x01,0xFF,0x50,0x10});
 	bytes({0x41,0xFF,0x86}); disp32(k_color_passes_off);
+    patch_rel32(c,modelDepth,c.size());
+    auto textured_draw=[&]{TextureProjectionRuntime::AppendDirectCall(c);};
+    const auto textureDone=projection?WeaponTextureRuntime::AppendDraw(c,offsetof(Target,weapon),textured_draw,textured_draw,original_draw):WeaponTextureRuntime::AppendDraw(c,offsetof(Target,weapon),original_draw);
 	stage(1);
 	bytes({ 0x48, 0x8B, 0x44, 0x24, 0x58 });
 	bytes({ 0x83, 0xB8 });
@@ -2119,6 +2271,7 @@ std::vector<std::uint8_t> make_draw_thunk(std::uintptr_t state)
 	stage(6);
 	bytes({ 0x49, 0xC7, 0x46, 0x70, 0x00, 0x00, 0x00, 0x00 });
 	patch_rel32(c, j_out, c.size());
+    for(auto jump:textureDone)patch_rel32(c,jump,c.size());
 	bytes({ 0x48, 0x89, 0xF8 });
 	bytes({ 0x48, 0x81, 0xC4, 0x28, 0x01, 0x00, 0x00 });
 	bytes({ 0x41, 0x5E, 0x41, 0x5D, 0x41, 0x5C, 0x5F, 0x5E, 0x5B });
@@ -2314,6 +2467,8 @@ bool setup_meta()
 	st.fn_blendget = vt_fn(g.ctx, k_slot_blendget);
 	st.fn_create_blend = vt_fn(g.device, k_slot_create_blend);
 	st.fn_update = vt_fn(g.ctx, k_slot_update);
+    memory->Write<std::uint64_t>(g.state+WeaponTextureRuntime::createTexture,vt_fn(g.device,5));
+    memory->Write<std::uint64_t>(g.state+WeaponTextureRuntime::createView,vt_fn(g.device,7));
     memory->Write<std::uint64_t>(g.state+k_viewport_get_fn,vt_fn(g.ctx,95));
     memory->Write<std::uint64_t>(g.state+k_capture_srv_get,vt_fn(g.ctx,73));
     memory->Write<std::uint64_t>(g.state+k_capture_srv_set,vt_fn(g.ctx,8));
@@ -2389,8 +2544,6 @@ void store_res(std::uint64_t off, std::uint64_t v)
 {
 	memory->Write<std::uint64_t>(g.state + off, v);
 }
-
-
 
 bool pump_creates()
 {
@@ -2491,6 +2644,160 @@ bool pump_creates()
 		return false;
 	}
 	return g.stage >= 11;
+}
+
+struct NativeMeshUpload{DWORD pid=0;std::uintptr_t request=0,data=0,code=0;int phase=0;bool failed=false;};
+NativeMeshUpload nativeMesh;
+void texture_flags(bool ready);
+bool native_mesh_ready(){return nativeMesh.pid==memory->get_process_id()&&nativeMesh.phase==2&&!nativeMesh.failed&&nativeMesh.request;}
+bool pump_native_mesh(){
+    auto& m=nativeMesh;const auto pid=memory->get_process_id();if(m.pid!=pid){m={};m.pid=pid;}
+    const int desired=WeaponVisuals::TextureSelection();
+    if(m.phase==1){const auto result=take_out();if(g.cmd_wait)return false;const auto ready=memory->Read<unsigned>(m.request+offsetof(NativeReplacement::Request,ready));m.failed=!result||!ready;m.phase=2;std::printf("[NativeModel] create %s\n",m.failed?"failed":"ready");}
+    if(desired!=108)return true;
+    if(m.failed)return false;
+    if(m.phase==2)return true;
+    if(g.cmd_wait)return true;
+    if(!g.projection_enabled){m.failed=true;return false;}
+    CustomModelData::Mesh mesh;if(!CustomModelData::Load(RuntimePaths::File(L"custom-textures")/L"wastelander-native.gwm",mesh)){m.failed=true;return false;}
+    std::vector<std::uint8_t> vs,ps;ID3DBlob* rawVertex=nullptr;ID3DBlob* rawPixel=nullptr;ID3DBlob* rawError=nullptr;
+    struct Blobs{ID3DBlob*& a;ID3DBlob*& b;ID3DBlob*& e;~Blobs(){if(a)a->Release();if(b)b->Release();if(e)e->Release();}}blobs{rawVertex,rawPixel,rawError};
+    if(FAILED(D3DCompile(NativeReplacement::Shader,std::strlen(NativeReplacement::Shader),nullptr,nullptr,nullptr,"vs","vs_5_0",D3DCOMPILE_OPTIMIZATION_LEVEL3,0,&rawVertex,&rawError))||FAILED(D3DCompile(NativeReplacement::Shader,std::strlen(NativeReplacement::Shader),nullptr,nullptr,nullptr,"ps","ps_5_0",D3DCOMPILE_OPTIMIZATION_LEVEL3,0,&rawPixel,&rawError))){m.failed=true;return false;}
+    ID3DBlob* rawEncoded=nullptr;struct Encoded{ID3DBlob*& value;~Encoded(){if(value)value->Release();}}encoded{rawEncoded};if(FAILED(D3DCompile(NativeReplacement::Shader,std::strlen(NativeReplacement::Shader),nullptr,nullptr,nullptr,"psEncoded","ps_5_0",D3DCOMPILE_OPTIMIZATION_LEVEL3,0,&rawEncoded,nullptr))){m.failed=true;return false;}
+    const auto bytes=sizeof(NativeReplacement::Request)+32+rawVertex->GetBufferSize()+rawPixel->GetBufferSize()+rawEncoded->GetBufferSize()+mesh.vertices.size()*36;
+    m.data=memory->Alloc(bytes,PAGE_READWRITE);if(!m.data){m.failed=true;return false;}m.request=m.data;
+    m.code=find_dll_cave((sizeof(NativeReplacementCode::Bytes)+15)&~std::size_t(15),0);
+    if(!m.code||!write_exec(m.code,NativeReplacementCode::Bytes,sizeof(NativeReplacementCode::Bytes))){m.failed=true;return false;}FlushInstructionCache(memory->GetHandle(),reinterpret_cast<void*>(m.code),sizeof(NativeReplacementCode::Bytes));
+    for(unsigned offset:{NativeReplacementCode::Initialize,NativeReplacementCode::Draw,NativeReplacementCode::Release})mark_cfg(m.code+offset);
+    NativeReplacement::Request request;request.device=reinterpret_cast<ID3D11Device*>(g.device);request.context=reinterpret_cast<ID3D11DeviceContext*>(g.ctx);request.vertexCount=static_cast<unsigned>(mesh.vertices.size());
+    const auto semantics=m.data+sizeof(request);const char names[]="POSITION\0NORMAL\0TEXCOORD\0";memory->WriteRaw(semantics,names,sizeof(names));
+    D3D11_INPUT_ELEMENT_DESC elements[]={{reinterpret_cast<const char*>(semantics),0,DXGI_FORMAT_R32G32B32_FLOAT,0,0,D3D11_INPUT_PER_VERTEX_DATA,0},{reinterpret_cast<const char*>(semantics+9),0,DXGI_FORMAT_R32G32B32_FLOAT,0,12,D3D11_INPUT_PER_VERTEX_DATA,0},{reinterpret_cast<const char*>(semantics+16),0,DXGI_FORMAT_R32G32_FLOAT,0,24,D3D11_INPUT_PER_VERTEX_DATA,0},{reinterpret_cast<const char*>(semantics+16),1,DXGI_FORMAT_R32_UINT,0,32,D3D11_INPUT_PER_VERTEX_DATA,0}};std::copy(std::begin(elements),std::end(elements),request.elements);
+    auto data=semantics+32;request.vertexCode=reinterpret_cast<void*>(data);request.vertexCodeBytes=rawVertex->GetBufferSize();memory->WriteRaw(data,rawVertex->GetBufferPointer(),rawVertex->GetBufferSize());data+=rawVertex->GetBufferSize();request.pixelCode=reinterpret_cast<void*>(data);request.pixelCodeBytes=rawPixel->GetBufferSize();memory->WriteRaw(data,rawPixel->GetBufferPointer(),rawPixel->GetBufferSize());data+=rawPixel->GetBufferSize();request.encodedCode=reinterpret_cast<void*>(data);request.encodedCodeBytes=rawEncoded->GetBufferSize();memory->WriteRaw(data,rawEncoded->GetBufferPointer(),rawEncoded->GetBufferSize());data+=rawEncoded->GetBufferSize();request.vertexData.pSysMem=reinterpret_cast<void*>(data);memory->WriteRaw(data,mesh.vertices.data(),mesh.vertices.size()*36);
+    request.vertexDescription.ByteWidth=request.vertexCount*36;request.vertexDescription.Usage=D3D11_USAGE_IMMUTABLE;request.vertexDescription.BindFlags=D3D11_BIND_VERTEX_BUFFER;request.sampling.Filter=D3D11_FILTER_ANISOTROPIC;request.sampling.AddressU=request.sampling.AddressV=request.sampling.AddressW=D3D11_TEXTURE_ADDRESS_WRAP;request.sampling.MaxAnisotropy=16;request.sampling.MaxLOD=D3D11_FLOAT32_MAX;request.rasterDescription.FillMode=D3D11_FILL_SOLID;request.rasterDescription.CullMode=D3D11_CULL_NONE;request.rasterDescription.DepthClipEnable=TRUE;
+    if(memory->WriteRaw(m.request,&request,sizeof(request))!=sizeof(request)){m.failed=true;return false;}
+    store_res(NativeReplacementRuntime::initialize,m.code+NativeReplacementCode::Initialize);store_res(NativeReplacementRuntime::draw,m.code+NativeReplacementCode::Draw);store_res(NativeReplacementRuntime::release,m.code+NativeReplacementCode::Release);store_res(NativeReplacementRuntime::request,m.request);m.phase=1;issue_cmd(NativeReplacementRuntime::createCommand,0,0,0);return false;
+}
+void native_mesh_maps(const std::array<std::array<std::uintptr_t,6>,4>& resources){if(!native_mesh_ready())return;std::uintptr_t maps[8]{};for(int i=0;i<4;++i){maps[i]=resources[i][1];maps[i+4]=resources[i][3];}memory->WriteRaw(nativeMesh.request+offsetof(NativeReplacement::Request,maps),maps,sizeof(maps));}
+void release_native_mesh(){
+    if(!nativeMesh.request||nativeMesh.pid!=memory->get_process_id()||!g.state)return;
+    texture_flags(false);
+    if(nativeMesh.phase==1){const auto until=std::chrono::steady_clock::now()+std::chrono::milliseconds(200);while(g.cmd_wait&&std::chrono::steady_clock::now()<until){take_out();if(g.cmd_wait)Sleep(1);}if(g.cmd_wait)return;nativeMesh.phase=2;}
+    if(g.cmd_wait)return;
+    if(nativeMesh.phase==0){if(nativeMesh.data)memory->Free(nativeMesh.data);nativeMesh={};return;}
+    issue_cmd(NativeReplacementRuntime::releaseCommand,0,0,0);const auto until=std::chrono::steady_clock::now()+std::chrono::milliseconds(200);while(g.cmd_wait&&std::chrono::steady_clock::now()<until){take_out();if(g.cmd_wait)Sleep(1);}if(g.cmd_wait)return;store_res(NativeReplacementRuntime::request,0);if(nativeMesh.data)memory->Free(nativeMesh.data);nativeMesh={};
+}
+
+struct TextureBundle {
+    std::array<std::array<PreviewCache::Image,3>,4> images;
+};
+struct TextureUpload {
+    DWORD pid=0;
+    int phase=0,selected=-1,slot=0;
+    bool loading=false,failed=false;
+    std::uintptr_t pixels=0;
+    std::array<std::array<std::uintptr_t,6>,4> resources{};
+    TextureBundle decoded;
+    std::future<TextureBundle> pending;
+    std::uint64_t revision=0;
+    std::chrono::steady_clock::time_point nextRetry{},strengthChanged{};
+    float strength=1,wantedStrength=1,shadow=0,wantedShadow=0;
+    TextureChoiceGate::Gate choices;
+};
+TextureUpload textureUpload;
+std::atomic<int> textureStatus{0},materialStatus{0};
+std::uint64_t texture_revision(int selected){
+    std::uint64_t value=0;if(!CustomTextureData::Valid(selected))return value;
+    for(int g=0;g<CustomTextureData::Presets[selected].groups;++g)for(auto c:{CustomTextureData::Channel::Color,CustomTextureData::Channel::Material,CustomTextureData::Channel::Normal}){
+        std::error_code error;const auto time=std::filesystem::last_write_time(CustomTextureData::File(selected,c,g),error);value=value*1099511628211ull+(error?0:static_cast<std::uint64_t>(time.time_since_epoch().count()));
+    }return value;
+}
+void free_texture_pixels(){if(textureUpload.pixels)memory->Free(textureUpload.pixels);textureUpload.pixels=0;}
+void texture_flags(bool active){
+    auto& t=textureUpload;const bool clean=CustomTextureData::Valid(t.selected);
+    for(int group=0;group<4;++group){const auto& r=t.resources[group];const unsigned flags=active&&r[1]?1u|((variables::Weapons::textureShading||clean)&&r[3]?2u:0u)|(clean&&r[5]?4u:0u):0u;
+        memory->Write<std::uint32_t>(g.state+WeaponTextureRuntime::bank+group*WeaponTextureRuntime::bankStride+WeaponTextureRuntime::flags,flags);
+    }
+}
+void pump_texture(){
+    auto& t=textureUpload;if(!g.state||g.stage<11)return;
+    const auto pid=memory->get_process_id();
+    if(t.pid!=pid){t.pid=pid;t.phase=0;t.pixels=0;t.resources={};t.selected=-1;t.failed=false;t.decoded={};t.choices.Reset();if(!t.pending.valid())t.loading=false;for(int group=0;group<4;++group)for(unsigned offset=0;offset<WeaponTextureRuntime::bankStride;offset+=8)memory->Write<std::uint64_t>(g.state+WeaponTextureRuntime::bank+group*WeaponTextureRuntime::bankStride+offset,0);}
+    if(t.phase==1||t.phase==2||t.phase==4){
+        const auto result=take_out();if(g.cmd_wait)return;
+        if(t.phase==4){t.resources={};t.phase=t.failed?5:0;if(!t.failed)t.selected=-1;t.slot=0;t.decoded={};if(!t.pending.valid())t.loading=false;}
+        else{
+            const int group=t.slot/3,channel=t.slot%3;
+            if(t.phase==1){free_texture_pixels();if(result){t.resources[group][channel*2]=result;memory->Write<std::uint64_t>(g.state+WeaponTextureRuntime::Field(group,channel,false),result);t.phase=2;issue_cmd(WeaponTextureRuntime::viewCommand,result,0,0);return;}}
+            else if(result){t.resources[group][channel*2+1]=result;memory->Write<std::uint64_t>(g.state+WeaponTextureRuntime::Field(group,channel,true),result);}
+            if(!result&&channel==0){t.failed=true;t.phase=4;textureStatus.store(6);issue_cmd(WeaponTextureRuntime::releaseCommand,0,0,0);return;}
+            ++t.slot;t.phase=0;
+        }
+    }
+    int desired=WeaponVisuals::TextureSelection();if(desired==-2){texture_flags(false);return;}
+    if(!CustomTextureData::Available(desired))desired=-1;
+    if(CustomTextureData::Valid(desired)&&CustomTextureData::Presets[desired].model==3&&!g.projection_enabled){texture_flags(false);textureStatus.store(6);return;}
+    const auto strength=CustomShading::Level(variables::Weapons::textureShadingIntensity);
+    const auto shadow=CustomShading::ShadowLevel(variables::Weapons::textureShadowIntensity);
+    const auto now=std::chrono::steady_clock::now();
+    if(strength!=t.wantedStrength||shadow!=t.wantedShadow){t.wantedStrength=strength;t.wantedShadow=shadow;t.strengthChanged=now;}
+    if(t.phase==3&&(strength!=t.strength||shadow!=t.shadow)&&!g.cmd_wait&&now-t.strengthChanged>=std::chrono::milliseconds(250)){
+        texture_flags(false);t.failed=false;t.phase=4;issue_cmd(WeaponTextureRuntime::releaseCommand,0,0,0);return;
+    }
+    const bool ready=t.phase==3&&desired==t.selected;
+    texture_flags(ready);
+    if(g.cmd_wait)return;
+    if(desired!=t.selected){
+        if(!t.choices.Ready(desired,now))return;
+        if(t.pending.valid()){
+            if(t.pending.wait_for(std::chrono::seconds(0))!=std::future_status::ready)return;
+            try{t.pending.get();}catch(...){}t.loading=false;
+        }
+        const bool have=std::any_of(t.resources.begin(),t.resources.end(),[](const auto& r){return std::any_of(r.begin(),r.end(),[](auto p){return p!=0;});});
+        if(have){t.failed=false;t.phase=4;issue_cmd(WeaponTextureRuntime::releaseCommand,0,0,0);return;}
+        t.phase=0;t.selected=desired;t.slot=0;t.loading=false;t.decoded={};t.failed=false;
+    }
+    if(desired<0){textureStatus.store(0);return;}
+    if(t.phase==3)return;
+    if(t.phase==5){if(std::chrono::steady_clock::now()<t.nextRetry)return;t.nextRetry=std::chrono::steady_clock::now()+std::chrono::seconds(1);if(texture_revision(desired)==t.revision)return;
+        const bool have=std::any_of(t.resources.begin(),t.resources.end(),[](const auto& r){return std::any_of(r.begin(),r.end(),[](auto p){return p!=0;});});
+        if(have){t.failed=false;t.phase=4;issue_cmd(WeaponTextureRuntime::releaseCommand,0,0,0);return;}
+        t.phase=0;t.loading=false;t.slot=0;t.failed=false;t.decoded={};}
+    if(!t.loading){
+        t.loading=true;t.revision=texture_revision(desired);textureStatus.store(1);
+        std::array<std::array<std::filesystem::path,3>,4> paths{};const int groups=CustomTextureData::Presets[desired].groups;
+        for(int group=0;group<groups;++group)for(int channel=0;channel<3;++channel)paths[group][channel]=CustomTextureData::File(desired,static_cast<CustomTextureData::Channel>(channel),group);
+        t.strength=strength;t.shadow=shadow;
+        std::array<std::filesystem::path,4> shadows{};for(int group=0;group<groups;++group)shadows[group]=CustomTextureData::ShadowFile(desired,group);
+        t.pending=std::async(std::launch::async,[paths,shadows,groups,strength,shadow]{TextureBundle bundle;for(int group=0;group<groups;++group)for(int channel=0;channel<3;++channel)try{auto& image=bundle.images[group][channel];image=PreviewCache::DecodeImage(paths[group][channel]);if(channel==1)CustomShading::Adjust(image.rgba,strength);if(channel==0&&shadow>0){auto mask=PreviewCache::DecodeImage(shadows[group]);CustomShading::Shadow(image.rgba,image.width,image.height,mask.rgba,mask.width,mask.height,shadow);}}catch(...){}return bundle;});return;
+    }
+    if(t.pending.valid()){
+        if(t.pending.wait_for(std::chrono::seconds(0))!=std::future_status::ready)return;
+        try{t.decoded=t.pending.get();}catch(...){t.decoded={};}
+        for(int group=0;group<CustomTextureData::Presets[desired].groups;++group)if(!t.decoded.images[group][0].valid()){t.phase=5;textureStatus.store(5);return;}
+    }
+    while(t.slot<CustomTextureData::Presets[desired].groups*3){
+        const int group=t.slot/3,channel=t.slot%3;auto& image=t.decoded.images[group][channel];if(!image.valid()){++t.slot;continue;}
+        const auto size=image.rgba.size();if(channel!=2)for(std::size_t alpha=3;alpha<size;alpha+=4)image.rgba[alpha]=255;
+        t.pixels=memory->Alloc(sizeof(D3D11_SUBRESOURCE_DATA)+size,PAGE_READWRITE);
+        if(!t.pixels){if(channel){image={};++t.slot;return;}t.phase=5;textureStatus.store(6);return;}
+        D3D11_SUBRESOURCE_DATA initial{};initial.pSysMem=reinterpret_cast<const void*>(t.pixels+sizeof(initial));initial.SysMemPitch=image.width*4;
+        if(memory->WriteRaw(t.pixels,&initial,sizeof(initial))!=sizeof(initial)||memory->WriteRaw(t.pixels+sizeof(initial),image.rgba.data(),size)!=size){free_texture_pixels();if(channel){image={};++t.slot;return;}t.phase=5;textureStatus.store(6);return;}
+        D3D11_TEXTURE2D_DESC desc{};desc.Width=image.width;desc.Height=image.height;desc.MipLevels=desc.ArraySize=desc.SampleDesc.Count=1;desc.Format=DXGI_FORMAT_R8G8B8A8_UNORM;desc.Usage=D3D11_USAGE_IMMUTABLE;desc.BindFlags=D3D11_BIND_SHADER_RESOURCE;
+        image={};t.phase=1;textureStatus.store(3);issue_desc_cmd(WeaponTextureRuntime::textureCommand,&desc,sizeof(desc),t.pixels);return;
+    }
+    if(desired==108)native_mesh_maps(t.resources);
+    t.phase=3;t.decoded={};textureStatus.store(4);materialStatus.store(4);texture_flags(true);
+}
+void release_texture(){
+    auto& t=textureUpload;if(!g.state||t.pid!=memory->get_process_id())return;texture_flags(false);
+    auto wait=[&]{const auto until=std::chrono::steady_clock::now()+std::chrono::milliseconds(150);while(memory->Read<std::uint32_t>(g.state+offsetof(RemoteState,cmd))&&std::chrono::steady_clock::now()<until)Sleep(1);return memory->Read<std::uint32_t>(g.state+offsetof(RemoteState,cmd))==0;};
+    if(t.phase==1||t.phase==2||t.phase==4){
+        if(!wait())return;const auto result=take_out();
+        if(t.phase==1){free_texture_pixels();memory->Write<std::uint64_t>(g.state+WeaponTextureRuntime::Field(t.slot/3,t.slot%3,false),result);}
+        if(t.phase==2)memory->Write<std::uint64_t>(g.state+WeaponTextureRuntime::Field(t.slot/3,t.slot%3,true),result);
+    }
+    if(!g.cmd_wait){issue_cmd(WeaponTextureRuntime::releaseCommand,0,0,0);if(!wait())return;take_out();}
+    t.phase=0;t.resources={};t.selected=-1;t.slot=0;t.failed=false;t.decoded={};if(!t.pending.valid())t.loading=false;textureStatus.store(0);
 }
 
 bool Active()
@@ -2661,7 +2968,7 @@ void fill_geoms(bool refreshTargets)
 	const float dscale = 1.0f;
 	const float dbias = 0.0f;
 	static auto previous = std::chrono::steady_clock::now();
-	static double phase = 0.0, weaponPhase=0.0, armPhase=0.0, glovePhase=0.0;
+	static double phase = 0.0, weaponPhase=0.0, arPhase=0.0, glockPhase=0.0, limbPhase[2][2]{};
 	const auto frameTime = std::chrono::steady_clock::now();
 	const float speed = std::isfinite(variables::ESP::nativeChamsAnimationSpeed)
 		? std::clamp(variables::ESP::nativeChamsAnimationSpeed, 0.0f, 15.0f) : 1.0f;
@@ -2669,8 +2976,9 @@ void fill_geoms(bool refreshTargets)
 	phase += std::chrono::duration<double>(frameTime - previous).count() * speed;
 	weaponPhase += std::chrono::duration<double>(frameTime-previous).count()*std::clamp(variables::Weapons::speed,0.f,15.f);
     const double elapsed=std::chrono::duration<double>(frameTime-previous).count();
-    armPhase+=elapsed*std::clamp(variables::Weapons::arms.speed,0.f,15.f);
-    glovePhase+=elapsed*std::clamp(variables::Weapons::gloves.speed,0.f,15.f);
+    arPhase+=elapsed*std::clamp(variables::Weapons::arMaterial.speed,0.f,15.f);
+    glockPhase+=elapsed*std::clamp(variables::Weapons::glockMaterial.speed,0.f,15.f);
+    for(int weapon=0;weapon<2;++weapon)for(int glove=0;glove<2;++glove)limbPhase[weapon][glove]+=elapsed*std::clamp(variables::Weapons::MaterialForLimb(weapon!=0,glove!=0).speed,0.f,15.f);
 	previous = frameTime;
 	const float now_s = static_cast<float>(phase);
 
@@ -2769,8 +3077,28 @@ void fill_geoms(bool refreshTargets)
 		}
 	};
 
-    for(const auto& surface:WeaponVisuals::surfaces)
-        if(surface.firstPerson)push_character(surface.part,surface.kind,true);
+    std::uintptr_t nativeRoot=0;
+    if(native_mesh_ready())for(const auto& surface:WeaponVisuals::surfaces)if(surface.firstPerson&&surface.kind==1&&!surface.isGlock){const auto field=surface.part+Offsets::MeshPart::MeshId;auto mesh=CustomTextureData::AssetId(memory->read_string(field));if(mesh.empty())mesh=CustomTextureData::AssetId(memory->read_string(memory->Read<std::uintptr_t>(field)));if(mesh=="105137249332183"){nativeRoot=RBX::RbxInstance(surface.part).GetPrimitivePtr();break;}}
+    for(const auto& surface:WeaponVisuals::surfaces)if(surface.firstPerson){
+        const auto begin=targets.size();
+        push_character(surface.part,surface.kind|(surface.hidden?k_hidden_cosmetic:0)|(surface.textureTest?WeaponTextureRuntime::targetFlag:0)|(surface.isGlock?WeaponTextureRuntime::glockFlag:0)|(surface.textureTest?(surface.textureGroup<<WeaponTextureRuntime::groupShift):0),true);
+        const auto selected=variables::Weapons::TextureForWeapon(surface.isGlock);
+        if(surface.textureTest&&selected==108&&native_mesh_ready()&&nativeRoot){for(auto i=begin;i<targets.size();++i){targets[i].weapon|=NativeReplacementRuntime::modelFlag|NativeReplacementRuntime::primaryFlag;targets[i].anchorPrimitive=nativeRoot;}}
+
+        if(surface.textureTest&&CustomTextureData::Valid(selected)&&CustomTextureData::Presets[selected].model==3){
+            const auto field=surface.part+Offsets::MeshPart::MeshId;
+            auto mesh=CustomTextureData::AssetId(memory->read_string(field));
+            if(mesh.empty())mesh=CustomTextureData::AssetId(memory->read_string(memory->Read<std::uintptr_t>(field)));
+            for(auto i=begin;i<targets.size();++i){auto& target=targets[i];
+                if(!g.projection_enabled){target.weapon&=~WeaponTextureRuntime::targetFlag;continue;}
+                if(TextureProjectionData::Deagle(mesh,target.mat.projection_rows)){
+                    target.weapon|=WeaponTextureRuntime::projectionFlag;
+                    std::copy(TextureProjectionData::DeagleMinimum.begin(),TextureProjectionData::DeagleMinimum.end(),target.mat.projection_minimum);
+                    std::copy(TextureProjectionData::DeagleInverseSpan.begin(),TextureProjectionData::DeagleInverseSpan.end(),target.mat.projection_inverse_span);
+                }
+            }
+        }
+    }
 	if(variables::ESP::nativeChams)for (const auto& player : PlayerCache::players)
 	{
 
@@ -2926,22 +3254,27 @@ void fill_geoms(bool refreshTargets)
         const auto kind=t.weapon&0xff;
         const bool firstPerson=(t.weapon&0x100)!=0;
         if(kind>=1&&kind<=3){
-            auto& limb=kind==3?variables::Weapons::gloves:variables::Weapons::arms;
             const bool gun=kind==1;
-            const float opacity=std::clamp(gun?variables::Weapons::opacity:limb.opacity,0.f,1.f);
-            std::memcpy(mat.color,gun?variables::Weapons::color:limb.color,16);mat.color[3]*=opacity;
-            std::memcpy(mat.glow,gun?variables::Weapons::glowColor:limb.glowColor,16);
-            mat.glow[3]=(gun?variables::Weapons::glow:limb.glow)?(gun?variables::Weapons::glowStrength:limb.glowStrength):0;
-            mat.mode=std::clamp(gun?variables::Weapons::nativeStyle:limb.style,0,ShaderNameCount()-1);
-            mat.time=static_cast<float>(gun?weaponPhase:kind==2?armPhase:glovePhase);
+            const bool isGlock=(t.weapon&WeaponTextureRuntime::glockFlag)!=0;
+            const auto limb=variables::Weapons::MaterialForLimb(isGlock,kind==3);
+            const auto weaponMaterial=variables::Weapons::MaterialForWeapon(isGlock);
+            const float opacity=std::clamp(gun?weaponMaterial.opacity:limb.opacity,0.f,1.f);
+            std::memcpy(mat.color,gun?weaponMaterial.color:limb.color,16);mat.color[3]*=opacity;
+            std::memcpy(mat.glow,gun?weaponMaterial.glowColor:limb.glowColor,16);
+            mat.glow[3]=(gun?weaponMaterial.glow:limb.glow)?(gun?weaponMaterial.glowStrength:limb.glowStrength):0;
+            mat.mode=std::clamp(gun?weaponMaterial.style:limb.style,0,ShaderNameCount()-1);
+            mat.time=static_cast<float>(gun?(variables::Weapons::separateWeapons?(isGlock?glockPhase:arPhase):weaponPhase):limbPhase[isGlock?1:0][kind==3?1:0]);
 
-            const float surfaceScale=gun?std::clamp(variables::Weapons::scale,.01f,100.f)*.1f:(std::max)(.1f,limb.scale);
+            const float surfaceScale=gun?std::clamp(weaponMaterial.scale,.01f,100.f)*.1f:(std::max)(.1f,limb.scale);
             mat.pattern[0]=density/surfaceScale;
             mat.pattern[2]=(gun&&variables::Weapons::showOriginal)?0.f:1.f;
             mat.body_status[1]=firstPerson?1.f:0.f;
+            mat.projection_options[0]=variables::Weapons::textureShading?1.f:0.f;
 
             if(firstPerson)t.occlusion=0;
-            if(firstPerson&&variables::Weapons::hide){mat.pattern[2]=1;mat.color[3]=0;mat.glow[3]=0;}
+            if(gun&&weaponMaterial.enabled&&!(t.weapon&NativeReplacementRuntime::modelFlag))t.weapon|=WeaponTextureRuntime::nativeOverlayFlag;
+            if((gun&&!weaponMaterial.enabled)||(!gun&&!limb.enabled)){mat.pattern[2]=0;mat.color[3]=0;mat.glow[3]=0;}
+            if(firstPerson&&(variables::Weapons::hide||(t.weapon&k_hidden_cosmetic))){mat.pattern[2]=1;mat.color[3]=0;mat.glow[3]=0;t.weapon&=~WeaponTextureRuntime::targetFlag;}
             std::memcpy(t.occludedColor,variables::ESP::nativeChamsOccludedColor,16);t.occludedColor[3]*=opacity;
             t.occludedMode=std::clamp(variables::ESP::nativeChamsOccludedStyle,0,ShaderNameCount()-1);
         }
@@ -3060,7 +3393,7 @@ bool install()
 	const auto align16 = [](std::size_t n) { return (n + 15u) & ~std::size_t(15); };
 	const std::size_t nps = align16(ps.size());
 	const std::size_t ncr = align16(cr.size());
-	const std::size_t ndr = align16(dr.size());
+	std::size_t ndr = align16(dr.size());
 
 	const std::size_t nall = nps + ncr + align16(sizeof(k_native_depth_capture_code));
 	const std::uintptr_t cave = find_dll_cave(nall, 0);
@@ -3072,7 +3405,9 @@ bool install()
 	}
 	g.cave = cave;
 	g.cave_n = nall;
-	const std::uintptr_t drawCave = find_dll_cave(ndr, 0);
+	std::uintptr_t drawCave = find_dll_cave(ndr, 0);
+    g.projection_enabled=drawCave!=0;
+    if(!drawCave){dr=make_draw_thunk(g.state,false);ndr=align16(dr.size());drawCave=find_dll_cave(ndr,0);}
 	if (!drawCave)
 	{
 		fail("draw cave");
@@ -3084,6 +3419,19 @@ bool install()
 	g.present_thunk = cave;
 	g.create_stub = cave + nps;
 	g.draw_thunk = drawCave;
+    if(g.projection_enabled){
+        const auto code=make_projection_thunk();const auto required=align16(code.size());
+        g.projection_thunk=find_dll_cave(required,0);g.projection_thunk_n=required;
+        g.projection_enabled=g.projection_thunk&&write_exec(g.projection_thunk,code.data(),code.size());
+    }
+    if(!g.projection_enabled){
+        dr=make_draw_thunk(g.state,false);ndr=align16(dr.size());g.draw_cave=0;g.draw_cave_n=0;
+        drawCave=find_dll_cave(ndr,0);
+        if(!drawCave){fail("draw cave");g.cave=0;return false;}
+        g.draw_cave=drawCave;g.draw_cave_n=ndr;g.draw_thunk=drawCave;
+    }
+    memory->Write<std::uint64_t>(g.state+TextureProjectionRuntime::function,g.projection_enabled?g.projection_thunk:0);
+
 	if (!g.vt_mem)
 		g.vt_mem = memory->Alloc(0x2000, PAGE_READWRITE);
 	if (!g.vt_mem)
@@ -3117,6 +3465,7 @@ bool install()
 	mark_cfg(g.create_stub);
 	mark_cfg(g.draw_thunk);
     mark_cfg(cave+nps+ncr);
+    if(g.projection_enabled){FlushInstructionCache(memory->GetHandle(),reinterpret_cast<void*>(g.projection_thunk),g.projection_thunk_n);mark_cfg(g.projection_thunk);}
     memory->Write<std::uint64_t>(g.state+k_capture_fn,cave+nps+ncr);
 	if (!patch_vtables())
 	{
@@ -3242,6 +3591,7 @@ void apply_occlusion(bool off)
 
 void teardown()
 {
+    if(memory->IsConnected()&&g.hooked){if(nativeMesh.phase==1)release_native_mesh();release_texture();release_native_mesh();}
 	apply_occlusion(false);
 	if (g.state)
 		memory->Write<std::uint32_t>(g.state + offsetof(RemoteState, enabled), 0);
@@ -3266,6 +3616,24 @@ void Prepare(){
     start_shader();
 
     if(memory->IsConnected())find_d3d();
+}
+const char* TextureTestStatus(){
+    if(variables::Weapons::textureShading&&textureStatus.load()==4){
+        switch(materialStatus.load()){
+        case 1:case 3:return "Preparing CS-style shading...";
+        case 4:return "CS-style shading ready";
+        case 5:return "Shading maps missing - get add-ons";
+        case 6:return "Shading unavailable - normal texture active";
+        }
+    }
+    switch(textureStatus.load()) {
+    case 1:return "Loading custom texture...";
+    case 3:return "Uploading custom texture...";
+    case 4:return "Custom texture ready";
+    case 5:return "Texture file missing or invalid";
+    case 6:return "Texture upload failed - select again";
+    default:return !g.hooked&&g_why?"Native renderer failed to start":"Preparing custom texture...";
+    }
 }
 const char* StartupStatus(){
     using State=NativePreparation::Shader::State;
@@ -3366,6 +3734,7 @@ void Tick()
 
 	}
 	if(g.stage<11)pump_creates();
+    if(g.stage>=11){if(pump_native_mesh())pump_texture();else if(nativeMesh.failed)texture_flags(false);}
 
 	static auto last_fill = std::chrono::steady_clock::time_point{};
 	static auto last_material = std::chrono::steady_clock::time_point{};
@@ -3378,7 +3747,7 @@ void Tick()
 		fill_geoms(refresh);
 	}
 
-	apply_occlusion(((variables::ESP::nativeChams && variables::ESP::nativeChamsWalls) || (variables::Weapons::native && variables::ESP::nativeChamsWalls)) && g.ntarget > 0);
+	apply_occlusion(((variables::ESP::nativeChams && variables::ESP::nativeChamsWalls) || (variables::Weapons::AnyNative() && variables::ESP::nativeChamsWalls)) && g.ntarget > 0);
 	static auto last_stat = std::chrono::steady_clock::time_point{};
 	static int last_stage = -1;
 	if (g.stage == 11 && last_stage != 11)
@@ -3514,7 +3883,7 @@ int ShaderNameCount()
 
 std::string PreviewShaderSource()
 {
-    std::string source = std::string(k_hlsl_head) + k_hlsl_body + k_hlsl_styles;
+    std::string source = std::string(k_hlsl_head) + TextureProjectionShader::Coordinates + k_hlsl_projection + k_hlsl_body + k_hlsl_styles;
 
     const auto start = source.find("float3 frag_local(float4 pos)");
     const auto end = source.find("float noise3", start);

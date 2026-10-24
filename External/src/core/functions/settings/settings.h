@@ -4,5 +4,4 @@ namespace Settings {
 void RenderAimMain();
 void RenderAimChecks();
 void RenderRecoil();
-void RenderOtherGunMods();
 }
