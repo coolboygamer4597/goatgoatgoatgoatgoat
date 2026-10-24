@@ -48,7 +48,7 @@ inline void Draw(){
         auto draw=ImGui::GetWindowDrawList();const auto p=ImGui::GetWindowPos();
         const auto accent=ImGui::GetColorU32(variables::Theme::accent);
         draw->AddRectFilled(p+ImVec2(0,10),p+ImVec2(3,58),accent,2);
-        draw->AddText(font,12,p+ImVec2(14,11),IM_COL32(166,178,199,255),"Spectator team");
+        draw->AddText(font,12,p+ImVec2(14,11),IM_COL32(166,178,199,255),UiText::Tr("Spectator team"));
         const auto count=SessionPresence::state.Available()?std::to_string(SessionPresence::state.Spectators()):"--";
         draw->AddText(font,26,p+ImVec2(14,29),IM_COL32(244,247,252,255),count.c_str());
         draw->AddCircleFilled(p+ImVec2(panel.x-19,34),4,accent);
@@ -59,7 +59,7 @@ inline void Draw(){
     const auto count=SessionPresence::state.Notices().size();
     const float width=(std::min)(460.f,size.x-24);
     const float wrap=(std::max)(40.f,width-106);
-    const auto title="Senior Mod+ Detected (\""+notice.username+"\")";
+    const auto title=UiText::Message("Senior Mod+ Detected (\""+notice.username+"\")");
     const float titleHeight=font->CalcTextSizeA(16,FLT_MAX,wrap,title.c_str()).y;
     const float bodyY=18+titleHeight+15;
     const float height=(std::min)(size.y-24,bodyY+64+(count>1?20.f:0.f));
@@ -68,7 +68,7 @@ inline void Draw(){
     draw->AddRectFilled(p+ImVec2(0,8),p+ImVec2(3,height-8),IM_COL32(255,203,72,255),2);
     Warning(draw,p+ImVec2(23,27));Warning(draw,p+ImVec2(width-58,27));
     draw->AddText(font,16,p+ImVec2(44,18),IM_COL32(255,233,174,255),title.c_str(),nullptr,wrap);
-    draw->AddText(font,14,p+ImVec2(20,bodyY),IM_COL32(211,218,232,255),"This individual can turn");
+    draw->AddText(font,14,p+ImVec2(20,bodyY),IM_COL32(211,218,232,255),UiText::Tr("This individual can turn"));
     draw->AddText(font,18,p+ImVec2(20,bodyY+23),IM_COL32(255,218,109,255),"hidden pveye");
     if(count>1){const auto pending=std::to_string(count)+" alerts pending - dismiss each with X";draw->AddText(font,11,p+ImVec2(20,height-22),IM_COL32(151,163,184,255),pending.c_str());}
     ImGui::SetCursorPos(ImVec2(width-36,10));const bool dismiss=ImGui::InvisibleButton("##dismiss_moderator",ImVec2(26,26));

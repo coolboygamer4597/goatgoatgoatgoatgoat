@@ -18,11 +18,11 @@ inline bool Draw(float scale=1.f,bool permitted=true){
     ImGui::PushStyleColor(ImGuiCol_PopupBg,IM_COL32(18,18,23,255));
     if(ImGui::BeginPopupModal("Application update",nullptr,ImGuiWindowFlags_NoDecoration|ImGuiWindowFlags_NoResize|ImGuiWindowFlags_NoMove)){
         auto position=ImGui::GetWindowPos();RetroUi::Frame(ImGui::GetWindowDrawList(),position,ImVec2(position.x+size.x,position.y+size.y));
-        ImGui::SetCursorPos(Scaled(24,20,scale));ImGui::TextUnformatted(downloading?"Downloading update":offer?"An update is available":"Application updates");
-        ImGui::SetCursorPos(Scaled(24,52,scale));ImGui::Text("Installed: %s",AppUpdates::CurrentVersion());
-        if(offer||downloading){ImGui::SameLine(260*scale);ImGui::Text("Newest: %s",state.version.c_str());}
+        ImGui::SetCursorPos(Scaled(24,20,scale));ImGui::TextUnformatted(UiText::Tr(downloading?"Downloading update":offer?"An update is available":"Application updates"));
+        ImGui::SetCursorPos(Scaled(24,52,scale));ImGui::Text(UiText::Tr("Installed: %s"),AppUpdates::CurrentVersion());
+        if(offer||downloading){ImGui::SameLine(260*scale);ImGui::Text(UiText::Tr("Newest: %s"),state.version.c_str());}
         ImGui::SetCursorPos(Scaled(24,85,scale));ImGui::BeginChild("update_details",Scaled(562,120.f,scale));
-        ImGui::TextWrapped("%s",offer?state.notes.c_str():state.message.c_str());
+        ImGui::TextWrapped(UiText::Tr("%s"),offer?state.notes.c_str():UiText::Message(state.message).c_str());
         if(downloading)ImGui::ProgressBar(state.progress,ImVec2(-1,18*scale),nullptr);
         ImGui::EndChild();
         if(!downloading)ImGui::SetCursorPos(Scaled(24,235.f,scale));

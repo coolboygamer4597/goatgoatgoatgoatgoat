@@ -14,22 +14,22 @@ inline bool Draw(float scale=1,bool permitted=true){
     ImGui::PushStyleColor(ImGuiCol_PopupBg,IM_COL32(18,18,23,255));
     if(ImGui::BeginPopupModal(title,nullptr,ImGuiWindowFlags_NoDecoration|ImGuiWindowFlags_NoResize|ImGuiWindowFlags_NoMove)){
         const auto pos=ImGui::GetWindowPos();RetroUi::Frame(ImGui::GetWindowDrawList(),pos,ImVec2(pos.x+size.x,pos.y+size.y));auto at=[&](float x,float y){ImGui::SetCursorPos(ImVec2(x*scale,y*scale));};
-        at(24,20);ImGui::TextUnformatted(title);at(24,53);ImGui::BeginChild("skin_download_message",ImVec2(572*scale,65*scale));ImGui::TextWrapped("%s",state.message.c_str());ImGui::EndChild();
+        at(24,20);ImGui::TextUnformatted(UiText::Tr(title));at(24,53);ImGui::BeginChild("skin_download_message",ImVec2(572*scale,65*scale));ImGui::TextWrapped(UiText::Tr("%s"),UiText::Message(state.message).c_str());ImGui::EndChild();
         const bool busy=state.phase==SkinDownloads::Phase::Checking||state.phase==SkinDownloads::Phase::Downloading;std::vector<int> selected;std::size_t bytes=0;
         if(!busy&&state.phase==SkinDownloads::Phase::Offered){
-            if(previews){at(24,132);if(state.previewsAvailable)ImGui::Text("Skin previews: %.1f MB",state.previewBytes/1000000.0);else ImGui::TextUnformatted("Previews are not currently available.");if(!state.previewsInstalled&&state.previewsAvailable)bytes=state.previewBytes;}
+            if(previews){at(24,132);if(state.previewsAvailable)ImGui::Text(UiText::Tr("Skin previews: %.1f MB"),state.previewBytes/1000000.0);else ImGui::TextUnformatted(UiText::Tr("Previews are not currently available."));if(!state.previewsInstalled&&state.previewsAvailable)bytes=state.previewBytes;}
             else if(!state.items.empty()){
-                at(24,125);if(ImGui::RadioButton("Everything",!customize))customize=false;ImGui::SameLine(190*scale);if(ImGui::RadioButton("Customize",customize))customize=true;
+                at(24,125);if(ImGui::RadioButton(UiText::Tr("Everything"),!customize))customize=false;ImGui::SameLine(190*scale);if(ImGui::RadioButton(UiText::Tr("Customize"),customize))customize=true;
                 if(customize){
-                    at(24,166);if(ImGui::RadioButton("All",category==-1))category=-1;ImGui::SameLine();if(ImGui::RadioButton("CS skins",category==0))category=0;ImGui::SameLine();if(ImGui::RadioButton("Other",category==1))category=1;ImGui::SameLine(325*scale);ImGui::SetNextItemWidth(270*scale);ImGui::InputTextWithHint("##download_skin_search","Search skins...",search,sizeof(search));
+                    at(24,166);if(ImGui::RadioButton(UiText::Tr("All"),category==-1))category=-1;ImGui::SameLine();if(ImGui::RadioButton(UiText::Tr("CS skins"),category==0))category=0;ImGui::SameLine();if(ImGui::RadioButton(UiText::Tr("Other"),category==1))category=1;ImGui::SameLine(325*scale);ImGui::SetNextItemWidth(270*scale);ImGui::InputTextWithHint("##download_skin_search",UiText::Tr("Search skins..."),search,sizeof(search));
                     at(24,202);ImGui::BeginChild("individual_skin_downloads",ImVec2(572*scale,136*scale),true);ImGuiTextFilter filter(search);
-                    for(const auto& item:state.items){const std::string label=item.skin+" / "+item.name;if((category!=-1&&item.category!=category)||!filter.PassFilter(label.c_str()))continue;ImGui::PushID(item.index);bool checked=item.installed||choices[item.index];ImGui::BeginDisabled(item.installed);if(ImGui::Checkbox(label.c_str(),&checked))choices[item.index]=checked;ImGui::EndDisabled();ImGui::SameLine(450*scale);if(item.installed)ImGui::TextUnformatted("Installed");else ImGui::Text("%.1f MB",item.bytes/1000000.0);ImGui::PopID();}ImGui::EndChild();
-                }else{at(24,184);ImGui::TextWrapped("Download all %u available custom skins in CS skins and Other. Installed files are kept.",static_cast<unsigned>(state.items.size()));}
+                    for(const auto& item:state.items){const std::string label=item.skin+" / "+item.name;if((category!=-1&&item.category!=category)||!filter.PassFilter(label.c_str()))continue;ImGui::PushID(item.index);bool checked=item.installed||choices[item.index];ImGui::BeginDisabled(item.installed);if(ImGui::Checkbox(label.c_str(),&checked))choices[item.index]=checked;ImGui::EndDisabled();ImGui::SameLine(450*scale);if(item.installed)ImGui::TextUnformatted(UiText::Tr("Installed"));else ImGui::Text(UiText::Tr("%.1f MB"),item.bytes/1000000.0);ImGui::PopID();}ImGui::EndChild();
+                }else{at(24,184);ImGui::TextWrapped(UiText::Tr("Download all %u available custom skins in CS skins and Other. Installed files are kept."),static_cast<unsigned>(state.items.size()));}
                 for(const auto& item:state.items)if(!item.installed&&(!customize||choices[item.index])){selected.push_back(item.index);bytes+=item.bytes;}
-                if(!selected.empty()&&!state.commonInstalled)bytes+=state.commonBytes;at(24,350);ImGui::Text("Download size: %.1f MB",bytes/1000000.0);
+                if(!selected.empty()&&!state.commonInstalled)bytes+=state.commonBytes;at(24,350);ImGui::Text(UiText::Tr("Download size: %.1f MB"),bytes/1000000.0);
             }
         }
-        if(busy){at(24,135);ImGui::TextUnformatted(state.phase==SkinDownloads::Phase::Checking?"Checking available downloads...":"Downloading and verifying your selection...");at(24,173);ImGui::ProgressBar(state.progress,ImVec2(572*scale,20*scale),nullptr);}
+        if(busy){at(24,135);ImGui::TextUnformatted(UiText::Tr(state.phase==SkinDownloads::Phase::Checking?"Checking available downloads...":"Downloading and verifying your selection..."));at(24,173);ImGui::ProgressBar(state.progress,ImVec2(572*scale,20*scale),nullptr);}
         at(24,previews?232:382);
         auto close=[&]{SkinDownloads::Dismiss();ImGui::CloseCurrentPopup();};
         if(state.phase==SkinDownloads::Phase::Downloading){if(RetroUi::Choice("CANCEL DOWNLOAD",false,ImVec2(572*scale,30*scale)))SkinDownloads::Cancel();}

@@ -47,6 +47,7 @@ std::mutex g_stateMutex;
 std::vector<std::string> g_catalog;
 std::string g_selected;
 
+
 std::optional<std::string> g_queuedSelection;
 bool g_editorActive=false;
 SkinMix::Choices g_editorChoices;
@@ -1242,6 +1243,7 @@ bool RestoreStockGloves(std::string& error) {
 void ApplyGlovesCore(const RBX::RbxInstance& armModel,
                      const std::string& selected, std::string& error) {
 
+
     for (auto& rec : g_gloveRecords) {
         if (rec.dirty)
             RestoreCore(rec);
@@ -1546,6 +1548,7 @@ void ApplySelectedSkin(const RBX::RbxInstance& armModel,
             }
         }
     }
+
 
     ApplySoundsCore();
     std::lock_guard<std::mutex> lock(g_stateMutex);
@@ -1970,6 +1973,7 @@ bool ProcessQueuedSelection() {
     {
         std::lock_guard<std::mutex> lock(g_stateMutex);
 
+
         if (!g_queuedSelection) return true;
         g_selected = std::move(*g_queuedSelection);
         g_queuedSelection.reset();
@@ -2126,7 +2130,7 @@ void RenderEditor(){
     at(left,94);if(RetroUi::Choice("AR",weapon==0,ImVec2(col,28)))weapon=0;
     at(right,94);if(RetroUi::Choice("Glock",weapon==1,ImVec2(col,28)))weapon=1;
     const char* categories[]={"Weapon","Gloves (shared)","Sounds"};imGuiCustom::Combo("editor_category",&category,categories,3,ImVec2(left,132+imGuiCustom::ComboTop()),col,"Change:");
-    at(left,195);ImGui::SetNextItemWidth(col);ImGui::InputTextWithHint("##editor_search","Search available choices...",search[weapon][category],96);
+    at(left,195);ImGui::SetNextItemWidth(col);ImGui::InputTextWithHint("##editor_search",UiText::Tr("Search available choices..."),search[weapon][category],96);
     at(left,226);ImGui::BeginChild("editor_choices",ImVec2(col,190),true);ImGuiTextFilter filter(search[weapon][category]);
     auto select=[&](const std::string& label,const std::string& value,const std::string& source){
         auto& selected=category==0?(glock?draft.glock:draft.ar):category==1?(glock?draft.glockGloves:draft.arGloves):(glock?draft.glockSounds:draft.arSounds);
@@ -2137,15 +2141,15 @@ void RenderEditor(){
             if(ApplyEditor(draft,message)&&category==0)variables::Weapons::TextureForWeapon(glock)=-1;
         }
     };
-    if(category==2){select("Use selected skin sounds","","");for(const auto& type:{std::string("AR-15"),std::string("Glock 19")}){auto choices=slots[type];if(std::find(choices.begin(),choices.end(),"Default")==choices.end())choices.insert(choices.begin(),"Default");for(const auto& skin:choices)select(type+" / "+skin,skin,type);}}
+    if(category==2){select(UiText::Tr("Use selected skin sounds"),"","");for(const auto& type:{std::string("AR-15"),std::string("Glock 19")}){auto choices=slots[type];if(std::find(choices.begin(),choices.end(),"Default")==choices.end())choices.insert(choices.begin(),"Default");for(const auto& skin:choices)select(type+" / "+skin,skin,type);}}
     else{auto choices=category==1?gloves:slots[glock?"Glock 19":"AR-15"];if(std::find(choices.begin(),choices.end(),"Default")==choices.end())choices.insert(choices.begin(),"Default");if(category==0&&!glock&&std::find(choices.begin(),choices.end(),"0416")==choices.end())choices.push_back("0416");for(const auto& pick:choices)select(pick,pick,"");}
     ImGui::EndChild();
-    at(right,155);ImGui::TextUnformatted("Active settings");
-    at(right,190);ImGui::Text("AR: %s",draft.ar.c_str());at(right,220);ImGui::Text("Glock: %s",draft.glock.c_str());
-    at(right,250);ImGui::Text("Gloves: %s",draft.arGloves.c_str());
-    at(right,287);ImGui::PushTextWrapPos(right+col);ImGui::TextUnformatted("Changes apply when selected. Gloves are shared and update on the next equip.");ImGui::PopTextWrapPos();
+    at(right,155);ImGui::TextUnformatted(UiText::Tr("Active settings"));
+    at(right,190);ImGui::Text(UiText::Tr("AR: %s"),draft.ar.c_str());at(right,220);ImGui::Text(UiText::Tr("Glock: %s"),draft.glock.c_str());
+    at(right,250);ImGui::Text(UiText::Tr("Gloves: %s"),draft.arGloves.c_str());
+    at(right,287);ImGui::PushTextWrapPos(right+col);ImGui::TextUnformatted(UiText::Tr("Changes apply when selected. Gloves are shared and update on the next equip."));ImGui::PopTextWrapPos();
     bool mute=draft.mute;imGuiCustom::Checkbox("Mute local weapons",&mute,ImVec2(left,437));if(mute!=draft.mute){draft.mute=mute;draft.look.present=false;ApplyEditor(draft,message);}
-    if(!message.empty()){at(left,464);ImGui::PushTextWrapPos(left+width);ImGui::TextWrapped("%s",message.c_str());ImGui::PopTextWrapPos();}
+    if(!message.empty()){at(left,464);ImGui::PushTextWrapPos(left+width);ImGui::TextWrapped(UiText::Tr("%s"),UiText::Message(message).c_str());ImGui::PopTextWrapPos();}
 }
 
 void RenderMenu() {

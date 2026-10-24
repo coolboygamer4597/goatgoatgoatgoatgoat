@@ -12,7 +12,7 @@ inline std::filesystem::path file;
 inline std::string version,error;
 inline std::string LoaderLabel(){
     const auto source=OffsetUpdates::GetSelection().source;
-    return std::string("OFFSETS: ")+(source==OffsetUpdates::Source::Bundled?"Bundled":source==OffsetUpdates::Source::Local?"Local file":"Automatic");
+    return std::string("OFFSETS: ")+UiText::Tr(source==OffsetUpdates::Source::Bundled?"Bundled":source==OffsetUpdates::Source::Local?"Local file":"Automatic");
 }
 inline UINT_PTR CALLBACK DialogHook(HWND window,UINT msg,WPARAM,LPARAM l){
     if(msg==WM_INITDIALOG){auto ofn=reinterpret_cast<OPENFILENAMEW*>(l);CaptureProtection::Apply(GetAncestor(window,GA_ROOT),ofn->lCustData!=0);}return 0;
@@ -37,19 +37,19 @@ inline bool LoadClick(bool click,float scale,bool streamproof,bool force=false){
         RetroUi::Stars(draw,at(12,10),ImVec2(478*scale,27*scale),static_cast<float>(ImGui::GetTime()));
         draw->AddText(ImGui::GetFont(),22*scale,at(24,14),RetroUi::White,"OFFSETS");
         if(RetroUi::CaptionButton("##offset_close",at(514,9),true))ImGui::CloseCurrentPopup();
-        ImGui::SetCursorScreenPos(at(24,51));ImGui::Text("Roblox: %s",version.empty()?"Could not identify version":version.c_str());
+        ImGui::SetCursorScreenPos(at(24,51));ImGui::Text(UiText::Tr("Roblox: %s"),version.empty()?"Could not identify version":version.c_str());
         for(int i=0;i<3;++i){
             ImGui::SetCursorScreenPos(at(24,84+i*43.f));
             if(RetroUi::Choice(names[i],chosen==i,ImVec2(502*scale,34*scale)))chosen=i;
         }
         ImGui::SetCursorScreenPos(at(24,218));
-        if(chosen==0)ImGui::TextWrapped("Downloads matching offsets and keeps a verified offline copy.");
-        if(chosen==1)ImGui::TextWrapped("Bundled version: %s",BundledOffsets::ClientVersion.c_str());
+        if(chosen==0)ImGui::TextWrapped(UiText::Tr("Downloads matching offsets and keeps a verified offline copy."));
+        if(chosen==1)ImGui::TextWrapped(UiText::Tr("Bundled version: %s"),BundledOffsets::ClientVersion.c_str());
         if(chosen==2){
             if(RetroUi::Choice("Select offsets file...",false,ImVec2(240*scale,26*scale)))file=Browse(static_cast<HWND>(ImGui::GetWindowViewport()->PlatformHandleRaw),streamproof,file);
             ImGui::SetCursorScreenPos(at(24,250));ImGui::TextUnformatted(file.empty()?"No file selected":file.filename().u8string().c_str());
         }
-        if(!error.empty()){ImGui::SetCursorScreenPos(at(24,270));ImGui::PushStyleColor(ImGuiCol_Text,ImVec4(1,.45f,.4f,1));ImGui::PushTextWrapPos(526*scale);ImGui::TextWrapped("%s",error.c_str());ImGui::PopTextWrapPos();ImGui::PopStyleColor();}
+        if(!error.empty()){ImGui::SetCursorScreenPos(at(24,270));ImGui::PushStyleColor(ImGuiCol_Text,ImVec4(1,.45f,.4f,1));ImGui::PushTextWrapPos(526*scale);ImGui::TextWrapped(UiText::Tr("%s"),UiText::Message(error).c_str());ImGui::PopTextWrapPos();ImGui::PopStyleColor();}
         ImGui::SetCursorScreenPos(at(24,305));auto size=ImVec2(270*scale,28*scale);
         if(RetroUi::Choice("Use source and load",false,size)){
             try{

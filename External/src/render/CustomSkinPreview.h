@@ -35,20 +35,20 @@ inline int mode=1;
 inline void Suspend(){viewer.Suspend();image.Reset();requested.clear();finished=false;}
 inline void Draw(ID3D11Device* device,ID3D11DeviceContext* context,bool isGlock){
     const int selected=variables::Weapons::TextureForWeapon(isGlock);
-    if(!CustomTextureData::Supports(selected,isGlock)){ImGui::TextUnformatted("Select a custom texture to preview it.");return;}
-    const auto& preset=CustomTextureData::Presets[selected];ImGui::Text("%s / %s",preset.skin,preset.name);
-    if(ImGui::RadioButton("Side profile",mode==0))mode=0;ImGui::SameLine();if(ImGui::RadioButton("3D",mode==1))mode=1;
+    if(!CustomTextureData::Supports(selected,isGlock)){ImGui::TextUnformatted(UiText::Tr("Select a custom texture to preview it."));return;}
+    const auto& preset=CustomTextureData::Presets[selected];ImGui::Text(UiText::Tr("%s / %s"),preset.skin,preset.name);
+    if(ImGui::RadioButton(UiText::Tr("Side profile"),mode==0))mode=0;ImGui::SameLine();if(ImGui::RadioButton(UiText::Tr("3D"),mode==1))mode=1;
     if(mode==1){
-        ImGui::SameLine();if(ImGui::SmallButton("Reset view"))viewer.Reset();
+        ImGui::SameLine();if(ImGui::SmallButton(UiText::Tr("Reset view")))viewer.Reset();
         viewer.Shading(variables::Weapons::textureShading);viewer.Intensity(variables::Weapons::textureShadingIntensity);viewer.Shadow(variables::Weapons::textureShadowIntensity);viewer.Poll(device,selected);viewer.Render(context);auto texture=viewer.Image();const auto room=ImGui::GetContentRegionAvail();
-        if(texture){const float scale=(std::min)(room.x/1024.f,(std::max)(1.f,room.y-20.f)/600.f);const ImVec2 size(1024*scale,600*scale),position=ImGui::GetCursorScreenPos();ImGui::GetWindowDrawList()->AddImage((ImTextureID)texture,position,ImVec2(position.x+size.x,position.y+size.y));ImGui::InvisibleButton("##custom_model_orbit",size);if(ImGui::IsItemActive()&&ImGui::IsMouseDragging(ImGuiMouseButton_Left))viewer.Orbit(ImGui::GetIO().MouseDelta.x,ImGui::GetIO().MouseDelta.y);if(ImGui::IsItemHovered()&&ImGui::GetIO().MouseWheel!=0)viewer.Zoom(ImGui::GetIO().MouseWheel);ImGui::TextUnformatted("Drag to rotate; scroll to zoom.");}
-        else{ImGui::TextUnformatted(viewer.Failed?"3D preview could not be prepared.":viewer.Missing?"Preview files are missing.":"Preparing 3D preview...");if(viewer.Missing&&RetroUi::Choice("Download more skin",false,ImVec2(210,28)))SkinDownloads::Open();}
+        if(texture){const float scale=(std::min)(room.x/1024.f,(std::max)(1.f,room.y-20.f)/600.f);const ImVec2 size(1024*scale,600*scale),position=ImGui::GetCursorScreenPos();ImGui::GetWindowDrawList()->AddImage((ImTextureID)texture,position,ImVec2(position.x+size.x,position.y+size.y));ImGui::InvisibleButton("##custom_model_orbit",size);if(ImGui::IsItemActive()&&ImGui::IsMouseDragging(ImGuiMouseButton_Left))viewer.Orbit(ImGui::GetIO().MouseDelta.x,ImGui::GetIO().MouseDelta.y);if(ImGui::IsItemHovered()&&ImGui::GetIO().MouseWheel!=0)viewer.Zoom(ImGui::GetIO().MouseWheel);ImGui::TextUnformatted(UiText::Tr("Drag to rotate; scroll to zoom."));}
+        else{ImGui::TextUnformatted(UiText::Tr(viewer.Failed?"3D preview could not be prepared.":viewer.Missing?"Preview files are missing.":"Preparing 3D preview..."));if(viewer.Missing&&RetroUi::Choice("Download more skin",false,ImVec2(210,28)))SkinDownloads::Open();}
         return;
     }
     viewer.Suspend();Poll(device,CustomTextureData::PreviewFile(selected));
     const auto available=ImGui::GetContentRegionAvail();
     if(image&&width&&height){const float scale=(std::min)(available.x/width,(std::max)(1.f,available.y-24)/height);const ImVec2 size(width*scale,height*scale);ImGui::SetCursorPosX(ImGui::GetCursorPosX()+(available.x-size.x)*.5f);ImGui::Image((ImTextureID)image.Get(),size);}
-    else{ImGui::TextUnformatted(finished?"Custom preview files are missing.":"Preparing shaded preview...");if(finished&&RetroUi::Choice("Download more skin",false,ImVec2(210,28)))SkinDownloads::Open();}
+    else{ImGui::TextUnformatted(UiText::Tr(finished?"Custom preview files are missing.":"Preparing shaded preview..."));if(finished&&RetroUi::Choice("Download more skin",false,ImVec2(210,28)))SkinDownloads::Open();}
 }
 inline void Shutdown(){viewer.Suspend();if(pending.valid())try{pending.get();}catch(...){}image.Reset();requested.clear();pendingPath.clear();finished=false;}
 }

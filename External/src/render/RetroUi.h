@@ -1,7 +1,10 @@
 #pragma once
 #include "../../ext/imgui/imgui.h"
 #include <cmath>
+#include <algorithm>
+#include <cfloat>
 #include "UiAssets.h"
+#include "menu/UiText.h"
 #include "../core/variables/variables.h"
 
 namespace RetroUi {
@@ -60,6 +63,6 @@ inline bool Choice(const char* label,bool selected,ImVec2 size,int icon=-1){
     d->AddRect(p,ImVec2(p.x+size.x,p.y+size.y),col,0,0,selected?2.f:1.f);
     if(icon>=0)Icon(d,ImVec2(p.x+12,p.y+(size.y-12)/2),icon,selected,hover);
     else if(selected||hover)d->AddText(ImVec2(p.x+10,p.y+(size.y-ImGui::GetFontSize())/2),col,selected?">":"-");
-    d->AddText(ImVec2(p.x+34,p.y+(size.y-ImGui::CalcTextSize(label).y)/2),col,label);return clicked;
+    const auto text=UiText::Tr(label);auto font=ImGui::GetFont();float fontSize=ImGui::GetFontSize();const auto measured=font->CalcTextSizeA(fontSize,FLT_MAX,0,text);const float available=(std::max)(1.f,size.x-42.f);if(measured.x>available)fontSize*=available/measured.x;d->AddText(font,fontSize,ImVec2(p.x+34,p.y+(size.y-fontSize)/2),col,text);return clicked;
 }
 }

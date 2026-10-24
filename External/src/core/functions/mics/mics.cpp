@@ -238,8 +238,8 @@ void RenderThemeMenu() {
 void RenderMiscMenu() {
     auto updateState=AppUpdates::Get();bool automaticUpdates=updateState.automatic;
     if(imGuiCustom::Checkbox("Check for updates on startup",&automaticUpdates,ImVec2(317,300)))AppUpdates::SetAutomatic(automaticUpdates);
-    ImGui::SetCursorPos(ImVec2(317,333));if(ImGui::Button(updateState.phase==AppUpdates::Phase::Checking?"Checking...":"Check for updates"))AppUpdates::Check();
-    ImGui::SetCursorPos(ImVec2(317,366));ImGui::Text("Version %s",AppUpdates::CurrentVersion());
+    ImGui::SetCursorPos(ImVec2(317,333));if(ImGui::Button(UiText::Tr(updateState.phase==AppUpdates::Phase::Checking?"Checking...":"Check for updates")))AppUpdates::Check();
+    ImGui::SetCursorPos(ImVec2(317,366));ImGui::Text(UiText::Tr("Version %s"),AppUpdates::CurrentVersion());
     auto selected = OffsetUpdates::GetSelection();
     int source = static_cast<int>(selected.source);
     if (imGuiCustom::Combo("offset_source", &source, OffsetSourceUi::names, 3,
@@ -249,20 +249,20 @@ void RenderMiscMenu() {
     }
     if (source==2) {
         ImGui::SetCursorPos(ImVec2(317,109));
-        if (ImGui::Button("Select offsets file...")) {
+        if (ImGui::Button(UiText::Tr("Select offsets file..."))) {
             auto file=OffsetSourceUi::Browse(static_cast<HWND>(ImGui::GetWindowViewport()->PlatformHandleRaw),Keys::StreamProofOn(),selected.file);
             if (!file.empty()) try { OffsetUpdates::SetSelection(OffsetUpdates::Source::Local,file); OffsetSourceUi::error.clear(); }
                 catch (const std::exception& e) { OffsetSourceUi::error=e.what(); }
         }
-        ImGui::SetCursorPos(ImVec2(317,141));ImGui::TextWrapped("%s", selected.file.filename().u8string().c_str());
+        ImGui::SetCursorPos(ImVec2(317,141));ImGui::TextWrapped(UiText::Tr("%s"), selected.file.filename().u8string().c_str());
     }
-    ImGui::SetCursorPos(ImVec2(317,185));ImGui::TextWrapped("%s",OffsetUpdates::Status().c_str());
-    ImGui::SetCursorPos(ImVec2(317,220));ImGui::TextDisabled("Source changes apply on the next launch.");
-    if (!OffsetSourceUi::error.empty()) { ImGui::SetCursorPos(ImVec2(317,255));ImGui::TextWrapped("%s",OffsetSourceUi::error.c_str()); }
+    ImGui::SetCursorPos(ImVec2(317,185));ImGui::TextWrapped(UiText::Tr("%s"),UiText::Message(OffsetUpdates::Status()).c_str());
+    ImGui::SetCursorPos(ImVec2(317,220));ImGui::TextDisabled(UiText::Tr("Source changes apply on the next launch."));
+    if (!OffsetSourceUi::error.empty()) { ImGui::SetCursorPos(ImVec2(317,255));ImGui::TextWrapped(UiText::Tr("%s"),UiText::Message(OffsetSourceUi::error).c_str()); }
     imGuiCustom::Checkbox("Anti-AFK",&AntiAfk::enabled,ImVec2(317,402));
     if(AntiAfk::enabled&&!AntiAfk::error.empty()){
         ImGui::SetCursorPos(ImVec2(317,430));ImGui::PushTextWrapPos(680);
-        ImGui::TextDisabled("%s",UiText::Tr(AntiAfk::error.c_str()));ImGui::PopTextWrapPos();
+        ImGui::TextDisabled(UiText::Tr("%s"),UiText::Tr(AntiAfk::error.c_str()));ImGui::PopTextWrapPos();
     }
     float ry = 46.0f;
     imGuiCustom::Checkbox("Stream Proof", &variables::Misc::streamProof, ImVec2(12.0f, ry));
