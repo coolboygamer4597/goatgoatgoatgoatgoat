@@ -522,6 +522,7 @@ inline const char* Tr(const char* text){
   {"Skin destination changed during installation.","Målmappen for skins ble endret under installasjonen."},
   {"Could not preserve an existing skin file.","Kunne ikke ta vare på en eksisterende skin-fil."},
   {"Could not install the selected skin. Use a writable program folder.","Kunne ikke installere valgt skin. Bruk en mappe du kan skrive til."},
+  {"Download skin previews","Last ned skin-forhåndsvisninger"},
  };
  auto it=words.find(text);return it==words.end()?text:it->second;
 }

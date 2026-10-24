@@ -16,9 +16,6 @@ using Path=std::filesystem::path;
 struct Manager{std::mutex mutex;std::atomic<bool> cancel{false};State state;SkinDownloadData::Catalog catalog;bool previewsVisited=false,firstPreviewOffer=false;};
 std::shared_ptr<Manager> Shared(){static auto s=std::make_shared<Manager>();return s;}
 Path Base(){return RuntimePaths::File(L"custom-textures").parent_path();}
-Path Settings(){wchar_t text[32768]{};const auto n=GetEnvironmentVariableW(L"LOCALAPPDATA",text,32768);if(!n||n>=32768)throw std::runtime_error("Local skin settings are unavailable.");return Path(text)/L"GoatGoatGoat"/L"skin-previews-declined.txt";}
-std::string Declined(){try{return AppUpdateData::Read(Settings(),64);}catch(...){return {};}}
-void Remember(const std::string& key){try{const auto file=Settings();std::filesystem::create_directories(file.parent_path());if(!PreviewUpdateData::Normal(file.parent_path())||(std::filesystem::exists(file)&&!PreviewUpdateData::Normal(file)))return;std::ofstream out(file,std::ios::binary|std::ios::trunc);out.write(key.data(),key.size());}catch(...){}}
 struct Http{HINTERNET h=nullptr;~Http(){if(h)WinHttpCloseHandle(h);}};
 struct Address{std::wstring host,path;};
 Address ParseUrl(const std::wstring& url){
@@ -49,15 +46,15 @@ void Populate(Manager& s){
     for(const auto& p:s.catalog.packages){const bool installed=SkinDownloadData::Present(Base(),p);if(p.index==-1){s.state.commonBytes=p.bytes;s.state.commonInstalled=installed;}else if(p.index==-2){s.state.previewsAvailable=true;s.state.previewBytes=p.bytes;s.state.previewsInstalled=installed;}else{const auto& preset=CustomTextureData::Presets[p.index];s.state.items.push_back({p.index,preset.category,preset.name,preset.skin,p.bytes,installed});}}
     std::sort(s.state.items.begin(),s.state.items.end(),[](const Item& a,const Item& b){return a.index<b.index;});++s.state.revision;
 }
-void Offer(Manager& s,const std::string& declined,const std::string& previewKey){
-        if(s.state.previewsOnly){if(s.firstPreviewOffer&&(s.state.previewsInstalled||declined==previewKey))s.state.visible=false;s.state.phase=s.state.previewsInstalled?Phase::Complete:Phase::Offered;s.state.message=s.state.previewsInstalled?"Skin previews are already installed.":s.state.previewsAvailable?"Optional previews for the skin changer. Nothing downloads until you choose Download previews.":"Skin previews are not available yet.";}
+void Offer(Manager& s){
+        if(s.state.previewsOnly){if(s.firstPreviewOffer&&s.state.previewsInstalled)s.state.visible=false;s.state.phase=s.state.previewsInstalled?Phase::Complete:Phase::Offered;s.state.message=s.state.previewsInstalled?"Skin previews are already installed.":s.state.previewsAvailable?"Optional previews for the skin changer. Nothing downloads until you choose Download previews.":"Skin previews are not available yet.";}
         else{const bool installed=s.state.commonInstalled&&!s.state.items.empty()&&std::all_of(s.state.items.begin(),s.state.items.end(),[](const Item& item){return item.installed;});const bool complete=installed&&!s.state.newerSkins;s.state.phase=complete?Phase::Complete:Phase::Offered;s.state.message=complete?"All available skins already installed.":s.state.newerSkins?"New skins are available. Update the application to install them. You can still download supported skins below.":"Optional custom skins. Choose everything or select individual skins. Nothing is selected by default.";}
         if(!s.state.visible)s.state.phase=Phase::Idle;
 }
 void Check(bool manual,int preferred,bool previewsOnly=false,bool firstPreviewOffer=false){
     const auto s=Shared();{std::lock_guard<std::mutex> lock(s->mutex);if(s->state.phase==Phase::Downloading)return;s->state.visible=manual;s->state.preferred=preferred;s->state.previewsOnly=previewsOnly;s->firstPreviewOffer=firstPreviewOffer;if(s->state.phase==Phase::Checking){s->cancel=false;return;}s->cancel=false;s->state.phase=Phase::Checking;s->state.message=previewsOnly?"Checking skin previews...":"Checking available skins...";}
-    try{std::thread([s]{try{auto catalog=SkinDownloadData::Parse(Fetch(L"https://raw.githubusercontent.com/coolboygamer4597/Ekte-lidenskap-har-et-navn/main/skin-catalog-v3.json?v="+std::to_wstring(GetTickCount64()),512*1024,s));std::string previewKey;for(const auto& p:catalog.packages)if(p.index==-2)previewKey=p.sha256;const auto declined=Declined();std::lock_guard<std::mutex> lock(s->mutex);s->catalog=std::move(catalog);Populate(*s);
-        Offer(*s,declined,previewKey);
+    try{std::thread([s]{try{auto catalog=SkinDownloadData::Parse(Fetch(L"https://raw.githubusercontent.com/coolboygamer4597/Ekte-lidenskap-har-et-navn/main/skin-catalog-v3.json?v="+std::to_wstring(GetTickCount64()),512*1024,s));std::lock_guard<std::mutex> lock(s->mutex);s->catalog=std::move(catalog);Populate(*s);
+        Offer(*s);
     }catch(const std::exception& error){std::lock_guard<std::mutex> lock(s->mutex);s->state.phase=s->state.visible?Phase::Error:Phase::Idle;s->state.message=error.what();}}).detach();}catch(...){std::lock_guard<std::mutex> lock(s->mutex);s->state.phase=Phase::Error;s->state.message="Could not start the skin catalog check.";}
 }
 }
@@ -67,7 +64,7 @@ void OpenPreviews(){Check(true,-1,true);}
 void VisitPreviews(){const auto s=Shared();{std::lock_guard<std::mutex> lock(s->mutex);if(s->previewsVisited)return;s->previewsVisited=true;}if(!PreviewUpdateData::Present(Base()/L"preview-cache"))Check(true,-1,true,true);}
 
 State Get(){const auto s=Shared();std::lock_guard<std::mutex> lock(s->mutex);return s->state;}
-void Dismiss(){const auto s=Shared();std::string key;{std::lock_guard<std::mutex> lock(s->mutex);if(s->state.phase==Phase::Downloading)return;if(s->state.previewsOnly)for(const auto& p:s->catalog.packages)if(p.index==-2)key=p.sha256;if(s->state.phase==Phase::Checking)s->cancel=true;s->state.visible=false;if(s->state.phase!=Phase::Checking)s->state.phase=Phase::Idle;}if(!key.empty())Remember(key);}
+void Dismiss(){const auto s=Shared();std::lock_guard<std::mutex> lock(s->mutex);if(s->state.phase==Phase::Downloading)return;if(s->state.phase==Phase::Checking)s->cancel=true;s->state.visible=false;if(s->state.phase!=Phase::Checking)s->state.phase=Phase::Idle;}
 
 void Cancel(){Shared()->cancel=true;}
 void Download(const std::vector<int>& selected,bool previews){
