@@ -12,7 +12,7 @@ namespace SkinMix {
 struct Choices {
     std::string ar="Default",glock="Default",arGloves="Default",glockGloves="Default",arSounds,glockSounds;
     std::string arSoundWeapon="AR-15",glockSoundWeapon="Glock 19";
-    bool mute=false;
+    bool mute=false,customAr0416=false;
     SkinLook::Look look;
 };
 inline std::string GlovesForWeapon(const Choices& c,const std::string& weapon){
@@ -21,20 +21,21 @@ inline std::string GlovesForWeapon(const Choices& c,const std::string& weapon){
 inline bool Valid(const Choices& c){
     for(auto p:{&c.ar,&c.glock,&c.arGloves,&c.glockGloves,&c.arSounds,&c.glockSounds})
         if(p->size()>128||p->find_first_of("\r\n\0",0,3)!=std::string::npos)return false;
-    return !c.ar.empty()&&!c.glock.empty()&&!c.arGloves.empty()&&!c.glockGloves.empty()
+    return (!c.customAr0416||c.ar=="0416")&&!c.ar.empty()&&!c.glock.empty()&&!c.arGloves.empty()&&!c.glockGloves.empty()
         &&SkinLook::Valid(c.look)&&(c.arSoundWeapon=="AR-15"||c.arSoundWeapon=="Glock 19")&&(c.glockSoundWeapon=="AR-15"||c.glockSoundWeapon=="Glock 19");
 }
-inline std::string Serialize(const Choices& c){std::ostringstream s;s<<"SKINMIX 3\n"<<std::quoted(c.ar)<<' '<<std::quoted(c.glock)<<' '<<std::quoted(c.arGloves)<<' '<<std::quoted(c.glockGloves)<<' '<<std::quoted(c.arSounds)<<' '<<std::quoted(c.glockSounds)<<' '<<std::quoted(c.arSoundWeapon)<<' '<<std::quoted(c.glockSoundWeapon)<<' '<<c.mute<<'\n';SkinLook::Write(s,c.look);return s.str();}
+inline std::string Serialize(const Choices& c){std::ostringstream s;s<<"SKINMIX 4\n"<<std::quoted(c.ar)<<' '<<std::quoted(c.glock)<<' '<<std::quoted(c.arGloves)<<' '<<std::quoted(c.glockGloves)<<' '<<std::quoted(c.arSounds)<<' '<<std::quoted(c.glockSounds)<<' '<<std::quoted(c.arSoundWeapon)<<' '<<std::quoted(c.glockSoundWeapon)<<' '<<c.mute<<' '<<c.customAr0416<<'\n';SkinLook::Write(s,c.look);return s.str();}
 inline bool Parse(const std::string& text,Choices& output){
     std::istringstream s(text);std::string tag;int version,mute;Choices c;
-    if(!(s>>tag>>version)||tag!="SKINMIX"||(version<1||version>3))return false;
+    if(!(s>>tag>>version)||tag!="SKINMIX"||(version<1||version>4))return false;
     if(!(s>>std::quoted(c.ar)>>std::quoted(c.glock)>>std::quoted(c.arGloves)))return false;
     if(version==1)c.glockGloves=c.arGloves;
     else if(!(s>>std::quoted(c.glockGloves)))return false;
     if(!(s>>std::quoted(c.arSounds)>>std::quoted(c.glockSounds)))return false;
     if(version>=2&&!(s>>std::quoted(c.arSoundWeapon)>>std::quoted(c.glockSoundWeapon)))return false;
     if(!(s>>mute)||mute<0||mute>1)return false;
-    if(version==3&&!SkinLook::Read(s,c.look))return false;
+    if(version>=4){int cross;if(!(s>>cross)||cross<0||cross>1)return false;c.customAr0416=cross!=0;}
+    if(version>=3&&!SkinLook::Read(s,c.look))return false;
     s>>std::ws;if(!s.eof()||!Valid(c))return false;c.mute=mute;output=std::move(c);return true;
 }
 inline bool ValidName(const std::string& n){return !n.empty()&&n.size()<=48&&std::all_of(n.begin(),n.end(),[](unsigned char c){return (c>='A'&&c<='Z')||(c>='a'&&c<='z')||(c>='0'&&c<='9')||c==' '||c=='_'||c=='-';});}

@@ -22,7 +22,7 @@ Address ParseUrl(const std::wstring& url){
     if(url.size()>16384||url.find(L'#')!=std::wstring::npos)throw std::runtime_error("Invalid skin download address.");URL_COMPONENTS p{};p.dwStructSize=sizeof(p);p.dwHostNameLength=p.dwUrlPathLength=p.dwExtraInfoLength=p.dwUserNameLength=p.dwPasswordLength=static_cast<DWORD>(-1);
     if(!WinHttpCrackUrl(url.c_str(),static_cast<DWORD>(url.size()),0,&p)||p.nScheme!=INTERNET_SCHEME_HTTPS||p.nPort!=443||p.dwUserNameLength||p.dwPasswordLength)throw std::runtime_error("Skin downloads require trusted HTTPS.");
     Address a{std::wstring(p.lpszHostName,p.dwHostNameLength),std::wstring(p.lpszUrlPath,p.dwUrlPathLength)};std::transform(a.host.begin(),a.host.end(),a.host.begin(),[](wchar_t c){return static_cast<wchar_t>(towlower(c));});
-    if(a.host==L"raw.githubusercontent.com"){if(a.path!=L"/coolboygamer4597/Ekte-lidenskap-har-et-navn/main/skin-catalog-v3.json")throw std::runtime_error("Unexpected skin catalog location.");}
+    if(a.host==L"raw.githubusercontent.com"){if(a.path!=SkinLibraryProfile::CatalogPath)throw std::runtime_error("Unexpected skin catalog location.");}
     else if(a.host==L"github.com"){if(a.path.rfind(L"/coolboygamer4597/Ekte-lidenskap-har-et-navn/releases/download/skins-",0)!=0)throw std::runtime_error("Unexpected skin repository.");}
     else if(a.host!=L"release-assets.githubusercontent.com"&&a.host!=L"objects.githubusercontent.com")throw std::runtime_error("Unexpected skin download server.");
     if(p.dwExtraInfoLength)a.path.append(p.lpszExtraInfo,p.dwExtraInfoLength);return a;
@@ -53,7 +53,7 @@ void Offer(Manager& s){
 }
 void Check(bool manual,int preferred,bool previewsOnly=false,bool firstPreviewOffer=false){
     const auto s=Shared();{std::lock_guard<std::mutex> lock(s->mutex);if(s->state.phase==Phase::Downloading)return;s->state.visible=manual;s->state.preferred=preferred;s->state.previewsOnly=previewsOnly;s->firstPreviewOffer=firstPreviewOffer;if(s->state.phase==Phase::Checking){s->cancel=false;return;}s->cancel=false;s->state.phase=Phase::Checking;s->state.message=previewsOnly?"Checking skin previews...":"Checking available skins...";}
-    try{std::thread([s]{try{auto catalog=SkinDownloadData::Parse(Fetch(L"https://raw.githubusercontent.com/coolboygamer4597/Ekte-lidenskap-har-et-navn/main/skin-catalog-v3.json?v="+std::to_wstring(GetTickCount64()),512*1024,s));std::lock_guard<std::mutex> lock(s->mutex);s->catalog=std::move(catalog);Populate(*s);
+    try{std::thread([s]{try{auto catalog=SkinDownloadData::Parse(Fetch(std::wstring(L"https://raw.githubusercontent.com")+SkinLibraryProfile::CatalogPath+L"?v="+std::to_wstring(GetTickCount64()),512*1024,s));std::lock_guard<std::mutex> lock(s->mutex);s->catalog=std::move(catalog);Populate(*s);
         Offer(*s);
     }catch(const std::exception& error){std::lock_guard<std::mutex> lock(s->mutex);s->state.phase=s->state.visible?Phase::Error:Phase::Idle;s->state.message=error.what();}}).detach();}catch(...){std::lock_guard<std::mutex> lock(s->mutex);s->state.phase=Phase::Error;s->state.message="Could not start the skin catalog check.";}
 }

@@ -10,7 +10,7 @@ bool RestoreEditorSelection(const std::string& value);
 void RestoreSelection(const std::string& skin);
 void RenderMenu();
 void RenderEditor();
-bool SelectCustomSkin(bool isGlock,const std::string& skin,int texture);
+bool SelectCustomSkin(bool isGlock,const std::string& skin,int texture,std::string* error=nullptr);
 bool CurrentWeaponIsGlock();
 std::string PreviewSelection(const std::string& weapon);
 void Shutdown();

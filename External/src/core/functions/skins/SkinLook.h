@@ -31,13 +31,13 @@ inline bool ValidMaterial(const Material& m){
 }
 inline bool Valid(const Look& l){
     if(!l.present)return true;
-    for(int w=0;w<2;++w){if(l.texture[w]!=-1&&!CustomTextureData::Supports(l.texture[w],w!=0))return false;for(int g=0;g<3;++g)if(!ValidMaterial(l.materials[w][g]))return false;}
+    for(int w=0;w<2;++w){if(l.texture[w]!=-1&&!CustomTextureData::Supports(CustomTextureData::ForWeapon(l.texture[w],w!=0),w!=0))return false;for(int g=0;g<3;++g)if(!ValidMaterial(l.materials[w][g]))return false;}
     return true;
 }
 inline void Apply(const Look& l){
     if(!l.present||!Valid(l))return;
     using namespace variables::Weapons;
-    texturePreset=l.texture[0];glockTexturePreset=l.texture[1];textureShading=l.shading;modelCleanup=l.cleanup;hide=l.hide;preview=l.preview;
+    texturePreset=CustomTextureData::ForWeapon(l.texture[0],false);glockTexturePreset=CustomTextureData::ForWeapon(l.texture[1],true);textureShading=l.shading;modelCleanup=l.cleanup;hide=l.hide;preview=l.preview;
     textureCleanSurface.fill(true);
     SetSharedMaterial(l.materials[0][0]);arMaterial=l.materials[0][0];glockMaterial=l.materials[1][0];weaponMaterialsInitialized=true;separateWeapons=l.separate[0];
     gloves=arGloves=l.materials[0][1];glockGloves=l.materials[1][1];gloveMaterialsInitialized=true;separateGloves=l.separate[1];
@@ -53,8 +53,10 @@ inline bool Read(std::istream& s,Look& l){
     if(!(s>>tag>>version)||tag!="LOOK"||(version!=1&&version!=2)||!(s>>l.present>>l.shading>>l.cleanup>>l.sniper>>l.hide>>l.preview>>l.texture[0]>>l.texture[1]))return false;
     if(version==2&&!(s>>l.rifle))return false;
     for(auto& v:l.separate)if(!(s>>v))return false;
-    for(auto& v:l.clean)if(!(s>>v))return false;
+    std::string rest,line;std::getline(s,rest);if(!(std::istringstream(rest)>>std::ws).eof())return false;if(!std::getline(s,line))return false;
+    std::istringstream values(line);std::size_t count=0;int value=0;while(values>>value){if(value!=0&&value!=1)return false;if(count<l.clean.size())l.clean[count]=value!=0;++count;if(count>4096)return false;}if(!values.eof()||!count)return false;
     for(int w=0;w<2;++w)for(auto& m:l.materials[w]){if(!(s>>m.enabled>>m.glow>>m.style>>m.opacity>>m.speed>>m.scale>>m.glowStrength))return false;for(auto& v:m.color)if(!(s>>v))return false;for(auto& v:m.glowColor)if(!(s>>v))return false;}
+    for(int w=0;w<2;++w)l.texture[w]=CustomTextureData::ForWeapon(l.texture[w],w!=0);
     return Valid(l);
 }
 }

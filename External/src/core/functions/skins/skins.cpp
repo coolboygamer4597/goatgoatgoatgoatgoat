@@ -47,7 +47,6 @@ std::mutex g_stateMutex;
 std::vector<std::string> g_catalog;
 std::string g_selected;
 
-
 std::optional<std::string> g_queuedSelection;
 bool g_editorActive=false;
 SkinMix::Choices g_editorChoices;
@@ -383,6 +382,11 @@ void SetStatus(const std::string& status) {
         g_status = status;
 }
 
+std::string CatalogWeapon(const std::string& weapon,const std::string& skin){
+    std::lock_guard<std::mutex> lock(g_stateMutex);
+    return weapon=="AR-15"&&skin=="0416"&&g_editorActive&&g_editorChoices.customAr0416?"Glock 19":weapon;
+}
+
 bool BuildRecord(const std::string& weapon, const std::string& liveName,
                  const std::string& skinName, SwapRecord& rec, std::string& error,
                  const std::string& sourceOverride = "",
@@ -403,7 +407,8 @@ bool BuildRecord(const std::string& weapon, const std::string& liveName,
     const std::string sourceName = sourceOverride.empty()
         ? weapon + "_" + skinName
         : sourceOverride;
-    const RBX::RbxInstance sourceModel = weapon=="AR-15"&&skinName=="0416"?ResolveCatalogModel(WeaponCatalogRoot().FindChild("Glock 19"),"Glock 19_0416"):ResolveCatalogModel(container, sourceName);
+    const auto catalogWeapon=CatalogWeapon(weapon,skinName);
+    const RBX::RbxInstance sourceModel = catalogWeapon!=weapon?ResolveCatalogModel(WeaponCatalogRoot().FindChild(catalogWeapon.c_str()),catalogWeapon+"_"+skinName):ResolveCatalogModel(container,sourceName);
     if (!liveModel.Addr) {
         error = "catalog is missing " + liveName;
         return false;
@@ -1243,7 +1248,6 @@ bool RestoreStockGloves(std::string& error) {
 void ApplyGlovesCore(const RBX::RbxInstance& armModel,
                      const std::string& selected, std::string& error) {
 
-
     for (auto& rec : g_gloveRecords) {
         if (rec.dirty)
             RestoreCore(rec);
@@ -1549,7 +1553,6 @@ void ApplySelectedSkin(const RBX::RbxInstance& armModel,
         }
     }
 
-
     ApplySoundsCore();
     std::lock_guard<std::mutex> lock(g_stateMutex);
     std::size_t active = 0;
@@ -1643,8 +1646,9 @@ bool ApplySelectionFromUi() {
                 continue;
             }
             const RBX::RbxInstance folder = root.FindChild(candidate.c_str());
-            const auto sourceFolder=candidate=="AR-15"&&selected=="0416"?root.FindChild("Glock 19"):folder;
-            const auto sourceName=candidate=="AR-15"&&selected=="0416"?std::string("Glock 19_0416"):candidate+"_"+selected;
+            const auto catalogWeapon=CatalogWeapon(candidate,selected);
+            const auto sourceFolder=root.FindChild(catalogWeapon.c_str());
+            const auto sourceName=catalogWeapon+"_"+selected;
             if (!sourceFolder.Addr || !ResolveCatalogModel(sourceFolder,sourceName).Addr)
                 continue;
             SwapRecord* rec = FindRecord(candidate);
@@ -1973,16 +1977,11 @@ bool ProcessQueuedSelection() {
     {
         std::lock_guard<std::mutex> lock(g_stateMutex);
 
-
         if (!g_queuedSelection) return true;
         g_selected = std::move(*g_queuedSelection);
         g_queuedSelection.reset();
-        g_editorActive = g_selected=="0416";
+        g_editorActive = false;
         g_editorChoices = {};g_requestedEditorGlove.clear();
-        if(g_editorActive){
-            g_editorChoices.ar="Default";g_editorChoices.glock="0416";
-            g_requestedEditorGlove="Default";g_selected.clear();
-        }
         variables::Weapons::texturePreset=variables::Weapons::glockTexturePreset=-1;
         g_status = g_selected == "Default"
             ? "Restoring the original catalog children vectors..."
@@ -1999,7 +1998,7 @@ bool ProcessQueuedSelection() {
 namespace Skins {
 WeaponPreview::Snapshot CapturePreview(const std::string& weapon,const std::string& skin){
     WeaponPreview::Snapshot offline;offline.name=weapon+" / "+skin;
-    const auto catalogWeapon=weapon=="AR-15"&&skin=="0416"?std::string("Glock 19"):weapon;
+    const auto catalogWeapon=weapon;
     if(PreviewCache::LoadModel(catalogWeapon,skin,offline.vertices))return offline;
     std::unique_lock<std::mutex> lock(g_swapMutex);
     auto root=Globals::dataModel.FindChildByClass("ReplicatedStorage").FindChild("Models").FindChild("Weapons");
@@ -2030,6 +2029,7 @@ void RestoreSelection(const std::string& skin) {
 }
 
 void Tick() {
+    for(bool glock:{false,true}){auto& texture=variables::Weapons::TextureForWeapon(glock);texture=CustomTextureData::ForWeapon(texture,glock);}
     using Clock = std::chrono::steady_clock;
     static auto nextCatalogRefresh = Clock::time_point{};
     static auto nextApply = Clock::time_point{};
@@ -2077,13 +2077,14 @@ bool ApplyEditor(SkinMix::Choices draft,std::string& status){
             else if(draft.arGloves!=g_editorChoices.arGloves)wanted=draft.arGloves;
             else if(draft.glockGloves!=g_editorChoices.glockGloves)wanted=draft.glockGloves;
             draft.arGloves=draft.glockGloves=wanted;keepGloves=g_editorActive&&g_requestedEditorGlove==wanted;
-            SkinSelectionPolicy::ResolveShared0416(g_editorActive?g_editorChoices.ar:g_selected,
+            if(draft.customAr0416)SkinSelectionPolicy::ResolveShared0416(g_editorActive?g_editorChoices.ar:g_selected,
                 g_editorActive?g_editorChoices.glock:g_selected,draft.ar,draft.glock,g_lastLiveWeapon=="Glock 19");
+            if(draft.ar!="0416")draft.customAr0416=false;
             draft.ar=Canonical(draft.ar,g_slotCatalog["AR-15"]);draft.glock=Canonical(draft.glock,g_slotCatalog["Glock 19"]);
             draft.arGloves=Canonical(draft.arGloves,g_gloveCatalog);draft.glockGloves=Canonical(draft.glockGloves,g_gloveCatalog);
             draft.arSounds=Canonical(draft.arSounds,g_slotCatalog[draft.arSoundWeapon]);draft.glockSounds=Canonical(draft.glockSounds,g_slotCatalog[draft.glockSoundWeapon]);}
         if(EnsureDataModel()){
-            for(const auto& pick:std::vector<std::pair<std::string,std::string>>{{draft.ar=="0416"?"Glock 19":"AR-15",draft.ar},{"Glock 19",draft.glock},{draft.arSoundWeapon,draft.arSounds},{draft.glockSoundWeapon,draft.glockSounds}})
+            for(const auto& pick:std::vector<std::pair<std::string,std::string>>{{draft.customAr0416?"Glock 19":"AR-15",draft.ar},{"Glock 19",draft.glock},{draft.arSoundWeapon,draft.arSounds},{draft.glockSoundWeapon,draft.glockSounds}})
                 if(!pick.second.empty()&&pick.second!="Default"&&!OriginalCatalog(pick.first,pick.second).Addr){status="Missing catalog model: "+pick.first+" / "+pick.second;return false;}
             for(const auto& gloves:{draft.arGloves,draft.glockGloves})if(gloves!="Default"&&!IsGloveSkin(gloves)){status="This selection has no glove model: "+gloves;return false;}
             status.clear();if(!ReleaseRequests(status,keepGloves))return false;
@@ -2097,17 +2098,19 @@ bool ApplyEditor(SkinMix::Choices draft,std::string& status){
     status=applied?"Settings equipped":"Settings saved; waiting for the weapon";
     return true;
 }
-bool SelectCustomSkin(bool isGlock,const std::string& skin,int texture){
-    if(texture!=-1&&!CustomTextureData::Supports(texture,isGlock))return false;
-    {std::lock_guard<std::mutex> lock(g_stateMutex);if(g_editorActive&&!g_queuedSelection&&(isGlock?g_editorChoices.glock:g_editorChoices.ar)==skin){variables::Weapons::TextureForWeapon(isGlock)=texture;return true;}}
+bool SelectCustomSkin(bool isGlock,const std::string& skin,int texture,std::string* error){
+    if(error)error->clear();
+    if(texture!=-1&&!CustomTextureData::Supports(texture,isGlock)){if(error)*error="This texture does not support the selected weapon.";return false;}
+    {std::lock_guard<std::mutex> lock(g_stateMutex);if(g_editorActive&&!g_queuedSelection&&(isGlock?g_editorChoices.glock:g_editorChoices.ar)==skin&&(isGlock||g_editorChoices.customAr0416==(skin=="0416"))){variables::Weapons::TextureForWeapon(isGlock)=texture;return true;}}
     auto c=EditorChoices();(isGlock?c.glock:c.ar)=skin;
-    if(skin=="0416"&&(isGlock?c.ar:c.glock)=="0416")(isGlock?c.ar:c.glock)="Default";
+    if(!isGlock)c.customAr0416=skin=="0416";
+    if(c.customAr0416&&skin=="0416"&&(isGlock?c.ar:c.glock)=="0416"){(isGlock?c.ar:c.glock)="Default";if(isGlock)c.customAr0416=false;}
     c.look.present=false;
-    std::string status;if(!ApplyEditor(c,status)){SetStatus(status);return false;}
+    std::string status;if(!ApplyEditor(c,status)){if(error)*error=status;SetStatus(status);return false;}
     variables::Weapons::TextureForWeapon(isGlock)=texture;return true;
 }
 std::string SavedEditorSelection(){std::lock_guard<std::mutex> lock(g_stateMutex);if(!g_editorActive)return {};auto choices=g_editorChoices;choices.look={};return SkinMix::Encode(choices);}
-bool RestoreEditorSelection(const std::string& value){SkinMix::Choices choices;if(!SkinMix::Decode(value,choices))return false;choices.look.present=false;std::string status;return ApplyEditor(choices,status);}
+bool RestoreEditorSelection(const std::string& value){SkinMix::Choices choices;if(!SkinMix::Decode(value,choices))return false;if(choices.customAr0416&&choices.ar=="0416"){choices.ar="Fade";choices.customAr0416=false;}if(choices.glock=="0416")choices.glock="Fade";choices.look.present=false;std::string status;return ApplyEditor(choices,status);}
 bool CurrentWeaponIsGlock(){std::lock_guard<std::mutex> lock(g_stateMutex);return g_lastLiveWeapon=="Glock 19";}
 
 bool UnloadEditor(std::string& status){
@@ -2137,7 +2140,7 @@ void RenderEditor(){
         auto& soundWeapon=glock?draft.glockSoundWeapon:draft.arSoundWeapon;
         if(!filter.PassFilter(label.c_str()))return;
         if(ImGui::Selectable(label.c_str(),selected==value&&(category!=2||value.empty()||soundWeapon==source))){
-            selected=value;if(category==2&&!value.empty())soundWeapon=source;draft.look.present=false;
+            selected=value;if(category==0&&!glock)draft.customAr0416=false;if(category==2&&!value.empty())soundWeapon=source;draft.look.present=false;
             if(ApplyEditor(draft,message)&&category==0)variables::Weapons::TextureForWeapon(glock)=-1;
         }
     };

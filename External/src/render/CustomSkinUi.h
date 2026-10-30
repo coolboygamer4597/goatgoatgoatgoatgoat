@@ -45,16 +45,16 @@ inline void Draw(){
         imGuiCustom::Checkbox("Show weapon preview",&preview,ImVec2(right,295));return;
     }
     Tab("AR",0,customWeapon,left,94,col);Tab("Glock",1,customWeapon,right,94,col);
-    static char skinSearch[2][96]{},textureSearch[2][96]{};static int category=0;
+    static char skinSearch[2][96]{},textureSearch[2][96]{};static int category=0;static std::string selectionError[2];
     previewWeapon=customWeapon;const bool isGlock=customWeapon==1;const std::string selectedWeapon=isGlock?"Glock 19":"AR-15";
     int& selectedPreset=TextureForWeapon(isGlock);const auto selectedSkin=Skins::PreviewSelection(selectedWeapon);
     const auto& installed=Installed();std::vector<std::string> skins;for(int i=0;i<static_cast<int>(CustomTextureData::Presets.size());++i){const auto& preset=CustomTextureData::Presets[i];if(installed[i]&&CustomTextureData::Supports(i,isGlock)&&preset.category==category&&std::find(skins.begin(),skins.end(),preset.skin)==skins.end())skins.push_back(preset.skin);}
-    At(right,139);ImGui::TextUnformatted(UiText::Tr("Supported skins"));At(left,139);ImGui::TextUnformatted(UiText::Tr(category?"Other textures":"CS skins"));
+    At(right,139);ImGui::TextUnformatted(UiText::Tr("Supported skins"));At(left,139);ImGui::TextUnformatted(UiText::Tr(category==2?"Custom model":category==1?"Other textures":"CS skins"));
     At(right,165);ImGui::SetNextItemWidth(col);ImGui::InputTextWithHint("##supported_search",UiText::Tr("Search supported skins..."),skinSearch[customWeapon],96);
     At(left,165);ImGui::SetNextItemWidth(col);ImGui::InputTextWithHint("##custom_texture_search",UiText::Tr("Search textures..."),textureSearch[customWeapon],96);
     At(right,196);ImGui::BeginChild("supported_skin_list",ImVec2(col,124),true);ImGuiTextFilter skinFilter(skinSearch[customWeapon]);
     if(skins.empty())NoSkins();
-    for(const auto& skin:skins)if(skinFilter.PassFilter(skin.c_str())&&ImGui::Selectable(skin.c_str(),selectedSkin==skin))Skins::SelectCustomSkin(isGlock,skin,-1);
+    for(const auto& skin:skins){const char* label=category==2&&skin=="Fade"?"AWP":skin.c_str();if(skinFilter.PassFilter(label)&&ImGui::Selectable(label,selectedSkin==skin))Skins::SelectCustomSkin(isGlock,skin,-1,&selectionError[customWeapon]);}
     ImGui::EndChild();
     At(left,196);ImGui::BeginChild("custom_texture_list",ImVec2(col,124),true);ImGuiTextFilter textureFilter(textureSearch[customWeapon]);bool supported=false;
     for(const auto& skin:skins)if(skin==selectedSkin)supported=true;
@@ -62,18 +62,20 @@ inline void Draw(){
     else if(!supported)ImGui::TextWrapped(UiText::Tr("Select a supported skin to see its textures."));
     for(int index=0;index<static_cast<int>(CustomTextureData::Presets.size());++index){const auto& preset=CustomTextureData::Presets[index];if(!installed[index]||!CustomTextureData::Supports(index,isGlock)||preset.category!=category||std::string(preset.skin)!=selectedSkin||!textureFilter.PassFilter(preset.name))continue;
         const bool selected=selectedPreset==index;
-        if(ImGui::Selectable(preset.name,selected))Skins::SelectCustomSkin(isGlock,preset.skin,selected?-1:index);
+        if(ImGui::Selectable(preset.name,selected))Skins::SelectCustomSkin(isGlock,preset.skin,selected?-1:index,&selectionError[customWeapon]);
         if(ImGui::IsItemHovered()){ImGui::BeginTooltip();ImGui::TextUnformatted(UiText::Tr(selected?"Click again to restore the original texture.":"Equip this texture and keep the selected gloves and sounds."));ImGui::EndTooltip();}
     }ImGui::EndChild();
-    imGuiCustom::SliderFloat("custom_shading_intensity",&textureShadingIntensity,0,10,ImVec2(left,350),width,"Reflection strength","%.2f");
+    imGuiCustom::SliderFloat("custom_shading_intensity",&textureShadingIntensity,0,10,ImVec2(left,350),col,"Reflection strength","%.2f");
     if(ImGui::IsItemHovered()){ImGui::BeginTooltip();ImGui::TextUnformatted(UiText::Tr("0: matte; 1: current shading; 2: stronger reflections. Paint colors stay unchanged."));ImGui::EndTooltip();}
-    imGuiCustom::SliderFloat("custom_shadow_intensity",&textureShadowIntensity,0,10,ImVec2(left,385),width,"Shadow detail","%.2f");
+    imGuiCustom::SliderFloat("custom_shadow_intensity",&textureShadowIntensity,0,10,ImVec2(right,350),col,"Shadow detail","%.2f");
     if(ImGui::IsItemHovered()){ImGui::BeginTooltip();ImGui::TextUnformatted(UiText::Tr("0 keeps the current look. Increase to deepen the weapon's creases and surface shadows."));ImGui::EndTooltip();}
-    At(left,411);if(RetroUi::Choice(category?"Categories: Other":"Categories: CS skins",false,ImVec2(col,28)))ImGui::OpenPopup("##skin_categories");
-    if(ImGui::BeginPopup("##skin_categories")){if(ImGui::Selectable(UiText::Tr("CS skins"),category==0))category=0;if(ImGui::Selectable(UiText::Tr("Other"),category==1))category=1;ImGui::EndPopup();}
+    imGuiCustom::Checkbox("Model glow",&textureModelGlow,ImVec2(left,389));
+    imGuiCustom::SliderFloat("custom_model_glow",&textureModelGlowStrength,0,5,ImVec2(right,385),col,"Glow intensity","%.2f");
+    At(left,411);if(RetroUi::Choice(category==2?"Categories: Custom model":category==1?"Categories: Other":"Categories: CS skins",false,ImVec2(col,28)))ImGui::OpenPopup("##skin_categories");
+    if(ImGui::BeginPopup("##skin_categories")){if(ImGui::Selectable(UiText::Tr("CS skins"),category==0))category=0;if(ImGui::Selectable(UiText::Tr("Other"),category==1))category=1;if(ImGui::Selectable(UiText::Tr("Custom model"),category==2))category=2;ImGui::EndPopup();}
     At(right,411);if(RetroUi::Choice("Download more skins",false,ImVec2(col,28)))SkinDownloads::Open();
     imGuiCustom::Checkbox("Show weapon preview",&preview,ImVec2(left,452));imGuiCustom::Checkbox("Remove extra ornaments",&modelCleanup,ImVec2(right,452));
-    At(left,478);ImGui::Text(UiText::Tr("Equipped: %s"),selectedSkin.empty()?"Default":selectedSkin.c_str());
+    At(left,478);if(selectionError[customWeapon].empty())ImGui::Text(UiText::Tr("Equipped: %s"),selectedSkin.empty()?"Default":category==2&&selectedSkin=="Fade"?"AWP":selectedSkin.c_str());else ImGui::TextWrapped("%s",UiText::Message(selectionError[customWeapon]).c_str());
     if(selectedSkin=="X5"){imGuiCustom::Checkbox("Remove X5 outline",&removeX5Outline,ImVec2(right,478));if(ImGui::IsItemHovered()){ImGui::BeginTooltip();ImGui::TextUnformatted(UiText::Tr("Re-equip the weapon to apply this setting."));ImGui::EndTooltip();}}
 }
 }

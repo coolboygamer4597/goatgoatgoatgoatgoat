@@ -60,7 +60,7 @@ inline void Refresh(bool restoreEffects=false){
  const auto weapons=Globals::dataModel.FindChildByClass("ReplicatedStorage").FindChild("Models").FindChild("Weapons");
  for(const char* weapon:{"AR-15","Glock 19"}){
   const auto folder=weapons.FindChild(weapon);
-  for(const char* skin:{"Default","X5"}){const auto model=folder.FindChild((std::string(weapon)+"_"+skin).c_str());if(model.Addr)queue.push_back({model,0,1,false,std::string(weapon)=="Glock 19",true});}
+  for(const char* skin:{"Default","X5","Gold"}){const auto model=folder.FindChild((std::string(weapon)+"_"+skin).c_str());if(model.Addr)queue.push_back({model,0,1,false,std::string(weapon)=="Glock 19",true});}
  }
 
  std::unordered_set<std::uintptr_t> visited;
@@ -70,10 +70,11 @@ inline void Refresh(bool restoreEffects=false){
   if(Matches(name)){n.kind=1;n.isGlock=name.find("Glock")!=std::string::npos;}
   else if(lower.find("glove")!=lower.npos)n.kind=3;
   else if(lower=="left arm"||lower=="right arm"||lower=="leftarm"||lower=="rightarm")n.kind=2;
-  if(particleLayout&&cls=="ParticleEmitter"&&n.kind==1&&n.source){
+  if(particleLayout&&cls=="ParticleEmitter"&&n.kind==1&&(n.source||n.first)){
    const auto parent=n.item.GetParent();const auto texture=CustomTextureData::AssetId(memory->read_string(n.item.Addr+particleLayout.texture));
-   if(WeaponOrnamentRuntime::Glint(name,parent.GetName(),texture)){
-    const auto preset=variables::Weapons::TextureForWeapon(n.isGlock);const bool hide=!restoreEffects&&variables::Weapons::modelCleanup&&CustomTextureData::Supports(preset,n.isGlock)&&CustomTextureData::Presets[preset].model==0;
+   const bool glint=WeaponOrnamentRuntime::Glint(name,parent.GetName(),texture),gold=WeaponOrnamentRuntime::GoldEffect(name,parent.GetName(),texture);
+   if(glint||gold){
+    const auto preset=variables::Weapons::TextureForWeapon(n.isGlock);const bool hide=!restoreEffects&&variables::Weapons::modelCleanup&&CustomTextureData::Supports(preset,n.isGlock)&&((glint&&CustomTextureData::Presets[preset].model==0)||(gold&&CustomTextureData::Presets[preset].model==3));
     effects.push_back({n.item.Addr,parent.Addr,memory->Read<std::uintptr_t>(n.item.Addr+Offsets::Instance::ClassDescriptor),n.item.Addr+particleLayout.rate,hide});
     if(particleLayout.transparency)effects.push_back({n.item.Addr,parent.Addr,memory->Read<std::uintptr_t>(n.item.Addr+Offsets::Instance::ClassDescriptor),n.item.Addr+particleLayout.transparency,hide,true});
     if(particleLayout.lifetime)for(std::uintptr_t step=0;step<2;++step){const auto component=(hide?step:1-step)*4;effects.push_back({n.item.Addr,parent.Addr,memory->Read<std::uintptr_t>(n.item.Addr+Offsets::Instance::ClassDescriptor),n.item.Addr+particleLayout.lifetime+component,hide});}

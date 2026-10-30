@@ -93,6 +93,8 @@ inline std::vector<Field>& Fields(){static auto fields=[] {std::vector<Field> ou
         Add(out,3,"Weapons.textureShading",variables::Weapons::textureShading);
         Add(out,3,"Weapons.textureShadingIntensity",variables::Weapons::textureShadingIntensity);
         Add(out,3,"Weapons.textureShadowIntensity",variables::Weapons::textureShadowIntensity);
+        Add(out,3,"Weapons.textureModelGlow",variables::Weapons::textureModelGlow);
+        Add(out,3,"Weapons.textureModelGlowStrength",variables::Weapons::textureModelGlowStrength);
         for(int slot=0;slot<2;++slot){
             auto& m=slot?variables::Weapons::glockMaterial:variables::Weapons::arMaterial;
             const std::string key=slot?"Weapons.glockMaterial.":"Weapons.arMaterial.";

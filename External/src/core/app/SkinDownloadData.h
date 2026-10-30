@@ -1,5 +1,6 @@
 #pragma once
 #include "PreviewUpdateData.h"
+#include "SkinLibraryProfile.h"
 #include <map>
 #include <set>
 #include <atomic>
@@ -14,7 +15,7 @@ struct Catalog{std::size_t newer=0;std::string tag,key;std::vector<Package> pack
 inline std::set<std::wstring> Expected(int index){
     std::set<std::wstring> result;
     if(index==-1){for(const wchar_t* name:{L"neutral-normal.png",L"native-x5.gwm",L"native-m4a1.gwm",L"native-0416.gwm",L"native-deagle.gwm",L"native-glock.gwm"})result.insert(name);const wchar_t* models[]={L"x5",L"m4a1",L"0416",L"deagle",L"glock"};const int groups[]={1,3,4,1,4};for(int i=0;i<5;++i)for(int g=0;g<groups[i];++g)result.insert(L"shadow-"+std::wstring(models[i])+L"-"+std::to_wstring(g)+L".png");}
-    else if(CustomTextureData::Available(index)){if(CustomTextureData::RequiresModel(index)){result.insert(CustomTextureData::ModelName(index));result.insert(CustomTextureData::NativeModelName(index));}result.insert(CustomTextureData::PreviewName(index));for(int g=0;g<CustomTextureData::Presets[index].groups;++g)for(auto c:{CustomTextureData::Channel::Color,CustomTextureData::Channel::Material})result.insert(CustomTextureData::Name(index,c,g));}
+    else if(CustomTextureData::Available(index)){{result.insert(CustomTextureData::ModelName(index));if(CustomTextureData::RequiresModel(index))result.insert(CustomTextureData::NativeModelName(index));}result.insert(CustomTextureData::PreviewName(index));for(int g=0;g<CustomTextureData::Presets[index].groups;++g)for(auto c:{CustomTextureData::Channel::Color,CustomTextureData::Channel::Material})result.insert(CustomTextureData::Name(index,c,g));for(int g=0;g<CustomTextureData::Presets[index].groups;++g){const auto shadow=CustomTextureData::ShadowName(index,g);if(!shadow.empty())result.insert(shadow);}}
     return result;
 }
 inline Catalog Parse(const std::string& envelope){
@@ -22,7 +23,7 @@ inline Catalog Parse(const std::string& envelope){
     const auto signedData=OffsetData::Parse(envelope);const auto payload=signedData.At("payload").Str();AppUpdateData::Signature(payload,signedData.At("signature").Str());const auto data=OffsetData::Parse(payload);
     if(OffsetData::Uint(data.At("schema"))!=1||data.At("kind").Str()!="GoatNativeSkins")throw std::runtime_error("Unsupported skin catalog.");
     Catalog result;result.tag=data.At("tag").Str();result.key=AppUpdateData::HexHash(payload);
-    if(result.tag.rfind("skins-",0)!=0||result.tag.size()>64||result.tag.find_first_not_of("abcdefghijklmnopqrstuvwxyz0123456789-")!=std::string::npos)throw std::runtime_error("Invalid skin release identifier.");
+    if(result.tag.rfind(SkinLibraryProfile::TagPrefix,0)!=0||result.tag.size()>64||result.tag.find_first_not_of("abcdefghijklmnopqrstuvwxyz0123456789-")!=std::string::npos)throw std::runtime_error("Invalid skin release identifier.");
     const auto& packages=data.At("packages");if(packages.kind!=OffsetData::Json::Object||packages.object.size()>256)throw std::runtime_error("Invalid skin package list.");
     bool common=false;
     for(const auto& item:packages.object){

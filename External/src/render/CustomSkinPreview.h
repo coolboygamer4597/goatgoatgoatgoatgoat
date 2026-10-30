@@ -36,12 +36,21 @@ inline void Suspend(){viewer.Suspend();image.Reset();requested.clear();finished=
 inline void Draw(ID3D11Device* device,ID3D11DeviceContext* context,bool isGlock){
     const int selected=variables::Weapons::TextureForWeapon(isGlock);
     if(!CustomTextureData::Supports(selected,isGlock)){ImGui::TextUnformatted(UiText::Tr("Select a custom texture to preview it."));return;}
-    const auto& preset=CustomTextureData::Presets[selected];ImGui::Text(UiText::Tr("%s / %s"),preset.skin,preset.name);
+    const auto& preset=CustomTextureData::Presets[selected];ImGui::Text(UiText::Tr("%s / %s"),CustomTextureData::IsAwpHost(selected)?"AWP":preset.skin,preset.name);
     if(ImGui::RadioButton(UiText::Tr("Side profile"),mode==0))mode=0;ImGui::SameLine();if(ImGui::RadioButton(UiText::Tr("3D"),mode==1))mode=1;
     if(mode==1){
         ImGui::SameLine();if(ImGui::SmallButton(UiText::Tr("Reset view")))viewer.Reset();
-        viewer.Shading(variables::Weapons::textureShading);viewer.Intensity(variables::Weapons::textureShadingIntensity);viewer.Shadow(variables::Weapons::textureShadowIntensity);viewer.Poll(device,selected);viewer.Render(context);auto texture=viewer.Image();const auto room=ImGui::GetContentRegionAvail();
-        if(texture){const float scale=(std::min)(room.x/1024.f,(std::max)(1.f,room.y-20.f)/600.f);const ImVec2 size(1024*scale,600*scale),position=ImGui::GetCursorScreenPos();ImGui::GetWindowDrawList()->AddImage((ImTextureID)texture,position,ImVec2(position.x+size.x,position.y+size.y));ImGui::InvisibleButton("##custom_model_orbit",size);if(ImGui::IsItemActive()&&ImGui::IsMouseDragging(ImGuiMouseButton_Left))viewer.Orbit(ImGui::GetIO().MouseDelta.x,ImGui::GetIO().MouseDelta.y);if(ImGui::IsItemHovered()&&ImGui::GetIO().MouseWheel!=0)viewer.Zoom(ImGui::GetIO().MouseWheel);ImGui::TextUnformatted(UiText::Tr("Drag to rotate; scroll to zoom."));}
+        viewer.Shading(variables::Weapons::textureShading);viewer.Intensity(variables::Weapons::textureShadingIntensity);viewer.Shadow(variables::Weapons::textureShadowIntensity);viewer.Glow(variables::Weapons::textureModelGlow?variables::Weapons::textureModelGlowStrength:0.f);viewer.Poll(device,selected);viewer.Render(context);auto texture=viewer.Image();const auto room=ImGui::GetContentRegionAvail();
+        if(texture){
+            const float crop=viewer.cropHalf,aspect=1024.f/(1200.f*crop);const float imageWidth=(std::max)(1.f,room.x),imageHeight=imageWidth/aspect;
+            const float desiredHeight=ImGui::GetCursorPosY()+imageHeight+ImGui::GetTextLineHeightWithSpacing()+ImGui::GetStyle().WindowPadding.y;
+            const float maximum=(std::max)(260.f,ImGui::GetIO().DisplaySize.y-30.f);ImGui::SetWindowSize(ImVec2(ImGui::GetWindowWidth(),std::clamp(desiredHeight,230.f,maximum)));
+            const float availableHeight=(std::max)(80.f,ImGui::GetContentRegionAvail().y-ImGui::GetTextLineHeightWithSpacing()),fittedWidth=(std::min)(imageWidth,availableHeight*aspect);
+            const ImVec2 size(fittedWidth,fittedWidth/aspect),position=ImGui::GetCursorScreenPos()+ImVec2((imageWidth-fittedWidth)*.5f,0);ImGui::SetCursorScreenPos(position);
+            ImGui::GetWindowDrawList()->AddImage((ImTextureID)texture,position,ImVec2(position.x+size.x,position.y+size.y),ImVec2(0,.5f-crop),ImVec2(1,.5f+crop));ImGui::InvisibleButton("##custom_model_orbit",size);
+            if(ImGui::IsItemActive()&&ImGui::IsMouseDragging(ImGuiMouseButton_Left))viewer.Orbit(ImGui::GetIO().MouseDelta.x,ImGui::GetIO().MouseDelta.y);
+            if(ImGui::IsItemHovered()&&ImGui::GetIO().MouseWheel!=0)viewer.Zoom(ImGui::GetIO().MouseWheel);ImGui::TextUnformatted(UiText::Tr("Drag to rotate; scroll to zoom."));
+        }
         else{ImGui::TextUnformatted(UiText::Tr(viewer.Failed?"3D preview could not be prepared.":viewer.Missing?"Preview files are missing.":"Preparing 3D preview..."));if(viewer.Missing&&RetroUi::Choice("Download more skin",false,ImVec2(210,28)))SkinDownloads::Open();}
         return;
     }

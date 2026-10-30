@@ -12,6 +12,7 @@ inline Layout Resolve(const std::string& version,std::uintptr_t rate=0,std::uint
 }
 inline std::uintptr_t OutlineField(const std::string& version,std::uintptr_t field=0){if(!field&&version=="version-9ac8595712b447a7")field=0xd4;return field>=0x80&&field<0x1000&&field%4==0?field:0;}
 inline bool Glint(const std::string& name,const std::string& parent,const std::string& asset){return name=="Glint"&&parent=="GlintAttach"&&asset=="13279119039";}
+inline bool GoldEffect(const std::string& name,const std::string& parent,const std::string& asset){return (name=="Dust"&&(parent=="Bolt"||parent=="handle1")&&asset=="7216854591")||(name=="FlashFX[Flash]"&&parent=="FirePart"&&asset=="9563725822");}
 struct Candidate{std::uintptr_t address=0,parent=0,descriptor=0,field=0;bool hidden=false,transparency=false;};
 struct Change{Candidate identity;float original=0;};
 struct ByteChange{Candidate identity;std::uint8_t original=0;};

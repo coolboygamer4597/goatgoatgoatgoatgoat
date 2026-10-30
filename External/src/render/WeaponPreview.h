@@ -318,7 +318,7 @@ inline void Draw(ID3D11Device* device,ID3D11DeviceContext* context,ImVec2 mainPo
     if(!viewer)viewer=std::make_unique<Viewer>();
     static int weapon=0;if(selectedWeapon>=0)weapon=selectedWeapon;
     const auto display=ImGui::GetIO().DisplaySize;
-    const ImVec2 preferred=weapon?ImVec2(420,430):ImVec2(600,330);
+    const ImVec2 preferred=custom?ImVec2(680,340):weapon?ImVec2(420,430):ImVec2(600,330);
     ImVec2 position{mainPos.x+mainSize.x+12,mainPos.y+42};
     ImGui::SetNextWindowPos(position,ImGuiCond_FirstUseEver);
     ImGui::SetNextWindowSize(preferred,ImGuiCond_FirstUseEver);
@@ -332,6 +332,7 @@ inline void Draw(ID3D11Device* device,ID3D11DeviceContext* context,ImVec2 mainPo
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding,ImVec2(9,9));
     ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize,1);
     if(ImGui::Begin("Weapon preview",&variables::Weapons::preview,ImGuiWindowFlags_NoCollapse|ImGuiWindowFlags_NoSavedSettings)){
+        static bool previousCustom=false;if(custom!=previousCustom){ImGui::SetWindowSize(preferred);previousCustom=custom;}
         const int previous=weapon;
         if(selectedWeapon<0){ImGui::RadioButton("AR-15",&weapon,0);ImGui::SameLine();ImGui::RadioButton("Glock",&weapon,1);}else ImGui::TextUnformatted(weapon?"Glock":"AR-15");
         if(custom){CustomSkinPreview::Draw(device,context,weapon!=0);}else{

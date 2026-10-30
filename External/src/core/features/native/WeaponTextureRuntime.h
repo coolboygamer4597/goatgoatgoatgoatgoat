@@ -8,7 +8,7 @@ namespace WeaponTextureRuntime {
 constexpr std::uint32_t createTexture=0xB00,createView=0xB08;
 constexpr std::uint32_t bank=0xB10,bankStride=0x40,bankCount=4;
 constexpr std::uint32_t texture=0,view=8,materialTexture=16,materialView=24,normalTexture=32,normalView=40,flags=48,hits=52;
-constexpr std::uint32_t textureCommand=9,viewCommand=10,releaseCommand=11;
+constexpr std::uint32_t textureCommand=9,viewCommand=10,releaseCommand=11,releaseBundleCommand=14;
 constexpr std::uint32_t targetFlag=0x400,glockFlag=0x800,groupShift=12,groupMask=3<<groupShift;
 constexpr std::uint32_t colorSlot=3,nativeOverlayFlag=0x8000;
 constexpr std::uint32_t projectionFlag=0x20000;
@@ -39,7 +39,8 @@ struct Code {
 inline void AppendCommands(std::vector<std::uint8_t>& bytes,std::uint64_t state) {
     Code c{bytes};c.State(state);c.Bytes({0x8B,0x48,4,0x83,0xF9,textureCommand});auto textureCase=c.Jump(4);
     c.Bytes({0x83,0xF9,viewCommand});auto viewCase=c.Jump(4);
-    c.Bytes({0x83,0xF9,releaseCommand});auto releaseCase=c.Jump(4);auto unrelated=c.Jump();
+    c.Bytes({0x83,0xF9,releaseCommand});auto releaseCase=c.Jump(4);
+    c.Bytes({0x83,0xF9,releaseBundleCommand});auto releaseBundleCase=c.Jump(4);auto unrelated=c.Jump();
     c.Patch(textureCase);c.Bytes({0x48,0x83,0xEC,0x48});
     c.Bytes({0x48,0xC7,0x80});c.D32(0x90);c.D32(0);
     c.Bytes({0x48,0x8B,0x48,0x10,0x48,0x8D,0x90});c.D32(0x200);
@@ -48,17 +49,25 @@ inline void AppendCommands(std::vector<std::uint8_t>& bytes,std::uint64_t state)
     c.Bytes({0x48,0xC7,0x80});c.D32(0x90);c.D32(0);
     c.Bytes({0x48,0x8B,0x48,0x10,0x48,0x8B,0x90});c.D32(0x80);
     c.Bytes({0x45,0x31,0xC0,0x4C,0x8D,0x88});c.D32(0x90);c.Call(createView);auto viewDone=c.Jump();
-    c.Patch(releaseCase);c.Bytes({0x48,0x83,0xEC,0x48});
-    for(std::uint32_t group=0;group<bankCount;++group){
-    c.Bytes({0xC7,0x80});c.D32(bank+group*bankStride+flags);c.D32(0);
-    for(auto local:{view,texture,materialView,materialTexture,normalView,normalTexture}) {
-        const auto field=bank+group*bankStride+local;
-        c.State(state);c.Bytes({0x48,0x8B,0x88});c.D32(field);c.Bytes({0x48,0x85,0xC9});auto empty=c.Jump(4);
-        c.Bytes({0x48,0x8B,0x01,0xFF,0x50,0x10});c.Patch(empty);c.State(state);
-        c.Bytes({0x48,0xC7,0x80});c.D32(field);c.D32(0);
+    auto releaseSetup=[&](std::size_t branch,bool bundle){
+        c.Patch(branch);c.Bytes({0x53,0x56,0x57,0x48,0x83,0xEC,0x20});
+        c.State(state);
+        if(bundle){c.Bytes({0x48,0x8B,0x98});c.D32(0x80);}
+        else{c.Bytes({0x48,0x8D,0x98});c.D32(bank);}
+        c.Bytes({0xBE,4,0,0,0,0xBF});c.D32(bundle?48:bankStride);
+    };
+    releaseSetup(releaseCase,false);const auto releaseLoop=c.Jump();releaseSetup(releaseBundleCase,true);c.Patch(releaseLoop);
+    const auto loop=bytes.size();c.Bytes({0x83,0xFF,bankStride});const auto packed=c.Jump(5);
+    c.Bytes({0xC7,0x43,flags,0,0,0,0});c.Patch(packed);
+    for(auto field:{view,texture,materialView,materialTexture,normalView,normalTexture}){
+        c.Bytes({0x48,0x8B,0x4B,std::uint8_t(field),0x48,0x85,0xC9});const auto empty=c.Jump(4);
+        c.Bytes({0x48,0x8B,0x01,0xFF,0x50,0x10});c.Patch(empty);
+        c.Bytes({0x48,0xC7,0x43,std::uint8_t(field),0,0,0,0});
     }
-    }
-    c.Bytes({0x48,0xC7,0x80});c.D32(0x90);c.D32(1);c.Bytes({0x31,0xC0});
+    c.Bytes({0x48,0x01,0xFB,0xFF,0xCE});const auto again=c.Jump(5);const std::int32_t back=static_cast<std::int32_t>(loop)-static_cast<std::int32_t>(again+4);std::memcpy(bytes.data()+again,&back,4);
+    c.State(state);c.Bytes({0x48,0xC7,0x80});c.D32(0x90);c.D32(1);
+    c.Bytes({0xC7,0x40,4,0,0,0,0,0xFF,0x80});c.D32(0xB0);c.Bytes({0xC7,0x80});c.D32(0x1F0);c.D32(0);
+    c.Bytes({0x48,0x83,0xC4,0x20,0x5F,0x5E,0x5B,0xC3});
     c.Patch(textureDone);c.Patch(viewDone);c.Bytes({0x48,0xB9});c.U64(state);c.Bytes({0x89,0x81});c.D32(0x1F0);
     c.Bytes({0xC7,0x41,4,0,0,0,0,0xFF,0x81});c.D32(0xB0);
     c.Bytes({0x48,0x83,0xC4,0x48,0xC3});c.Patch(unrelated);

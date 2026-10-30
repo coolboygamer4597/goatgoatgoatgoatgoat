@@ -4,6 +4,8 @@
 #include "NativeReplacement.h"
 #include "NativeReplacementCode.h"
 #include "NativeReplacementRuntime.h"
+#include "NativeCommandFlow.h"
+#include "NativeTextureBudget.h"
 #include "TextureChoiceGate.h"
 #include "TextureProjectionRuntime.h"
 #include "../../app/TextureProjectionData.h"
@@ -36,6 +38,7 @@
 
 #include <algorithm>
 #include <array>
+#include <map>
 #include <chrono>
 #include <cmath>
 #include <cstddef>
@@ -718,6 +721,7 @@ static_assert(offsetof(RemoteState, out_res) == 0x90);
 static_assert(offsetof(RemoteState, geoms) == 0xA0);
 static_assert(offsetof(RemoteState, entered) == 0xA8);
 static_assert(offsetof(RemoteState, busy) == 0xB4);
+static_assert(offsetof(RemoteState,last_rtv)==NativeReplacementRuntime::drawLock);
 static_assert(offsetof(RemoteState, il_count) == 0xBC);
 static_assert(offsetof(RemoteState, frame) == 0xC0);
 static_assert(offsetof(RemoteState, fn_create_vs) == 0x120);
@@ -1739,8 +1743,6 @@ std::vector<std::uint8_t> make_projection_thunk(){
     bytes({0x4D,0x85,0xD2});
     const auto noBodyCache=append_jcc32(c,0x04);
     bytes({0x41,0x8B,0x8E}); disp32(offsetof(RemoteState,entered));
-    bytes({0x41,0x39,0x4A,0x08});
-    const auto bodyCached=append_jcc32(c,0x04);
     bytes({0x41,0x89,0x4A,0x08});
     bytes({0x41,0xC7,0x42,0x0C,0,0,0,0});
     bytes({0x49,0x8B,0x86}); disp32(k_body_reader_off);
@@ -1755,7 +1757,6 @@ std::vector<std::uint8_t> make_projection_thunk(){
     append_call_rax(c);
     bytes({0x4C,0x8B,0x94,0x24}); disp32(0x98);
     bytes({0x41,0x89,0x42,0x0C});
-    patch_rel32(c,bodyCached,c.size());
     patch_rel32(c,noBodyReader,c.size());
     bytes({0x41,0x83,0x7A,0x0C,0});
     const auto bodyFailed=append_jcc32(c,0x04);
@@ -2646,56 +2647,93 @@ bool pump_creates()
 	return g.stage >= 11;
 }
 
-struct NativeMeshUpload{DWORD pid=0;std::uintptr_t request=0,data=0,code=0;int phase=0;bool failed=false;};
+struct NativeMeshUpload{DWORD pid=0;std::uintptr_t request=0,data=0,code=0;int phase=0;bool failed=false;std::array<std::uintptr_t,8> boundMaps{};std::wstring asset;std::chrono::steady_clock::time_point retry{};};
 NativeMeshUpload nativeMesh;
+DWORD nativeCodePid=0;std::uintptr_t nativeCode=0;
 void texture_flags(bool ready);
-bool native_mesh_ready(){return nativeMesh.pid==memory->get_process_id()&&nativeMesh.phase==2&&!nativeMesh.failed&&nativeMesh.request;}
+void release_native_mesh(bool wait=false);
+bool texture_command_owns_reply();
+bool native_mesh_ready(){return nativeMesh.pid==memory->get_process_id()&&nativeMesh.phase==2&&!nativeMesh.failed&&nativeMesh.request&&nativeMesh.asset==CustomTextureData::NativeModelName(WeaponVisuals::TextureSelection());}
 bool pump_native_mesh(){
     auto& m=nativeMesh;const auto pid=memory->get_process_id();if(m.pid!=pid){m={};m.pid=pid;}
     const int desired=WeaponVisuals::TextureSelection();
+    if(!NativeCommandFlow::NativeOwnsReply(m.phase)&&texture_command_owns_reply())return true;
+    if(m.phase==4){release_native_mesh();if(m.request)return false;m.pid=pid;}
+    if(m.phase==3){take_out();if(g.cmd_wait)return false;m.phase=2;}
     if(m.phase==1){const auto result=take_out();if(g.cmd_wait)return false;const auto ready=memory->Read<unsigned>(m.request+offsetof(NativeReplacement::Request,ready));m.failed=!result||!ready;m.phase=2;std::printf("[NativeModel] create %s\n",m.failed?"failed":"ready");}
-    if(desired!=108)return true;
-    if(m.failed)return false;
+    if(!CustomTextureData::RequiresModel(desired)){
+        if(m.phase==2&&m.request&&std::any_of(m.boundMaps.begin(),m.boundMaps.end(),[](auto value){return value!=0;})){
+            if(g.cmd_wait)return false;std::array<std::uintptr_t,8> empty{};if(memory->WriteRaw(m.request+offsetof(NativeReplacement::Request,pendingMaps),empty.data(),sizeof(empty))!=sizeof(empty))return false;m.boundMaps=empty;m.phase=3;issue_cmd(NativeReplacementRuntime::mapsCommand,0,0,0);return false;
+        }
+        return true;
+    }
+    const auto asset=CustomTextureData::NativeModelName(desired);const auto now=std::chrono::steady_clock::now();
+    if(m.failed&&now<m.retry)return false;
+    if(m.asset!=asset||m.failed){if(g.cmd_wait)return false;if(m.request){release_native_mesh();if(m.request)return false;}m={};m.pid=pid;m.asset=asset;}
     if(m.phase==2)return true;
-    if(g.cmd_wait)return true;
+    if(g.cmd_wait)return false;
+    m.retry=now+std::chrono::seconds(2);
     if(!g.projection_enabled){m.failed=true;return false;}
-    CustomModelData::Mesh mesh;if(!CustomModelData::Load(RuntimePaths::File(L"custom-textures")/L"wastelander-native.gwm",mesh)){m.failed=true;return false;}
+    CustomModelData::Mesh mesh;if(!CustomModelData::Load(RuntimePaths::File(L"custom-textures")/asset,mesh)){m.failed=true;return false;}
     std::vector<std::uint8_t> vs,ps;ID3DBlob* rawVertex=nullptr;ID3DBlob* rawPixel=nullptr;ID3DBlob* rawError=nullptr;
     struct Blobs{ID3DBlob*& a;ID3DBlob*& b;ID3DBlob*& e;~Blobs(){if(a)a->Release();if(b)b->Release();if(e)e->Release();}}blobs{rawVertex,rawPixel,rawError};
     if(FAILED(D3DCompile(NativeReplacement::Shader,std::strlen(NativeReplacement::Shader),nullptr,nullptr,nullptr,"vs","vs_5_0",D3DCOMPILE_OPTIMIZATION_LEVEL3,0,&rawVertex,&rawError))||FAILED(D3DCompile(NativeReplacement::Shader,std::strlen(NativeReplacement::Shader),nullptr,nullptr,nullptr,"ps","ps_5_0",D3DCOMPILE_OPTIMIZATION_LEVEL3,0,&rawPixel,&rawError))){m.failed=true;return false;}
     ID3DBlob* rawEncoded=nullptr;struct Encoded{ID3DBlob*& value;~Encoded(){if(value)value->Release();}}encoded{rawEncoded};if(FAILED(D3DCompile(NativeReplacement::Shader,std::strlen(NativeReplacement::Shader),nullptr,nullptr,nullptr,"psEncoded","ps_5_0",D3DCOMPILE_OPTIMIZATION_LEVEL3,0,&rawEncoded,nullptr))){m.failed=true;return false;}
     const auto bytes=sizeof(NativeReplacement::Request)+32+rawVertex->GetBufferSize()+rawPixel->GetBufferSize()+rawEncoded->GetBufferSize()+mesh.vertices.size()*36;
     m.data=memory->Alloc(bytes,PAGE_READWRITE);if(!m.data){m.failed=true;return false;}m.request=m.data;
-    m.code=find_dll_cave((sizeof(NativeReplacementCode::Bytes)+15)&~std::size_t(15),0);
-    if(!m.code||!write_exec(m.code,NativeReplacementCode::Bytes,sizeof(NativeReplacementCode::Bytes))){m.failed=true;return false;}FlushInstructionCache(memory->GetHandle(),reinterpret_cast<void*>(m.code),sizeof(NativeReplacementCode::Bytes));
-    for(unsigned offset:{NativeReplacementCode::Initialize,NativeReplacementCode::Draw,NativeReplacementCode::Release})mark_cfg(m.code+offset);
-    NativeReplacement::Request request;request.device=reinterpret_cast<ID3D11Device*>(g.device);request.context=reinterpret_cast<ID3D11DeviceContext*>(g.ctx);request.vertexCount=static_cast<unsigned>(mesh.vertices.size());
+    if(nativeCodePid!=pid){nativeCodePid=pid;nativeCode=0;}
+    if(nativeCode){std::array<std::uint8_t,sizeof(NativeReplacementCode::Bytes)> current{};if(memory->ReadRaw(nativeCode,current.data(),current.size())!=current.size()||std::memcmp(current.data(),NativeReplacementCode::Bytes,current.size()))nativeCode=0;}
+    if(!nativeCode){nativeCode=find_dll_cave((sizeof(NativeReplacementCode::Bytes)+15)&~std::size_t(15),0);if(!nativeCode||!write_exec(nativeCode,NativeReplacementCode::Bytes,sizeof(NativeReplacementCode::Bytes))){m.failed=true;return false;}FlushInstructionCache(memory->GetHandle(),reinterpret_cast<void*>(nativeCode),sizeof(NativeReplacementCode::Bytes));}
+    m.code=nativeCode;
+    for(unsigned offset:{NativeReplacementCode::Initialize,NativeReplacementCode::Draw,NativeReplacementCode::Release,NativeReplacementCode::SetMaps})mark_cfg(m.code+offset);
+    NativeReplacement::Request request;request.depthStandard=reinterpret_cast<ID3D11DepthStencilState*>(memory->Read<std::uintptr_t>(g.state+k_depth_visible_standard));request.depthReversed=reinterpret_cast<ID3D11DepthStencilState*>(memory->Read<std::uintptr_t>(g.state+k_depth_visible_reversed));request.device=reinterpret_cast<ID3D11Device*>(g.device);request.context=reinterpret_cast<ID3D11DeviceContext*>(g.ctx);request.vertexCount=static_cast<unsigned>(mesh.vertices.size());
     const auto semantics=m.data+sizeof(request);const char names[]="POSITION\0NORMAL\0TEXCOORD\0";memory->WriteRaw(semantics,names,sizeof(names));
     D3D11_INPUT_ELEMENT_DESC elements[]={{reinterpret_cast<const char*>(semantics),0,DXGI_FORMAT_R32G32B32_FLOAT,0,0,D3D11_INPUT_PER_VERTEX_DATA,0},{reinterpret_cast<const char*>(semantics+9),0,DXGI_FORMAT_R32G32B32_FLOAT,0,12,D3D11_INPUT_PER_VERTEX_DATA,0},{reinterpret_cast<const char*>(semantics+16),0,DXGI_FORMAT_R32G32_FLOAT,0,24,D3D11_INPUT_PER_VERTEX_DATA,0},{reinterpret_cast<const char*>(semantics+16),1,DXGI_FORMAT_R32_UINT,0,32,D3D11_INPUT_PER_VERTEX_DATA,0}};std::copy(std::begin(elements),std::end(elements),request.elements);
     auto data=semantics+32;request.vertexCode=reinterpret_cast<void*>(data);request.vertexCodeBytes=rawVertex->GetBufferSize();memory->WriteRaw(data,rawVertex->GetBufferPointer(),rawVertex->GetBufferSize());data+=rawVertex->GetBufferSize();request.pixelCode=reinterpret_cast<void*>(data);request.pixelCodeBytes=rawPixel->GetBufferSize();memory->WriteRaw(data,rawPixel->GetBufferPointer(),rawPixel->GetBufferSize());data+=rawPixel->GetBufferSize();request.encodedCode=reinterpret_cast<void*>(data);request.encodedCodeBytes=rawEncoded->GetBufferSize();memory->WriteRaw(data,rawEncoded->GetBufferPointer(),rawEncoded->GetBufferSize());data+=rawEncoded->GetBufferSize();request.vertexData.pSysMem=reinterpret_cast<void*>(data);memory->WriteRaw(data,mesh.vertices.data(),mesh.vertices.size()*36);
     request.vertexDescription.ByteWidth=request.vertexCount*36;request.vertexDescription.Usage=D3D11_USAGE_IMMUTABLE;request.vertexDescription.BindFlags=D3D11_BIND_VERTEX_BUFFER;request.sampling.Filter=D3D11_FILTER_ANISOTROPIC;request.sampling.AddressU=request.sampling.AddressV=request.sampling.AddressW=D3D11_TEXTURE_ADDRESS_WRAP;request.sampling.MaxAnisotropy=16;request.sampling.MaxLOD=D3D11_FLOAT32_MAX;request.rasterDescription.FillMode=D3D11_FILL_SOLID;request.rasterDescription.CullMode=D3D11_CULL_NONE;request.rasterDescription.DepthClipEnable=TRUE;
     if(memory->WriteRaw(m.request,&request,sizeof(request))!=sizeof(request)){m.failed=true;return false;}
-    store_res(NativeReplacementRuntime::initialize,m.code+NativeReplacementCode::Initialize);store_res(NativeReplacementRuntime::draw,m.code+NativeReplacementCode::Draw);store_res(NativeReplacementRuntime::release,m.code+NativeReplacementCode::Release);store_res(NativeReplacementRuntime::request,m.request);m.phase=1;issue_cmd(NativeReplacementRuntime::createCommand,0,0,0);return false;
+    store_res(NativeReplacementRuntime::initialize,m.code+NativeReplacementCode::Initialize);store_res(NativeReplacementRuntime::draw,m.code+NativeReplacementCode::Draw);store_res(NativeReplacementRuntime::release,m.code+NativeReplacementCode::Release);store_res(NativeReplacementRuntime::updateMaps,m.code+NativeReplacementCode::SetMaps);store_res(NativeReplacementRuntime::request,m.request);m.phase=1;issue_cmd(NativeReplacementRuntime::createCommand,0,0,0);return false;
 }
-void native_mesh_maps(const std::array<std::array<std::uintptr_t,6>,4>& resources){if(!native_mesh_ready())return;std::uintptr_t maps[8]{};for(int i=0;i<4;++i){maps[i]=resources[i][1];maps[i+4]=resources[i][3];}memory->WriteRaw(nativeMesh.request+offsetof(NativeReplacement::Request,maps),maps,sizeof(maps));}
-void release_native_mesh(){
+void native_mesh_maps(const std::array<std::array<std::uintptr_t,6>,4>& resources){
+    auto& m=nativeMesh;if(!native_mesh_ready()||g.cmd_wait)return;std::array<std::uintptr_t,8> maps{};
+    for(int i=0;i<4;++i){maps[i]=resources[i][1];maps[i+4]=resources[i][3];}
+    if(maps==m.boundMaps)return;
+    if(memory->WriteRaw(m.request+offsetof(NativeReplacement::Request,pendingMaps),maps.data(),sizeof(maps))!=sizeof(maps))return;
+    m.boundMaps=maps;m.phase=3;issue_cmd(NativeReplacementRuntime::mapsCommand,0,0,0);
+}
+void release_native_mesh(bool wait){
     if(!nativeMesh.request||nativeMesh.pid!=memory->get_process_id()||!g.state)return;
     texture_flags(false);
-    if(nativeMesh.phase==1){const auto until=std::chrono::steady_clock::now()+std::chrono::milliseconds(200);while(g.cmd_wait&&std::chrono::steady_clock::now()<until){take_out();if(g.cmd_wait)Sleep(1);}if(g.cmd_wait)return;nativeMesh.phase=2;}
+    const auto until=std::chrono::steady_clock::now()+std::chrono::milliseconds(wait?200:0);
+    const auto completed=[&]{do{take_out();if(!g.cmd_wait)return true;if(wait)Sleep(1);}while(wait&&std::chrono::steady_clock::now()<until);return false;};
+    if(nativeMesh.phase==1||nativeMesh.phase==3){if(!completed())return;nativeMesh.phase=2;}
+    if(nativeMesh.phase==4){if(!completed())return;if(nativeMesh.data)memory->Free(nativeMesh.data);nativeMesh={};return;}
     if(g.cmd_wait)return;
     if(nativeMesh.phase==0){if(nativeMesh.data)memory->Free(nativeMesh.data);nativeMesh={};return;}
-    issue_cmd(NativeReplacementRuntime::releaseCommand,0,0,0);const auto until=std::chrono::steady_clock::now()+std::chrono::milliseconds(200);while(g.cmd_wait&&std::chrono::steady_clock::now()<until){take_out();if(g.cmd_wait)Sleep(1);}if(g.cmd_wait)return;store_res(NativeReplacementRuntime::request,0);if(nativeMesh.data)memory->Free(nativeMesh.data);nativeMesh={};
+    nativeMesh.phase=4;issue_cmd(NativeReplacementRuntime::releaseCommand,0,0,0);
+    if(!completed())return;
+    if(nativeMesh.data)memory->Free(nativeMesh.data);nativeMesh={};
 }
 
 struct TextureBundle {
     std::array<std::array<PreviewCache::Image,3>,4> images;
+};
+using TextureResources=std::array<std::array<std::uintptr_t,6>,4>;
+struct ResidentTexture {
+    int selected=-1;
+    std::uint64_t revision=0;
+    float strength=1,shadow=0;
+    TextureResources resources{};
+    bool Matches(int choice,std::uint64_t stamp,float lighting,float shadows)const{return selected==choice&&choice>=0&&revision==stamp&&strength==lighting&&shadow==shadows;}
 };
 struct TextureUpload {
     DWORD pid=0;
     int phase=0,selected=-1,slot=0;
     bool loading=false,failed=false;
     std::uintptr_t pixels=0;
-    std::array<std::array<std::uintptr_t,6>,4> resources{};
+    TextureResources resources{};
+    ResidentTexture cached;
+    std::uintptr_t retired=0;
     TextureBundle decoded;
     std::future<TextureBundle> pending;
     std::uint64_t revision=0;
@@ -2704,6 +2742,7 @@ struct TextureUpload {
     TextureChoiceGate::Gate choices;
 };
 TextureUpload textureUpload;
+bool texture_command_owns_reply(){return NativeCommandFlow::TextureOwnsReply(textureUpload.phase);}
 std::atomic<int> textureStatus{0},materialStatus{0};
 std::uint64_t texture_revision(int selected){
     std::uint64_t value=0;if(!CustomTextureData::Valid(selected))return value;
@@ -2711,17 +2750,39 @@ std::uint64_t texture_revision(int selected){
         std::error_code error;const auto time=std::filesystem::last_write_time(CustomTextureData::File(selected,c,g),error);value=value*1099511628211ull+(error?0:static_cast<std::uint64_t>(time.time_since_epoch().count()));
     }return value;
 }
+std::size_t texture_memory_bytes(int selected){
+    if(!CustomTextureData::Valid(selected))return 0;std::size_t total=0;
+    for(int group=0;group<CustomTextureData::Presets[selected].groups;++group)for(auto channel:{CustomTextureData::Channel::Color,CustomTextureData::Channel::Material,CustomTextureData::Channel::Normal}){
+        std::ifstream file(CustomTextureData::File(selected,channel,group),std::ios::binary);std::array<unsigned char,24> header{};if(!file.read(reinterpret_cast<char*>(header.data()),header.size()))continue;
+        auto u32=[&](int at){return(std::uint32_t(header[at])<<24)|(std::uint32_t(header[at+1])<<16)|(std::uint32_t(header[at+2])<<8)|header[at+3];};const auto width=u32(16),height=u32(20);if(width&&height&&width<=4096&&height<=4096)total+=std::size_t(width)*height*4;
+    }return total;
+}
 void free_texture_pixels(){if(textureUpload.pixels)memory->Free(textureUpload.pixels);textureUpload.pixels=0;}
 void texture_flags(bool active){
-    auto& t=textureUpload;const bool clean=CustomTextureData::Valid(t.selected);
+    auto& t=textureUpload;if(active&&CustomTextureData::RequiresModel(t.selected)&&!native_mesh_ready())active=false;const bool clean=CustomTextureData::Valid(t.selected);
     for(int group=0;group<4;++group){const auto& r=t.resources[group];const unsigned flags=active&&r[1]?1u|((variables::Weapons::textureShading||clean)&&r[3]?2u:0u)|(clean&&r[5]?4u:0u):0u;
         memory->Write<std::uint32_t>(g.state+WeaponTextureRuntime::bank+group*WeaponTextureRuntime::bankStride+WeaponTextureRuntime::flags,flags);
     }
 }
+void publish_texture_resources(){
+    const auto& resources=textureUpload.resources;
+    for(int group=0;group<4;++group)for(int channel=0;channel<3;++channel)for(int srv=0;srv<2;++srv)memory->Write<std::uintptr_t>(g.state+WeaponTextureRuntime::Field(group,channel,srv!=0),resources[group][channel*2+srv]);
+}
+bool retire_texture_cache(){
+    auto& t=textureUpload;if(t.cached.selected<0)return true;
+    t.retired=memory->Alloc(sizeof(t.cached.resources),PAGE_READWRITE);
+    if(!t.retired)return false;
+    if(memory->WriteRaw(t.retired,t.cached.resources.data(),sizeof(t.cached.resources))!=sizeof(t.cached.resources)){memory->Free(t.retired);t.retired=0;return false;}
+    t.phase=6;issue_cmd(WeaponTextureRuntime::releaseBundleCommand,t.retired,0,0);return true;
+}
 void pump_texture(){
     auto& t=textureUpload;if(!g.state||g.stage<11)return;
     const auto pid=memory->get_process_id();
-    if(t.pid!=pid){t.pid=pid;t.phase=0;t.pixels=0;t.resources={};t.selected=-1;t.failed=false;t.decoded={};t.choices.Reset();if(!t.pending.valid())t.loading=false;for(int group=0;group<4;++group)for(unsigned offset=0;offset<WeaponTextureRuntime::bankStride;offset+=8)memory->Write<std::uint64_t>(g.state+WeaponTextureRuntime::bank+group*WeaponTextureRuntime::bankStride+offset,0);}
+    if(t.pid!=pid){t.pid=pid;t.phase=0;t.pixels=0;t.resources={};t.cached={};t.retired=0;t.selected=-1;t.failed=false;t.decoded={};t.choices.Reset();if(!t.pending.valid())t.loading=false;for(int group=0;group<4;++group)for(unsigned offset=0;offset<WeaponTextureRuntime::bankStride;offset+=8)memory->Write<std::uint64_t>(g.state+WeaponTextureRuntime::bank+group*WeaponTextureRuntime::bankStride+offset,0);}
+    if(t.phase==6){
+        take_out();if(g.cmd_wait)return;
+        if(t.retired)memory->Free(t.retired);t.retired=0;t.cached={};t.phase=3;
+    }
     if(t.phase==1||t.phase==2||t.phase==4){
         const auto result=take_out();if(g.cmd_wait)return;
         if(t.phase==4){t.resources={};t.phase=t.failed?5:0;if(!t.failed)t.selected=-1;t.slot=0;t.decoded={};if(!t.pending.valid())t.loading=false;}
@@ -2747,7 +2808,18 @@ void pump_texture(){
     texture_flags(ready);
     if(g.cmd_wait)return;
     if(desired!=t.selected){
+        const bool residentHave=std::any_of(t.resources.begin(),t.resources.end(),[](const auto& r){return std::any_of(r.begin(),r.end(),[](auto p){return p!=0;});});
+        if(t.cached.Matches(desired,texture_revision(desired),strength,shadow)&&(t.phase==3||!residentHave)){
+            ResidentTexture current;if(t.phase==3)current={t.selected,t.revision,t.strength,t.shadow,t.resources};
+            const auto saved=t.cached;t.cached=current;t.resources=saved.resources;t.selected=saved.selected;t.revision=saved.revision;t.strength=saved.strength;t.shadow=saved.shadow;t.slot=CustomTextureData::Presets[desired].groups*3;t.phase=3;t.failed=false;t.loading=false;t.decoded={};t.choices.Reset();
+            publish_texture_resources();if(CustomTextureData::RequiresModel(desired))native_mesh_maps(t.resources);textureStatus.store(4);materialStatus.store(4);texture_flags(true);return;
+        }
         if(!t.choices.Ready(desired,now))return;
+        if(t.phase==3&&residentHave){
+            if(t.cached.selected>=0){if(!retire_texture_cache())textureStatus.store(6);return;}
+            if(!NativeTextureBudget::KeepPrevious(texture_memory_bytes(t.selected),texture_memory_bytes(desired))){t.failed=false;t.phase=4;issue_cmd(WeaponTextureRuntime::releaseCommand,0,0,0);return;}
+            t.cached={t.selected,t.revision,t.strength,t.shadow,t.resources};t.resources={};t.selected=-1;t.phase=0;t.slot=0;t.loading=false;t.decoded={};publish_texture_resources();
+        }
         if(t.pending.valid()){
             if(t.pending.wait_for(std::chrono::seconds(0))!=std::future_status::ready)return;
             try{t.pending.get();}catch(...){}t.loading=false;
@@ -2757,7 +2829,7 @@ void pump_texture(){
         t.phase=0;t.selected=desired;t.slot=0;t.loading=false;t.decoded={};t.failed=false;
     }
     if(desired<0){textureStatus.store(0);return;}
-    if(t.phase==3)return;
+    if(t.phase==3){if(CustomTextureData::RequiresModel(desired)){native_mesh_maps(t.resources);texture_flags(native_mesh_ready());}return;}
     if(t.phase==5){if(std::chrono::steady_clock::now()<t.nextRetry)return;t.nextRetry=std::chrono::steady_clock::now()+std::chrono::seconds(1);if(texture_revision(desired)==t.revision)return;
         const bool have=std::any_of(t.resources.begin(),t.resources.end(),[](const auto& r){return std::any_of(r.begin(),r.end(),[](auto p){return p!=0;});});
         if(have){t.failed=false;t.phase=4;issue_cmd(WeaponTextureRuntime::releaseCommand,0,0,0);return;}
@@ -2777,7 +2849,7 @@ void pump_texture(){
     }
     while(t.slot<CustomTextureData::Presets[desired].groups*3){
         const int group=t.slot/3,channel=t.slot%3;auto& image=t.decoded.images[group][channel];if(!image.valid()){++t.slot;continue;}
-        const auto size=image.rgba.size();if(channel!=2)for(std::size_t alpha=3;alpha<size;alpha+=4)image.rgba[alpha]=255;
+        const auto size=image.rgba.size();if(channel==1||(channel==0&&!CustomTextureData::RequiresModel(desired)))for(std::size_t alpha=3;alpha<size;alpha+=4)image.rgba[alpha]=255;
         t.pixels=memory->Alloc(sizeof(D3D11_SUBRESOURCE_DATA)+size,PAGE_READWRITE);
         if(!t.pixels){if(channel){image={};++t.slot;return;}t.phase=5;textureStatus.store(6);return;}
         D3D11_SUBRESOURCE_DATA initial{};initial.pSysMem=reinterpret_cast<const void*>(t.pixels+sizeof(initial));initial.SysMemPitch=image.width*4;
@@ -2785,17 +2857,19 @@ void pump_texture(){
         D3D11_TEXTURE2D_DESC desc{};desc.Width=image.width;desc.Height=image.height;desc.MipLevels=desc.ArraySize=desc.SampleDesc.Count=1;desc.Format=DXGI_FORMAT_R8G8B8A8_UNORM;desc.Usage=D3D11_USAGE_IMMUTABLE;desc.BindFlags=D3D11_BIND_SHADER_RESOURCE;
         image={};t.phase=1;textureStatus.store(3);issue_desc_cmd(WeaponTextureRuntime::textureCommand,&desc,sizeof(desc),t.pixels);return;
     }
-    if(desired==108)native_mesh_maps(t.resources);
+    if(CustomTextureData::RequiresModel(desired))native_mesh_maps(t.resources);
     t.phase=3;t.decoded={};textureStatus.store(4);materialStatus.store(4);texture_flags(true);
 }
 void release_texture(){
     auto& t=textureUpload;if(!g.state||t.pid!=memory->get_process_id())return;texture_flags(false);
     auto wait=[&]{const auto until=std::chrono::steady_clock::now()+std::chrono::milliseconds(150);while(memory->Read<std::uint32_t>(g.state+offsetof(RemoteState,cmd))&&std::chrono::steady_clock::now()<until)Sleep(1);return memory->Read<std::uint32_t>(g.state+offsetof(RemoteState,cmd))==0;};
+    if(t.phase==6){if(!wait())return;take_out();if(t.retired)memory->Free(t.retired);t.retired=0;t.cached={};t.phase=3;}
     if(t.phase==1||t.phase==2||t.phase==4){
         if(!wait())return;const auto result=take_out();
         if(t.phase==1){free_texture_pixels();memory->Write<std::uint64_t>(g.state+WeaponTextureRuntime::Field(t.slot/3,t.slot%3,false),result);}
         if(t.phase==2)memory->Write<std::uint64_t>(g.state+WeaponTextureRuntime::Field(t.slot/3,t.slot%3,true),result);
     }
+    if(t.cached.selected>=0){if(g.cmd_wait||!retire_texture_cache()||!wait())return;take_out();if(t.retired)memory->Free(t.retired);t.retired=0;t.cached={};t.phase=3;}
     if(!g.cmd_wait){issue_cmd(WeaponTextureRuntime::releaseCommand,0,0,0);if(!wait())return;take_out();}
     t.phase=0;t.resources={};t.selected=-1;t.slot=0;t.failed=false;t.decoded={};if(!t.pending.valid())t.loading=false;textureStatus.store(0);
 }
@@ -3078,12 +3152,12 @@ void fill_geoms(bool refreshTargets)
 	};
 
     std::uintptr_t nativeRoot=0;
-    if(native_mesh_ready())for(const auto& surface:WeaponVisuals::surfaces)if(surface.firstPerson&&surface.kind==1&&!surface.isGlock){const auto field=surface.part+Offsets::MeshPart::MeshId;auto mesh=CustomTextureData::AssetId(memory->read_string(field));if(mesh.empty())mesh=CustomTextureData::AssetId(memory->read_string(memory->Read<std::uintptr_t>(field)));if(mesh=="105137249332183"){nativeRoot=RBX::RbxInstance(surface.part).GetPrimitivePtr();break;}}
+    if(native_mesh_ready())for(const auto& surface:WeaponVisuals::surfaces)if(surface.firstPerson&&surface.kind==1){const auto selected=variables::Weapons::TextureForWeapon(surface.isGlock);if(!CustomTextureData::RequiresModel(selected)||CustomTextureData::NativeModelName(selected)!=nativeMesh.asset)continue;const auto field=surface.part+Offsets::MeshPart::MeshId;auto mesh=CustomTextureData::AssetId(memory->read_string(field));if(mesh.empty())mesh=CustomTextureData::AssetId(memory->read_string(memory->Read<std::uintptr_t>(field)));if(CustomTextureData::NativeAnchor(selected,mesh)){nativeRoot=RBX::RbxInstance(surface.part).GetPrimitivePtr();break;}}
     for(const auto& surface:WeaponVisuals::surfaces)if(surface.firstPerson){
         const auto begin=targets.size();
         push_character(surface.part,surface.kind|(surface.hidden?k_hidden_cosmetic:0)|(surface.textureTest?WeaponTextureRuntime::targetFlag:0)|(surface.isGlock?WeaponTextureRuntime::glockFlag:0)|(surface.textureTest?(surface.textureGroup<<WeaponTextureRuntime::groupShift):0),true);
         const auto selected=variables::Weapons::TextureForWeapon(surface.isGlock);
-        if(surface.textureTest&&selected==108&&native_mesh_ready()&&nativeRoot){for(auto i=begin;i<targets.size();++i){targets[i].weapon|=NativeReplacementRuntime::modelFlag|NativeReplacementRuntime::primaryFlag;targets[i].anchorPrimitive=nativeRoot;}}
+        if(surface.textureTest&&CustomTextureData::RequiresModel(selected)&&CustomTextureData::NativeModelName(selected)==nativeMesh.asset&&native_mesh_ready()&&nativeRoot){for(auto i=begin;i<targets.size();++i){targets[i].weapon|=NativeReplacementRuntime::modelFlag;if(RBX::RbxInstance(surface.part).GetPrimitivePtr()==nativeRoot)targets[i].weapon|=NativeReplacementRuntime::primaryFlag;targets[i].anchorPrimitive=nativeRoot;}}
 
         if(surface.textureTest&&CustomTextureData::Valid(selected)&&CustomTextureData::Presets[selected].model==3){
             const auto field=surface.part+Offsets::MeshPart::MeshId;
@@ -3269,7 +3343,8 @@ void fill_geoms(bool refreshTargets)
             mat.pattern[0]=density/surfaceScale;
             mat.pattern[2]=(gun&&variables::Weapons::showOriginal)?0.f:1.f;
             mat.body_status[1]=firstPerson?1.f:0.f;
-            mat.projection_options[0]=variables::Weapons::textureShading?1.f:0.f;
+            mat.projection_options[0]=variables::Weapons::textureShading?CustomShading::Level(variables::Weapons::textureShadingIntensity):0.f;
+            const auto textureSelection=variables::Weapons::TextureForWeapon(isGlock);mat.projection_options[1]=CustomTextureData::RequiresModel(textureSelection)&&textureSelection!=108?1.f:0.f;mat.projection_options[2]=CustomShading::ShadowLevel(variables::Weapons::textureShadowIntensity);mat.projection_options[3]=variables::Weapons::textureModelGlow?std::clamp(variables::Weapons::textureModelGlowStrength,0.f,5.f):0.f;if(CustomTextureData::RequiresModel(textureSelection)){mat.projection_minimum[0]=CustomTextureData::NativeMetal(textureSelection)?1.f:0.f;mat.projection_minimum[1]=textureSelection==108||CustomTextureData::NativeMetal(textureSelection)?0.f:1.f;mat.projection_minimum[3]=CustomTextureData::NativeExposure(textureSelection);}
 
             if(firstPerson)t.occlusion=0;
             if(gun&&weaponMaterial.enabled&&!(t.weapon&NativeReplacementRuntime::modelFlag))t.weapon|=WeaponTextureRuntime::nativeOverlayFlag;
@@ -3305,12 +3380,13 @@ void fill_geoms(bool refreshTargets)
 
 	std::vector<Target> snapshot(std::max(tableUsed[writeSlot], targets.size()));
 	std::copy(targets.begin(), targets.end(), snapshot.begin());
-    std::unordered_map<std::uint64_t,std::size_t> bodySlots;
+    std::map<std::pair<std::uint64_t,bool>,std::size_t> bodySlots;
     std::vector<BodyCache> drawBodies;
     for (std::size_t i=0;i<targets.size();++i) {
         const auto primitive=targets[i].anchorPrimitive;
         if(!primitive){snapshot[i].liveBody=0;continue;}
-        auto inserted=bodySlots.emplace(primitive,drawBodies.size());
+        const auto nativePrimary=(snapshot[i].weapon&(NativeReplacementRuntime::modelFlag|NativeReplacementRuntime::primaryFlag))==(NativeReplacementRuntime::modelFlag|NativeReplacementRuntime::primaryFlag);
+        auto inserted=bodySlots.emplace(std::make_pair(primitive,nativePrimary),drawBodies.size());
         if(inserted.second) { BodyCache body{}; body.source=primitive+Offsets::Primitive::Rotation; drawBodies.push_back(body); }
         snapshot[i].liveBody=dst+k_max_targets*sizeof(Target)+inserted.first->second*sizeof(BodyCache);
     }
@@ -3591,7 +3667,7 @@ void apply_occlusion(bool off)
 
 void teardown()
 {
-    if(memory->IsConnected()&&g.hooked){if(nativeMesh.phase==1)release_native_mesh();release_texture();release_native_mesh();}
+    if(memory->IsConnected()&&g.hooked){if(NativeCommandFlow::NativeOwnsReply(nativeMesh.phase))release_native_mesh(true);release_texture();release_native_mesh(true);}
 	apply_occlusion(false);
 	if (g.state)
 		memory->Write<std::uint32_t>(g.state + offsetof(RemoteState, enabled), 0);

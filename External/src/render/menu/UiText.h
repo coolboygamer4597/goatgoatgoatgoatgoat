@@ -13,6 +13,8 @@ inline void Save(){std::ofstream f(PreferencePath());f<<language;}
 inline const char* Tr(const char* text){
  if(!text || language==1)return text;
  static const std::unordered_map<std::string_view,const char*> words={
+  {"Model glow","Modellglød"},
+  {"Glow intensity","Glødstyrke"},
   {"Remember this page","Husk denne siden"},
   {"Waiting for Roblox","Venter på Roblox"},
   {"Anti-AFK unavailable for this client","Anti-AFK er ikke tilgjengelig for denne klienten"},
@@ -523,6 +525,10 @@ inline const char* Tr(const char* text){
   {"Could not preserve an existing skin file.","Kunne ikke ta vare på en eksisterende skin-fil."},
   {"Could not install the selected skin. Use a writable program folder.","Kunne ikke installere valgt skin. Bruk en mappe du kan skrive til."},
   {"Download skin previews","Last ned skin-forhåndsvisninger"},
+  {"Custom model","Egendefinert modell"},
+  {"Categories: Custom model","Kategorier: Egendefinert modell"},
+  {"This texture does not support the selected weapon.","Denne teksturen støtter ikke det valgte våpenet."},
+  {"Invalid skin settings","Ugyldige skin-innstillinger"},
  };
  auto it=words.find(text);return it==words.end()?text:it->second;
 }
@@ -542,6 +548,7 @@ inline std::string Message(const std::string& text){
   {"Local file: ","Lokal fil: "},
   {"Selected skin: ","Valgt skin: "},
   {"Queued skin: ","Skin i kø: "},
+  {"Missing catalog model: ","Modellen mangler i spillkatalogen: "},
   {"Skin installation stopped. Original files are preserved in ","Skin-installasjonen stoppet. Originalfilene er bevart i "},
 
  };

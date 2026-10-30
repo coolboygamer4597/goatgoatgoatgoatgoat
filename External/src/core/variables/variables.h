@@ -86,7 +86,7 @@ inline bool nativeChamsWalls = true;
 
 namespace Weapons {
 inline bool preview = true;
-inline constexpr int customTextureCount=109;
+inline constexpr int customTextureCount=231;
 inline int texturePreset=-1,glockTexturePreset=-1;
 inline std::array<bool,customTextureCount> textureCleanSurface=[] {std::array<bool,customTextureCount> values{};values.fill(true);return values;}();
 inline bool modelCleanup=true;
@@ -94,6 +94,8 @@ inline bool removeX5Outline=true;
 inline bool textureShading=true;
 inline float textureShadingIntensity=1;
 inline float textureShadowIntensity=0;
+inline bool textureModelGlow=false;
+inline float textureModelGlowStrength=1;
 struct LimbMaterial {
     bool enabled=false,glow=false;
     int style=0;

@@ -83,6 +83,7 @@
     <ClInclude Include="src\core\app\CustomShading.h" />
     <ClInclude Include="src\core\app\SkinDownloads.h" />
     <ClInclude Include="src\core\app\SkinDownloadData.h" />
+    <ClInclude Include="src\core\app\SkinLibraryProfile.h" />
     <ClInclude Include="src\core\functions\skins\SkinSelectionPolicy.h" />
     <ClInclude Include="src\core\features\native\WeaponOrnamentRuntime.h" />
     <ClInclude Include="src\render\AppUpdateUi.h" />
@@ -259,6 +260,10 @@
     <ResourceCompile Include="assets.rc" />
     <Image Include="app_icon.ico" />
   </ItemGroup>
+  <ItemDefinitionGroup Condition="'$(SkinLibraryTestBuild)'=='true'">
+    <ClCompile><PreprocessorDefinitions>GOAT_SKIN_TEST_BUILD;%(PreprocessorDefinitions)</PreprocessorDefinitions></ClCompile>
+    <ResourceCompile><PreprocessorDefinitions>GOAT_SKIN_TEST_BUILD;%(PreprocessorDefinitions)</PreprocessorDefinitions></ResourceCompile>
+  </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <Import Project="BuildIdentity.targets" />
   <ImportGroup Label="ExtensionTargets">
