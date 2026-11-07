@@ -7,25 +7,25 @@
       <ResourceOutputFileName>$(IntDir)BuildIdentity.res</ResourceOutputFileName>
     </ResourceCompile>
   </ItemGroup>
-  <Target Name="GenerateBuildIdentity" BeforeTargets="ResourceCompile" Condition="'$(DesignTimeBuild)' != 'true'">
+  <Target Name="GenerateLocalBuildIdentity" BeforeTargets="ResourceCompile" Condition="'$(DesignTimeBuild)' != 'true'">
     <PropertyGroup>
-      <BuildId>$([System.Guid]::NewGuid().ToString())</BuildId>
-      <BuildCreated>$([System.DateTime]::UtcNow.ToString('o'))</BuildCreated>
+      <LocalBuildId>$([System.Guid]::NewGuid().ToString())</LocalBuildId>
+      <LocalBuildCreated>$([System.DateTime]::UtcNow.ToString('o'))</LocalBuildCreated>
     </PropertyGroup>
     <MakeDir Directories="$(IntDir)" />
-    <WriteLinesToFile File="$(IntDir)BuildIdentity.rc" Lines="207 RCDATA { &quot;$(BuildId)&quot; }" Overwrite="true" Encoding="ASCII" />
+    <WriteLinesToFile File="$(IntDir)BuildIdentity.rc" Lines="207 RCDATA { &quot;$(LocalBuildId)&quot; }" Overwrite="true" Encoding="ASCII" />
     <ItemGroup>
       <FileWrites Include="$(IntDir)BuildIdentity.rc;$(IntDir)BuildIdentity.res" />
     </ItemGroup>
   </Target>
-  <Target Name="RecordBuildIdentity" AfterTargets="Build" Condition="'$(BuildId)' != '' and Exists('$(TargetPath)')">
+  <Target Name="RecordLocalBuildIdentity" AfterTargets="Build" Condition="'$(LocalBuildId)' != '' and Exists('$(TargetPath)')">
     <GetFileHash Files="$(TargetPath)" Algorithm="SHA256">
-      <Output TaskParameter="Items" ItemName="BuildHash" />
+      <Output TaskParameter="Items" ItemName="LocalBuildHash" />
     </GetFileHash>
-    <WriteLinesToFile File="$(TargetPath).build.json" Lines="{ &quot;build_id&quot;: &quot;$(BuildId)&quot;, &quot;sha256&quot;: &quot;%(BuildHash.FileHash)&quot;, &quot;created_utc&quot;: &quot;$(BuildCreated)&quot;, &quot;executable&quot;: &quot;$(TargetFileName)&quot;, &quot;configuration&quot;: &quot;$(Configuration)&quot;, &quot;platform&quot;: &quot;$(Platform)&quot; }" Overwrite="true" Encoding="UTF-8" />
+    <WriteLinesToFile File="$(TargetPath).build.json" Lines="{ &quot;build_id&quot;: &quot;$(LocalBuildId)&quot;, &quot;sha256&quot;: &quot;%(LocalBuildHash.FileHash)&quot;, &quot;created_utc&quot;: &quot;$(LocalBuildCreated)&quot;, &quot;executable&quot;: &quot;$(TargetFileName)&quot;, &quot;configuration&quot;: &quot;$(Configuration)&quot;, &quot;platform&quot;: &quot;$(Platform)&quot; }" Overwrite="true" Encoding="UTF-8" />
     <ItemGroup>
       <FileWrites Include="$(TargetPath).build.json" />
     </ItemGroup>
-    <Message Importance="high" Text="Build ID: $(BuildId)" />
+    <Message Importance="high" Text="Local build ID: $(LocalBuildId)" />
   </Target>
 </Project>

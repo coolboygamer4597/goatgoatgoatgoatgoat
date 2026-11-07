@@ -1,5 +1,6 @@
 #pragma once
 #include "sdk.h"
+#include "../core/features/game/StretchResolution.h"
 
 namespace W2S {
 inline RBX::Vec2 ViewportSize() {
@@ -39,7 +40,7 @@ inline RBX::Vec2 WorldToScreen(const RBX::Vec3& world, const RBX::Mat4& view) {
     const float y = world.X * view.data[4] + world.Y * view.data[5] + world.Z * view.data[6] + view.data[7];
     const float sw = ScreenW();
     const float sh = ScreenH();
-    screen.X = (sw * 0.5f * (x / w)) + (sw * 0.5f);
+    screen.X = (sw * 0.5f * (x / w)*StretchResolution::AppliedFactor()) + (sw * 0.5f);
     screen.Y = -(sh * 0.5f * (y / w)) + (sh * 0.5f);
     return screen;
 }

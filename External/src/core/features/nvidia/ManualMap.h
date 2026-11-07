@@ -79,7 +79,7 @@ namespace Core {
 						if (!remoteMod)
 							return false;
 
-
+						 
 						HMODULE localMod = GetModuleHandleW(modNameW.c_str());
 						if (!localMod)
 							localMod = LoadLibraryW(modNameW.c_str());
@@ -154,7 +154,7 @@ namespace Core {
 					}
 				}
 
-
+				 
 				inline bool MapAndRun(
 					HANDLE process,
 					const unsigned char* peBytes,
@@ -220,7 +220,7 @@ namespace Core {
 
 					const uintptr_t entry = remoteBase + localNt->OptionalHeader.AddressOfEntryPoint;
 
-
+					 
 					uint8_t stub[] = {
 						0x48, 0x83, 0xEC, 0x28,
 						0x48, 0xB9, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -266,11 +266,11 @@ namespace Core {
 					CloseHandle(thread);
 					VirtualFreeEx(process, remoteStub, 0, MEM_RELEASE);
 
-
+					 
 					return code != 0;
 				}
 
-			}
+			}  
 		}
 	}
 }

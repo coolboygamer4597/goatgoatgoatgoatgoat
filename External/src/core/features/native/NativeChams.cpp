@@ -1,5 +1,12 @@
 #define IMGUI_DEFINE_MATH_OPERATORS
 #include "NativeChams.h"
+#include "../game/GameVisualsState.h"
+#include "../game/WaterMaterial.h"
+#include "../game/AimVisibility.h"
+#include "../game/GameSkyPrograms.h"
+#include "../game/NativeGameRender.h"
+#include "../game/NativeGameRuntime.h"
+#include "../game/NativeGameCode.h"
 #include "WeaponTextureRuntime.h"
 #include "NativeReplacement.h"
 #include "NativeReplacementCode.h"
@@ -17,6 +24,7 @@
 #include <future>
 #include "NativePattern.h"
 #include "NativePreparation.h"
+#include "NativeCodePadding.h"
 #include "NativeOcclusion.h"
 #include "NativeDepthCapture.h"
 #include "NativeDepthCaptureBytes.h"
@@ -47,6 +55,7 @@
 #include <string>
 #include <vector>
 #include <unordered_map>
+#include <unordered_set>
 #include <tuple>
 
 static_assert(NativeDepthCapture::data+sizeof(NativeDepthCapture::Cache)<=WeaponTextureRuntime::createTexture);
@@ -142,7 +151,7 @@ constexpr const char* k_shader_names[] = {
     "Candy Contours", "Crimson Shards", "Aurora Veil", "Mercury Drift",
     "Nebula Ink", "Lava Lace", "Plasma Weave", "Obsidian Etch",
     "Bubblegum Cells", "Quantum Knots", "Chromatic Smoke", "Prism Mosaic",
-    "Silk Vortex", "Frost Veins", "Happy Doodles", "WhatsApp Drift", "Lightning Rivers", "Prismatic Rift", "Liquid Cyan"
+    "Silk Vortex", "Frost Veins", "Happy Doodles", "WhatsApp Drift", "Lightning Rivers", "Prismatic Rift", "Liquid Cyan", "Chrome"
 };
 
 constexpr float k_pattern_span = 6.0f;
@@ -198,6 +207,15 @@ cbuffer Cham : register(b13)
     float4 projectionOptions;
 };
 Texture2D<float> avatarFreeDepth : register(t12);
+Texture2D<float4> waterSky : register(t11);
+float3 sampleWaterSky(float3 direction,float roughness){
+ uint width,height,levels;waterSky.GetDimensions(0,width,height,levels);if(width<2||height<2)return lerp(float3(.012,.025,.055),float3(.28,.42,.54),exp(-abs(direction.y)*3));
+ float2 uv=float2(atan2(direction.x,direction.z)*.159154943+.5,.5-asin(clamp(direction.y,-1,1))*.318309886);
+ uint mip=min((uint)(saturate(roughness)*7),levels-1);waterSky.GetDimensions(mip,width,height,levels);
+ float2 coordinate=uv*float2(width,height)-.5;int2 base=int2(floor(coordinate));float2 blend=frac(coordinate);int x0=(base.x+int(width))%int(width),x1=(x0+1)%int(width),y0=clamp(base.y,0,int(height)-1),y1=clamp(base.y+1,0,int(height)-1);
+ return lerp(lerp(waterSky.Load(int3(x0,y0,mip)).rgb,waterSky.Load(int3(x1,y0,mip)).rgb,blend.x),lerp(waterSky.Load(int3(x0,y1,mip)).rgb,waterSky.Load(int3(x1,y1,mip)).rgb,blend.x),blend.y);
+}
+
 
 struct Out
 {
@@ -221,6 +239,10 @@ float hash21(float2 p)
     h ^= h >> 16;
     return float(h & 0x00ffffffu) / 16777216.0;
 }
+
+
+
+
 
 float3 hue_rot(float3 c, float h)
 {
@@ -391,19 +413,30 @@ Out projected_ps(float4 pos)
 constexpr char k_hlsl_body[] = R"HLSL(
 Out ps_main(float4 pos : SV_POSITION, bool frontFace : SV_IsFrontFace)
 {
-    if(mode==32)return projected_ps(pos);
+    int style=mode;
+    if(style==32)return projected_ps(pos);
+    clip(color.a - 0.00001);
 
-    if (bodyStatus.z > 0.5 && !frontFace) discard;
+    if (bodyStatus.z > 0.5 && bodyStatus.y > 1.5 && !frontFace) discard;
 
-    if(bodyStatus.z > 0.5 && bodyStatus.w > 0.5) {
+    if(bodyStatus.z > 0.5 && bodyStatus.y > 1.5 && bodyStatus.w > 0.5) {
         float sceneZ=avatarFreeDepth.Load(int3(int2(pos.xy),0));
         float fragmentZ=pos.z;
 
         if(bodyStatus.w < 28.0)fragmentZ=round(saturate(fragmentZ)*16777215.0)/16777215.0;
-        bool wallHidden=depth.y>0.0?fragmentZ<sceneZ:fragmentZ>sceneZ;
+        if(bodyStatus.w<28.0)sceneZ=round(saturate(sceneZ)*16777215.0)/16777215.0;
+        const float tolerance=bodyStatus.w<28.0?1.192093e-7:1.0e-8;
+        bool wallHidden=depth.y>0.0?fragmentZ+tolerance<sceneZ:fragmentZ>sceneZ+tolerance;
         if(!wallHidden)discard;
     }
-    float3 fill = color.rgb;
+    float4 selectedColor=color;
+    if(bodyStatus.y>1.5&&orgPos.x>.5){
+        float3 W=frag_world(pos),V=normalize(camPos.xyz-W),N=normalize(cross(ddx(W),ddy(W)));if(dot(N,V)<0)N=-N;
+        if(N.y>.75){style=(int)orgPos.y;selectedColor=orgY;selectedColor.a*=orgPos.w;}
+        else if(orgPos.z<.5)discard;
+    }
+    clip(selectedColor.a-.00001);
+    float3 fill = selectedColor.rgb;
 
     float a = 1.0;
     float3 N = screen_normal(pos);
@@ -421,7 +454,7 @@ Out ps_main(float4 pos : SV_POSITION, bool frontFace : SV_IsFrontFace)
     float3 c = fill;
     float gmask = rp * 0.55 + edge * 0.75;
 
-    switch (mode)
+    switch (style)
     {
     case 0:
         gmask = rp * 0.55 + edge * 0.8;
@@ -471,16 +504,16 @@ Out ps_main(float4 pos : SV_POSITION, bool frontFace : SV_IsFrontFace)
     {
         float f=cloud(p*0.58+float3(0,t*0.055,-t*0.025));
         float ink=bands(f*7.0,0.13);
-        c=mode==9 ? lerp(float3(0.92,0.92,0.88),fill*0.055,ink)
+        c=style==9 ? lerp(float3(0.92,0.92,0.88),fill*0.055,ink)
                   : lerp(fill*0.07,fill*1.35,ink);
-        gmask=mode==9 ? ink*0.06 : ink*0.75;
+        gmask=style==9 ? ink*0.06 : ink*0.75;
         break;
     }
     case 11:
     case 29:
     {
         float3 q=p+float3(sin(p.y*1.2+t*.31),cos(p.z+t*.24),sin(p.x+t*.19))*.32;
-        float f=cloud(q*(mode==11?1.05:0.62));
+        float f=cloud(q*(style==11?1.05:0.62));
         float bolt=stroke(f-0.5,0.022), halo=exp(-abs(f-.5)*18.0);
         c=fill*(.045+halo*.45)+lerp(fill,float3(1,1,1),.82)*bolt;
         gmask=bolt*.8+halo*.4;
@@ -508,7 +541,7 @@ Out ps_main(float4 pos : SV_POSITION, bool frontFace : SV_IsFrontFace)
         float2 q=uv*1.25, cell=floor(q), f=frac(q);
         float tri=step(f.x,f.y), h=hash21(cell+tri*29.0);
         float shimmer=.5+.5*sin(t*.55+h*6.28318);
-        c=mode==14 ? float3(.12+.78*h,0.008,0.018)*(.65+.35*shimmer)
+        c=style==14 ? float3(.12+.78*h,0.008,0.018)*(.65+.35*shimmer)
                    : palette(h+t*.025)*(.35+.65*shimmer);
         gmask=shimmer*.16;
         break;
@@ -533,7 +566,7 @@ Out ps_main(float4 pos : SV_POSITION, bool frontFace : SV_IsFrontFace)
         float f=cloud(p*.6+float3(t*.055,-t*.035,t*.02));
         float f2=cloud(p*.8+f*1.8-float3(0,t*.045,0));
         c=palette(f2*1.1+t*.018)*(.14+smoothstep(.25,.8,f)*.88);
-        if(mode==17) c=lerp(c*.24,c,smoothstep(.38,.62,f2));
+        if(style==17) c=lerp(c*.24,c,smoothstep(.38,.62,f2));
         gmask=f2*.4;
         break;
     }
@@ -603,14 +636,89 @@ Out ps_main(float4 pos : SV_POSITION, bool frontFace : SV_IsFrontFace)
     {
 
         float3 q=p*.68;
-        q+=float3(cloud(q+float3(t*.055,0,0)),cloud(q+float3(6,3,-t*.045)),cloud(q+float3(1,t*.04,9)))*1.8;
+        q+=float3(noise3(q+float3(t*.055,0,0)),noise3(q+float3(6,3,-t*.045)),noise3(q+float3(1,t*.04,9)))*1.8;
         float flow=cloud(q*1.7+float3(0,-t*.075,t*.025));
         float ribbon=.5+.5*sin(flow*18.0+q.y*.85-t*.32);
-        float edge=pow(saturate(ribbon),3.0);
-        float highlight=pow(saturate(ribbon),13.0);
+        float r=saturate(ribbon),r2=r*r,r4=r2*r2,r8=r4*r4;
+        float edge=r2*r;
+        float highlight=r8*r4*r;
         c=lerp(fill*.025,fill*1.1,edge)+float3(1,1,1)*highlight*.7;
         gmask=edge*.6+highlight*.4;break;
     }
+
+    case 41:
+    {
+        float2 ndc=float2(pos.x/max(frame.x,1)*2-1,1-pos.y/max(frame.y,1)*2);
+        float3 relative=frag_clip_w(pos)*(ndc.x/max(camRight.w,.0001)*camRight.xyz+ndc.y/max(camUp.w,.0001)*camUp.xyz+camFwd.xyz/max(camFwd.w,.0001));
+        float3 V=-normalize(relative);float3 normal=normalize(cross(ddx_coarse(relative),ddy_coarse(relative)));if(dot(normal,V)<0)normal=-normal;
+        float foilU=dot(p,float3(.37,.21,.63))*10;
+        float foilV=dot(p,float3(-.29,.72,.24))*14;
+        float foilFade=1-smoothstep(.12,.55,max(fwidth(foilU),fwidth(foilV)));
+        float3 R=normalize(reflect(-V,normal)+float3(sin(foilU),cos(foilV),sin(foilU+foilV))*.018*foilFade);
+        float overhead=smoothstep(-.36,.64,R.y);
+        float horizon=exp(-pow((R.y-.02)*4.2,2));
+        float panel=exp(-pow((dot(R,normalize(float3(.4,.2,.9)))-.26)*5.5,2));
+        float softbox=pow(saturate(dot(R,normalize(float3(-.45,.7,-.55)))),14);
+        float glint=pow(saturate(dot(R,normalize(float3(.68,.42,.60)))),32);
+        float fresnel=pow(1-saturate(dot(normal,V)),5);
+        float3 environment=lerp(float3(.09,.10,.13),float3(.74,.82,.89),overhead);
+        environment+=float3(1,.99,.95)*(horizon*.43+panel*.70+softbox*.85+glint*.94+fresnel*.14);
+        float3 metalTint=pow(saturate(fill),.55);
+        c=environment*metalTint+float3(1,1,1)*(softbox*.13+glint*.21)*max(fill.r,max(fill.g,fill.b));
+        gmask=saturate(.16*horizon+.24*panel+.24*glint);break;
+    }
+
+    case 33:
+    case 34:
+    case 35:
+    case 36:
+    case 37:
+    case 38:
+    case 39:
+    case 40:
+    {
+        float3 W=frag_world(pos),V=normalize(camPos.xyz-W);
+        float3 normal=normalize(cross(ddx(W),ddy(W)));if(dot(normal,V)<0)normal=-normal;
+        float water=smoothstep(.72,.88,normal.y);
+        float2 q=W.xz*density;float footprint=max(length(ddx(q)),length(ddy(q)));
+        if(style==35){float2 coordinates=abs(normal.y)>.7?W.xz:abs(normal.x)>abs(normal.z)?W.zy:W.xy;coordinates*=density*2;float2 grid=abs(frac(coordinates)-.5),width=max(fwidth(coordinates),.0001);float2 lines=(1-smoothstep(.02-width*.5,.02+width*.5,grid))*(1-smoothstep(.15,.5,width));float gridLine=max(lines.x,lines.y);c=fill*.035+lerp(float3(.1,.8,1),float3(1,.12,.65),.5+.5*sin(q.y*.15+t*.03))*gridLine*.9;gmask=gridLine*.1;break;}
+        if(water<.001){c=fill*.35;gmask=0;break;}
+        float level=worldInfo.x>.5?min(orgZ.w,0):0;if(level<-.001){float3 ray=normalize(W-camPos.xyz);W+=ray*(level/min(ray.y,-.03));}
+        float waterTime=worldInfo.x>.5?worldCameraRange.x:time;
+        float waveScale=orgX.x>0?orgX.x:8,waveHeight=orgX.x>0?orgX.y:.12;
+        float2 wavePosition=W.xz/waveScale;float farFade=1-smoothstep(.05,.4,max(length(ddx(wavePosition)),length(ddy(wavePosition))));
+        float2 slope=float2(cos(wavePosition.x+wavePosition.y*.4-waterTime*.8),sin(wavePosition.y*.8-wavePosition.x*.3+waterTime*.55))*waveHeight*farFade;
+        if(style==39){float a=dot(wavePosition,float2(.8,.6))*3.7-waterTime*1.3,b=dot(wavePosition,float2(-.6,.8))*8.3+waterTime*1.8;slope+=(float2(.8,.6)*cos(a)*.45+float2(-.6,.8)*cos(b)*.14)*waveHeight*farFade;}
+        if(style==40)slope*=.22;
+        float2 ripple=0;float rings=0;
+        if(orgX.z>.001&&worldInfo.x>.5){
+            [unroll]for(int k=0;k<6;++k){
+                float4 mark=k<3?projectionRows[min(k,2)]:k==3?projectionMinimum:k==4?projectionInverseSpan:projectionOptions;
+                if(mark.w<0||mark.w>=orgX.w||abs(W.y-(mark.y+level))>.45)continue;
+                float phase=mark.w/max(orgX.w,.1),radius=.08+phase*2.4*max(orgZ.x,.25);float2 delta=W.xz-mark.xz;
+                if(any(abs(delta)>radius+.4))continue;
+                float distance=length(delta),offset=distance-radius;if(abs(offset)>.35)continue;
+                float fade=(1-phase)*(1-phase)*orgX.z;float filter=1-smoothstep(.08,.4,max(length(ddx(W.xz)),length(ddy(W.xz))));
+                rings+=stroke(offset,.035)*fade*filter;
+                ripple+=delta/max(distance,.01)*cos(offset*18)*exp(-abs(offset)*12)*fade*.10*filter;
+            }
+        }
+        float puddle=style==34?smoothstep(.47,.65,noise3(float3(q*.6,11))):1;
+        float3 wetNormal=normalize(normal+float3(slope.x+ripple.x,0,slope.y+ripple.y)*puddle);
+        float3 reflected=reflect(-V,wetNormal);float fresnel=.06+.94*pow(1-saturate(dot(wetNormal,V)),5);
+        float3 environment=sampleWaterSky(reflected,orgZ.y);
+        float shine=pow(saturate(dot(reflect(normalize(float3(.4,-.8,.3)),wetNormal),V)),80)*.6;
+        float reflectivity=worldInfo.x>.5?orgZ.z:.65;
+        c=lerp(fill*.3,fill*.22+environment*(.1+fresnel*.9)*reflectivity+shine*(1-orgZ.y*.7)+fill*rings*.16,puddle);
+        if(style==36){float aurora=pow(saturate(.5+.5*sin(reflected.x*6+reflected.z*3+waterTime*.1)),5);c+=lerp(float3(.05,.7,.38),float3(.15,.24,.65),saturate(reflected.y))*aurora*fresnel*.35;}
+        if(style==37)c=c*float3(1,.68,.2)+float3(.42,.24,.04)*fresnel;
+        if(style==39)c=fill*.3+environment*(.12+fresnel*.88)*reflectivity+shine*(1-orgZ.y*.7)+fill*rings*.1;
+        if(style==39||style==33){float2 caustic=wavePosition*2+float2(sin(wavePosition.y*1.3+waterTime*.2),cos(wavePosition.x*1.1-waterTime*.17))*.45;float seam=sin(caustic.x*4+sin(caustic.y*3+waterTime*.25))*.5+sin(caustic.y*5+cos(caustic.x*2-waterTime*.1))*.5;float filament=pow(saturate(1-abs(seam)),16);c+=fill*filament*.32*saturate(waveHeight*5)*farFade;}
+        if(style==38){float2 leaf=frac(q*2+float2(t*.045,t*.12))-.5;float shape=length(float2(leaf.x*2,leaf.y)),width=max(fwidth(shape),.025);float petal=(1-smoothstep(.155-width*.5,.155+width*.5,shape))*smoothstep(.2,.55,hash21(floor(q*2+float2(t*.045,t*.12))))*(1-smoothstep(.15,.6,footprint*2));c=fill*.25+lerp(fill,float3(1,.55,.72),.6)*petal*.8;}
+        if(level<-.001){float3 glass=sampleWaterSky(reflect(-V,normal),.015);c*=exp(-abs(level)*float3(.035,.018,.009));c+=glass*(.025+.12*pow(1-saturate(dot(normal,V)),5));}
+        gmask=shine*.08;break;
+    }
+
     case 27:
     case 28:
     {
@@ -620,7 +728,7 @@ Out ps_main(float4 pos : SV_POSITION, bool frontFace : SV_IsFrontFace)
         q.y+=sin(t*.6+h*6.28)*.045;
         float disc=1.0-smoothstep(.31,.33,length(q));
         float eyes=stroke(length(q-float2(-.105,.065)),.025)+stroke(length(q-float2(.105,.065)),.025);
-        if(mode==27) {
+        if(style==27) {
             float smile=stroke(length(q-float2(0,.045))-.18,.017)*step(q.y,-.015);
             c=lerp(fill*.06,float3(1,.82,.15),disc); c*=1.0-saturate(eyes+smile)*disc*.92;
         } else {
@@ -636,14 +744,14 @@ Out ps_main(float4 pos : SV_POSITION, bool frontFace : SV_IsFrontFace)
     }
     }
 
-    if (mode >= 9 && mode != 10 && mode != 11 && mode != 12 && mode != 16 && mode != 20 && mode != 29)
+    if (style >= 9 && style <=31 && style != 10 && style != 11 && style != 12 && style != 16 && style != 20 && style != 29)
         c *= lerp(float3(1,1,1),fill*1.5,0.25);
 
-    if (density <= 0.0 && (mode == 7 || mode >= 9)) { c=fill*.65; gmask=0.0; }
+    if (density <= 0.0 && style!=41 && (style == 7 || style >= 9)) { c=fill*.65; gmask=0.0; }
+    if(all(fill<.001))c=0;else if(style!=41&&all(fill>.999))c=1;
     add_glow(c,a,gmask);
-    clip(color.a - 0.00001);
     Out o;
-    o.c=float4(saturate(c),saturate(a)*saturate(color.a));
+    o.c=float4(saturate(c),saturate(a)*saturate(selectedColor.a));
     o.z=saturate(pos.z*depth_scale+depth_bias);
     return o;
 }
@@ -741,21 +849,7 @@ struct Patch {
 	std::uint64_t old = 0;
 };
 
-struct Target {
-	std::uint64_t geom;
-	NativePattern::Material mat;
-
-	std::uint64_t anchorPrimitive;
-	std::uint64_t viewMatrix;
-	std::uint32_t startIndex, baseVertex, indexCount, topology;
-	std::uint64_t liveBody;
-    float occludedColor[4];
-    std::int32_t occludedMode;
-    std::uint32_t occlusion;
-    std::uint64_t visibleDepthState, occludedDepthState;
-    std::uint64_t weapon=0;
-    std::uint64_t renderEntity=0;
-};
+using Target=NativeGameRender::Target;
 static_assert(offsetof(Target, mat) == 8, "the draw thunk copies the cbuffer from geom + 8");
 static_assert(sizeof(NativePattern::Material) % 16 == 0, "cbuffer size must stay 16-byte aligned");
 static_assert(sizeof(Target) == 8 + sizeof(NativePattern::Material) + 96);
@@ -788,6 +882,7 @@ struct Hook {
 	std::uintptr_t vt_mem = 0;
 	std::uintptr_t orig_present = 0;
 	std::uintptr_t orig_draw = 0;
+    std::uintptr_t resolve_thunk=0,targets_thunk=0,context_vt=0;
 	std::uintptr_t module = 0;
 	std::uintptr_t ps_dxbc = 0;
 	std::size_t ps_len = 0;
@@ -819,6 +914,10 @@ struct Hook {
     std::uintptr_t projection_thunk=0;
     std::size_t projection_thunk_n=0;
     bool projection_enabled=false;
+    std::uintptr_t callbackState=0;
+    DWORD callbackPid=0;
+    std::array<std::uint8_t,24> drawEntry{};
+    bool drawCodeInvalid=false;
 };
 
 Hook g{};
@@ -858,6 +957,7 @@ void append_u64(std::vector<std::uint8_t>& c, std::uint64_t v)
 	const auto* b = (const std::uint8_t*)&v;
 	c.insert(c.end(), b, b + 8);
 }
+void append_u32(std::vector<std::uint8_t>& c,std::uint32_t v){const auto* b=reinterpret_cast<const std::uint8_t*>(&v);c.insert(c.end(),b,b+4);}
 
 void append_call_rax(std::vector<std::uint8_t>& c)
 {
@@ -936,12 +1036,19 @@ bool exec_prot(DWORD p)
 		b == PAGE_EXECUTE_READWRITE || b == PAGE_EXECUTE_WRITECOPY;
 }
 
+std::vector<std::pair<std::uintptr_t,std::size_t>> gameCodeCaves;
+DWORD gameCodePid=0;
 std::uintptr_t find_dll_cave(std::size_t need, std::uintptr_t ignore)
 {
+    std::vector<NativeCodePadding::Range> reserved;
+    if(ignore)reserved.emplace_back(ignore,need);
+    for(auto range:{NativeCodePadding::Range{g.cave,g.cave_n},{g.draw_cave,g.draw_cave_n},{g.projection_thunk,g.projection_thunk_n}})
+        if(range.first&&range.second)reserved.push_back(range);
+    if(gameCodePid==memory->get_process_id())reserved.insert(reserved.end(),gameCodeCaves.begin(),gameCodeCaves.end());
 	static const wchar_t* pref[] = {
 		L"winsta.dll", L"win32u.dll", L"uxtheme.dll", L"dwmapi.dll",
 		L"msctf.dll", L"TextInputFramework.dll", L"CoreMessaging.dll",
-		L"user32.dll", L"imm32.dll", L"gdi32.dll", L"ole32.dll", L"combase.dll",
+		L"imm32.dll", L"gdi32.dll", L"ole32.dll", L"combase.dll",
 	};
 	for (auto* name : pref)
 	{
@@ -987,18 +1094,8 @@ std::uintptr_t find_dll_cave(std::size_t need, std::uintptr_t ignore)
 						if (run >= need)
 						{
 							const std::uintptr_t start = rb + i + 1 - run;
-							const std::uintptr_t aligned = (start + 0x0F) & ~std::uintptr_t(0x0F);
-							if (ignore && aligned == ignore)
-								continue;
-							if (aligned + need > rb + rs)
-								continue;
-
-							if (g.cave && aligned < g.cave + g.cave_n && g.cave < aligned + need)
-								continue;
-							if(g.projection_thunk&&aligned<g.projection_thunk+g.projection_thunk_n&&g.projection_thunk<aligned+need)continue;
-							if (g.draw_cave && aligned < g.draw_cave + g.draw_cave_n && g.draw_cave < aligned + need)
-								continue;
-							return aligned;
+                            const auto aligned=NativeCodePadding::Fit(start,rb+i+1,need,reserved);
+                            if(aligned)return aligned;
 						}
 					}
 				}
@@ -1530,7 +1627,7 @@ bool compile(const char* entry, const char* model, std::vector<std::uint8_t>& ou
 
 NativePreparation::Shader localShader;
 void start_shader(){
-    localShader.Start([]{std::vector<std::uint8_t> result;if(!compile("ps_main","ps_5_0",result))result.clear();return result;});
+    localShader.Start([]{return std::vector<std::uint8_t>(std::begin(GameSkyPrograms::NativeMaterial),std::end(GameSkyPrograms::NativeMaterial));});
 }
 bool shader_ready(){
     start_shader();
@@ -1570,6 +1667,12 @@ std::vector<std::uint8_t> make_present_thunk(std::uintptr_t state, std::uintptr_
 	const std::size_t nocmd = c.size();
 	c.insert(c.end(), { 0x48, 0xB8 });
 	append_u64(c, state);
+    c.insert(c.end(),{0x48,0x83,0x78,0x70,0});const auto gameDrawBusy=append_jcc32(c,0x05);
+    c.insert(c.end(),{0x48,0x8B,0x88});append_u32(c,NativeGameRuntime::request);c.insert(c.end(),{0x48,0x85,0xC9});const auto noGameRequest=append_jcc32(c,0x04);
+    c.insert(c.end(),{0x48,0x8B,0x54,0x24,0x40,0x44,0x8B,0x80});append_u32(c,offsetof(RemoteState,entered));
+    c.insert(c.end(),{0x48,0x8B,0x80});append_u32(c,NativeGameRuntime::post);c.insert(c.end(),{0x48,0x85,0xC0});const auto noGamePost=append_jcc32(c,0x04);append_call_rax(c);
+    const auto gameFinished=c.size();for(auto at:{gameDrawBusy,noGameRequest,noGamePost})patch_rel32(c,at,gameFinished);
+    c.insert(c.end(),{0x48,0xB8});append_u64(c,state);
 	c.insert(c.end(), { 0xC7, 0x80, 0xB4, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 });
 
 	c.insert(c.end(), { 0x48, 0x8B, 0x90, 0x28, 0x03, 0x00, 0x00 });
@@ -1586,9 +1689,24 @@ std::vector<std::uint8_t> make_present_thunk(std::uintptr_t state, std::uintptr_
 	return c;
 }
 
+
+std::vector<std::uint8_t> make_scene_thunk(std::uintptr_t state,bool resolve){
+    std::vector<std::uint8_t> c;const auto bytes=[&](std::initializer_list<std::uint8_t> x){c.insert(c.end(),x);};
+    bytes({0x51,0x52,0x41,0x50,0x41,0x51,0x48,0x83,0xEC,0x28,0x48,0xB8});append_u64(c,state);
+    bytes({0x48,0x8B,0x88});append_u32(c,NativeGameRuntime::request);bytes({0x48,0x85,0xC9});const auto noRequest=append_jcc32(c,4);
+    bytes({0x48,0x83,0x78,0x70,0});const auto busy=append_jcc32(c,5);bytes({0xBA,1,0,0,0,0x48,0x87,0x50,0x70,0x48,0x85,0xD2});const auto lost=append_jcc32(c,5);
+    if(resolve){bytes({0x48,0x8B,0x54,0x24,0x28,0x44,0x8B,0x80});append_u32(c,offsetof(RemoteState,entered));}
+    else{bytes({0x44,0x8B,0x90});append_u32(c,offsetof(RemoteState,entered));bytes({0x44,0x89,0x54,0x24,0x20,0x8B,0x54,0x24,0x38,0x4C,0x8B,0x44,0x24,0x30,0x4C,0x8B,0x4C,0x24,0x28});}
+    bytes({0x48,0x8B,0x80});append_u32(c,resolve?NativeGameRuntime::resolve:NativeGameRuntime::targets);bytes({0x48,0x85,0xC0});const auto noCallback=append_jcc32(c,4);append_call_rax(c);
+    patch_rel32(c,noCallback,c.size());bytes({0x48,0xB8});append_u64(c,state);bytes({0x48,0xC7,0x40,0x70,0,0,0,0});
+    const auto out=c.size();for(auto at:{noRequest,busy,lost})patch_rel32(c,at,out);
+    bytes({0x48,0x83,0xC4,0x28,0x41,0x59,0x41,0x58,0x5A,0x59,0x49,0xBA});append_u64(c,state);bytes({0x4D,0x8B,0x9A});append_u32(c,resolve?NativeGameRuntime::originalResolve:NativeGameRuntime::originalTargets);bytes({0x41,0xFF,0xE3});return c;
+}
+
 std::vector<std::uint8_t> make_create_stub(std::uintptr_t state)
 {
 	std::vector<std::uint8_t> c;
+    NativeGameRuntime::AppendCommands(c,state);
     NativeReplacementRuntime::AppendCommands(c,state);
     WeaponTextureRuntime::AppendCommands(c,state);
 
@@ -1723,6 +1841,8 @@ std::vector<std::uint8_t> make_create_stub(std::uintptr_t state)
 	return c;
 }
 
+
+
 std::vector<std::uint8_t> make_projection_thunk(){
     std::vector<std::uint8_t> c;
     auto bytes=[&](std::initializer_list<std::uint8_t> data){c.insert(c.end(),data);};
@@ -1781,6 +1901,7 @@ std::vector<std::uint8_t> make_projection_thunk(){
 	patch_rel32(c, noLiveCamera, c.size());
     bytes({0x48,0x8B,0x44,0x24,0x58});
     bytes({0xC7,0x80});disp32(offsetof(Target,mat)+offsetof(NativePattern::Material,body_status)+8);disp32(0);
+
 
     };
     bytes({0x48,0x8B,0x44,0x24,0x58,0xF7,0x80});disp32(offsetof(Target,weapon));disp32(NativeReplacementRuntime::modelFlag);const auto ordinaryModel=append_jcc32(c,0x04);
@@ -1848,7 +1969,7 @@ std::vector<std::uint8_t> make_draw_thunk(std::uintptr_t state,bool projection=t
         const auto isAttachment=append_jcc32(c,0x05);
 
         bytes({0x48,0x83,0xBC,0x24});disp32(0x80);bytes({0});
-        skip.push_back(append_jcc32(c,0x05));
+        const auto colourBody=append_jcc32(c,0x05);
         bytes({0x83,0xBC,0x24});disp32(0x100);bytes({0});
         skip.push_back(append_jcc32(c,0x04));
         bytes({0x8B,0x88});disp32(offsetof(Target,mat)+offsetof(NativePattern::Material,depth)+4);
@@ -1858,6 +1979,7 @@ std::vector<std::uint8_t> make_draw_thunk(std::uintptr_t state,bool projection=t
         patch_rel32(c,selected,c.size());bytes({0x48,0x89,0x84,0x24});disp32(0x118);
         const auto noAttachment=jmp32();
         patch_rel32(c,isAttachment,c.size());
+        patch_rel32(c,colourBody,c.size());
         bytes({0x48,0x8B,0x80});disp32(offsetof(Target,visibleDepthState));
         bytes({0x48,0x89,0x84,0x24});disp32(0x118);
         patch_rel32(c,noAttachment,c.size());bytes({0x48,0x83,0xBC,0x24});disp32(0x118);bytes({0});
@@ -2169,6 +2291,7 @@ std::vector<std::uint8_t> make_draw_thunk(std::uintptr_t state,bool projection=t
 	bytes({ 0x48, 0xC7, 0x44, 0x24, 0x30, 0x00, 0x00, 0x00, 0x00 });
 	call_state(offsetof(RemoteState, fn_update));
 	stage(3);
+    ld_rax(NativeGameRuntime::before);bytes({0x48,0x85,0xC0});const auto noBefore=append_jcc32(c,0x04);bytes({0x49,0x8B,0x8E});disp32(NativeGameRuntime::request);bytes({0x48,0x85,0xC9});const auto noBeforeRequest=append_jcc32(c,0x04);bytes({0x48,0x8B,0x54,0x24,0x58});append_call_rax(c);for(auto jump:{noBefore,noBeforeRequest})patch_rel32(c,jump,c.size());
 
 	ctx();
 	bytes({ 0x49, 0x8B, 0x56, 0x38 });
@@ -2269,6 +2392,11 @@ std::vector<std::uint8_t> make_draw_thunk(std::uintptr_t state,bool projection=t
 		bytes({ 0xFF, 0x50, 0x10 });
 	}
 
+    ld_rax(NativeGameRuntime::sky);bytes({0x48,0x85,0xC0});const auto noGameCapture=append_jcc32(c,0x04);
+    bytes({0x49,0x8B,0x8E});disp32(NativeGameRuntime::request);bytes({0x48,0x85,0xC9});const auto noGameRequest=append_jcc32(c,0x04);
+    bytes({0x48,0x8B,0x54,0x24,0x58,0x48,0x89,0x74,0x24,0x40,0x48,0x89,0x5C,0x24,0x48,0x4C,0x89,0x64,0x24,0x50,0x4C,0x89,0x6C,0x24,0x58});
+    bytes({0x49,0x89,0xE0,0x45,0x8B,0x8E});disp32(offsetof(RemoteState,entered));append_call_rax(c);
+    for(auto at:{noGameCapture,noGameRequest})patch_rel32(c,at,c.size());
 	stage(6);
 	bytes({ 0x49, 0xC7, 0x46, 0x70, 0x00, 0x00, 0x00, 0x00 });
 	patch_rel32(c, j_out, c.size());
@@ -2421,6 +2549,13 @@ bool patch_vtables()
 	if (!add_patch(g.dc, g.dc_vt, nullptr))
 		return false;
 	g.dc_hooked = true;
+    const auto originalContext=memory->Read<std::uintptr_t>(g.ctx);std::uintptr_t originalResolve=0;
+    g.context_vt=g.vt_mem+0x2000+8;
+    if(!clone_vt(originalContext,g.context_vt,57,g.resolve_thunk,&originalResolve))return false;
+    const auto originalTargets=memory->Read<std::uintptr_t>(g.context_vt+33*8);
+    if(!originalTargets||!memory->Write<std::uintptr_t>(g.context_vt+33*8,g.targets_thunk))return false;
+    memory->Write<std::uintptr_t>(g.state+NativeGameRuntime::originalResolve,originalResolve);memory->Write<std::uintptr_t>(g.state+NativeGameRuntime::originalTargets,originalTargets);
+    if(!add_patch(g.ctx,g.context_vt,nullptr))return false;
 	return true;
 }
 
@@ -2546,6 +2681,8 @@ void store_res(std::uint64_t off, std::uint64_t v)
 	memory->Write<std::uint64_t>(g.state + off, v);
 }
 
+
+
 bool pump_creates()
 {
 	if (!g.state)
@@ -2646,6 +2783,7 @@ bool pump_creates()
 	}
 	return g.stage >= 11;
 }
+
 
 struct NativeMeshUpload{DWORD pid=0;std::uintptr_t request=0,data=0,code=0;int phase=0;bool failed=false;std::array<std::uintptr_t,8> boundMaps{};std::wstring asset;std::chrono::steady_clock::time_point retry{};};
 NativeMeshUpload nativeMesh;
@@ -2874,10 +3012,115 @@ void release_texture(){
     t.phase=0;t.resources={};t.selected=-1;t.slot=0;t.failed=false;t.decoded={};if(!t.pending.valid())t.loading=false;textureStatus.store(0);
 }
 
+using GamePrograms=std::array<std::vector<std::uint8_t>,16>;
+AimVisibility::Controller aimVisibility;
+bool OutlineNeeded(){return variables::ESP::nativeChamsOutline||variables::ESP::nativeOutlineGlow;}
+bool WallCheckNeeded(){return variables::Aimbot::silentEnabled&&variables::Aimbot::silentWallCheck;}
+std::future<GamePrograms> gameShaderJob;
+GamePrograms gamePrograms;
+bool gameShaderFailed=false;
+void start_game_shaders(){
+    if(gameShaderJob.valid()||!gamePrograms[0].empty()||gameShaderFailed)return;
+    gameShaderJob=std::async(std::launch::async,[]{GamePrograms result;static_assert(std::size(GameSkyPrograms::All)==16);for(unsigned i=0;i<result.size();++i){const auto& code=GameSkyPrograms::All[i];result[i].assign(code.data,code.data+code.size);}return result;});
+}
+struct GameUpload {DWORD pid=0;std::uintptr_t data=0,request=0;int phase=0;unsigned sequence=0,bank=0;bool failed=false;std::chrono::steady_clock::time_point retry{};};
+GameUpload gameUpload;
+std::array<std::uintptr_t,std::size(NativeGameCode::Parts)> gameCodeParts{};
+bool game_owns_reply(){return gameUpload.phase==1||gameUpload.phase==3;}
+bool prepare_game_code(){
+    if(gameCodePid!=memory->get_process_id()){gameCodePid=memory->get_process_id();gameCodeCaves.clear();gameCodeParts={};}
+    if(std::all_of(gameCodeParts.begin(),gameCodeParts.end(),[](auto p){return p!=0;}))return true;
+    const auto reservations=gameCodeCaves.size();const auto cancel=[&]{gameCodeParts={};gameCodeCaves.resize(reservations);return false;};
+    std::array<std::vector<std::uint8_t>,std::size(NativeGameCode::Parts)> bytes;
+    std::array<std::size_t,std::size(NativeGameCode::Parts)> order{};
+    for(std::size_t i=0;i<order.size();++i)order[i]=i;
+    std::stable_sort(order.begin(),order.end(),[](auto a,auto b){return NativeGameCode::Parts[a].size>NativeGameCode::Parts[b].size;});
+    for(const auto i:order) {
+        const auto& part=NativeGameCode::Parts[i];
+        gameCodeParts[i]=find_dll_cave(part.size,0);
+        if(!gameCodeParts[i])return cancel();
+        gameCodeCaves.emplace_back(gameCodeParts[i],part.size);
+        bytes[i].assign(part.bytes,part.bytes+part.size);
+    }
+    for(const auto& r:NativeGameCode::Relocations){const auto relative=static_cast<std::int64_t>(gameCodeParts[r.target]+r.destination)-static_cast<std::int64_t>(gameCodeParts[r.source]+r.offset+4+r.tail)+r.addend;if(relative<INT32_MIN||relative>INT32_MAX)return cancel();const auto value=static_cast<std::int32_t>(relative);std::memcpy(bytes[r.source].data()+r.offset,&value,4);}
+    for(std::size_t i=0;i<gameCodeParts.size();++i){if(!write_exec(gameCodeParts[i],bytes[i].data(),bytes[i].size())){gameCodeParts={};return false;}FlushInstructionCache(memory->GetHandle(),reinterpret_cast<void*>(gameCodeParts[i]),bytes[i].size());}
+    for(auto entry:{std::pair<unsigned,unsigned>{NativeGameCode::InitializePart,NativeGameCode::InitializeOffset},{NativeGameCode::ReleasePart,NativeGameCode::ReleaseOffset},{NativeGameCode::SkyPart,NativeGameCode::SkyOffset},{NativeGameCode::PostPart,NativeGameCode::PostOffset},{NativeGameCode::CapturePart,NativeGameCode::CaptureOffset},{NativeGameCode::ResolvePart,NativeGameCode::ResolveOffset},{NativeGameCode::TargetsPart,NativeGameCode::TargetsOffset},{NativeGameCode::BeforePart,NativeGameCode::BeforeOffset},{NativeGameCode::DepthPart,NativeGameCode::DepthOffset},{NativeGameCode::PrepareDepthPart,NativeGameCode::PrepareDepthOffset}})mark_cfg(gameCodeParts[entry.first]+entry.second);
+    return true;
+}
+void release_game_renderer(bool wait=false){
+    GameVisuals::appliedStretch=1;
+    auto& m=gameUpload;if(!m.request||m.pid!=memory->get_process_id()||!g.state)return;
+    store_res(NativeGameRuntime::depth,0);store_res(NativeGameRuntime::before,0);store_res(NativeGameRuntime::sky,0);store_res(NativeGameRuntime::post,0);store_res(NativeGameRuntime::resolve,0);store_res(NativeGameRuntime::targets,0);
+    const auto until=std::chrono::steady_clock::now()+std::chrono::milliseconds(wait?250:0);
+    const auto complete=[&]{do{take_out();if(!g.cmd_wait)return true;if(wait)Sleep(1);}while(wait&&std::chrono::steady_clock::now()<until);return false;};
+    if(m.phase==1){if(!complete())return;m.phase=2;}
+    if(m.phase==3){if(!complete())return;if(m.data)memory->Free(m.data);m={};return;}
+    if(g.cmd_wait)return;
+    if(m.phase==2){m.phase=3;issue_cmd(NativeGameRuntime::releaseCommand,0,0,0);if(!complete())return;}
+    if(m.data)memory->Free(m.data);m={};
+}
+void pump_game_renderer(){
+    auto& m=gameUpload;const auto& s=GameVisuals::settings;const auto now=std::chrono::steady_clock::now();
+    if(m.pid!=memory->get_process_id()){m={};m.pid=memory->get_process_id();}
+    if(m.phase==3){release_game_renderer();return;}
+    if(m.phase==1){take_out();if(g.cmd_wait)return;m.phase=2;if(!memory->Read<unsigned>(m.request+offsetof(NativeGameRender::Request,ready))){m.failed=true;m.retry=now+std::chrono::seconds(3);}}
+    if(!s.sky&&!s.glow&&!s.fog&&!s.weather&&!s.worldReflection&&!s.water&&!OutlineNeeded()&&!WallCheckNeeded()&&s.stretchFactor<=1.0001f){if(m.request)release_game_renderer();GameVisuals::skyStatus="Off";return;}
+    if(m.failed){GameVisuals::skyStatus="Sky renderer could not start";if(now<m.retry)return;release_game_renderer();return;}
+    start_game_shaders();
+    if(gameShaderJob.valid()&&gameShaderJob.wait_for(std::chrono::seconds(0))==std::future_status::ready){gamePrograms=gameShaderJob.get();gameShaderFailed=gamePrograms[0].empty();}
+    if(gamePrograms[0].empty()){GameVisuals::skyStatus=gameShaderFailed?"Sky shader preparation failed":"Preparing sky shaders...";return;}
+    if(!m.request){
+        if(g.cmd_wait||now<m.retry)return;
+        if(!prepare_game_code()){m.retry=std::chrono::steady_clock::now()+std::chrono::seconds(3);GameVisuals::skyStatus="Waiting for native rendering resources";return;}
+        std::size_t size=sizeof(NativeGameRender::Request);for(const auto& code:gamePrograms)size+=code.size();m.data=memory->Alloc(size,PAGE_READWRITE);m.request=m.data;
+        if(!m.request){GameVisuals::skyStatus="Could not allocate sky resources";return;}
+        NativeGameRender::Request request;request.device=reinterpret_cast<ID3D11Device*>(g.device);request.context=reinterpret_cast<ID3D11DeviceContext*>(g.ctx);request.textureInterface=__uuidof(ID3D11Texture2D);request.originalDraw=g.orig_draw;request.drawContext=g.dc;
+        request.constantDesc.ByteWidth=sizeof(NativeGameRender::Frame);request.constantDesc.Usage=D3D11_USAGE_DEFAULT;request.constantDesc.BindFlags=D3D11_BIND_CONSTANT_BUFFER;
+        request.visibilityDepth=reinterpret_cast<NativeDepthCapture::Cache*>(g.state+NativeDepthCapture::data);
+        request.rasterDesc.FillMode=D3D11_FILL_SOLID;request.rasterDesc.CullMode=D3D11_CULL_NONE;request.rasterDesc.DepthClipEnable=TRUE;
+        request.depthDesc.DepthEnable=FALSE;request.depthDesc.DepthWriteMask=D3D11_DEPTH_WRITE_MASK_ZERO;request.depthDesc.DepthFunc=D3D11_COMPARISON_ALWAYS;
+        request.blendDesc.RenderTarget[0].RenderTargetWriteMask=D3D11_COLOR_WRITE_ENABLE_ALL;
+        request.samplerDesc.Filter=D3D11_FILTER_MIN_MAG_MIP_LINEAR;request.samplerDesc.AddressU=request.samplerDesc.AddressV=request.samplerDesc.AddressW=D3D11_TEXTURE_ADDRESS_CLAMP;request.samplerDesc.MaxLOD=D3D11_FLOAT32_MAX;
+        auto cursor=m.data+sizeof(request);bool written=true;for(int i=0;i<16;++i){request.codes[i]=reinterpret_cast<void*>(cursor);request.lengths[i]=gamePrograms[i].size();written&=memory->WriteRaw(cursor,gamePrograms[i].data(),gamePrograms[i].size())==gamePrograms[i].size();cursor+=gamePrograms[i].size();}
+        written&=memory->WriteRaw(m.request,&request,sizeof(request))==sizeof(request);if(!written){memory->Free(m.data);m={};GameVisuals::skyStatus="Could not upload sky resources";return;}
+        store_res(NativeGameRuntime::before,gameCodeParts[NativeGameCode::BeforePart]+NativeGameCode::BeforeOffset);store_res(k_capture_fn,gameCodeParts[NativeGameCode::PrepareDepthPart]+NativeGameCode::PrepareDepthOffset);store_res(NativeGameRuntime::depth,gameCodeParts[NativeGameCode::DepthPart]+NativeGameCode::DepthOffset);store_res(NativeGameRuntime::initialize,gameCodeParts[NativeGameCode::InitializePart]+NativeGameCode::InitializeOffset);store_res(NativeGameRuntime::release,gameCodeParts[NativeGameCode::ReleasePart]+NativeGameCode::ReleaseOffset);store_res(NativeGameRuntime::sky,gameCodeParts[NativeGameCode::CapturePart]+NativeGameCode::CaptureOffset);store_res(NativeGameRuntime::resolve,gameCodeParts[NativeGameCode::ResolvePart]+NativeGameCode::ResolveOffset);store_res(NativeGameRuntime::targets,gameCodeParts[NativeGameCode::TargetsPart]+NativeGameCode::TargetsOffset);store_res(NativeGameRuntime::post,gameCodeParts[NativeGameCode::PostPart]+NativeGameCode::PostOffset);store_res(NativeGameRuntime::request,m.request);m.phase=1;issue_cmd(NativeGameRuntime::createCommand,0,0,0);GameVisuals::skyStatus="Starting sky renderer...";return;
+    }
+    if(m.phase!=2)return;
+    const auto dimensions=memory->Read<RBX::Vec2>(Globals::renderEngine.Addr+Offsets::VisualEngine::Dimensions);const auto view=Globals::renderEngine.GetViewMat();const auto cam=NativePattern::CameraFrom(view.data,dimensions.X,dimensions.Y);
+    static auto previous=now;static double phase=0;phase+=std::chrono::duration<double>(now-previous).count()*(s.skyAnimate?s.skySpeed:0);previous=now;
+    NativeGameRender::Frame f;for(int i=0;i<3;++i){f.right[i]=cam.right[i];f.up[i]=cam.up[i];f.forward[i]=cam.fwd[i];f.primary[i]=s.skyPrimary[i];f.secondary[i]=s.skySecondary[i];}
+    f.right[3]=cam.ax;f.up[3]=cam.ay;f.forward[3]=cam.az;f.animation[0]=static_cast<float>(std::fmod(phase,16384.));f.animation[1]=static_cast<float>(s.skyStyle);f.animation[2]=s.skyIntensity;f.animation[3]=s.skyScale;f.options[0]=s.skyRotation*.01745329252f;f.options[1]=cam.bz>0?1.f:0.f;f.options[2]=s.sky&&cam.valid?1.f:0.f;f.options[3]=s.glow?1.f:0.f;f.screen[0]=dimensions.X;f.screen[1]=dimensions.Y;f.bloom[0]=s.glowRadius;f.bloom[1]=s.glowThreshold;f.bloom[2]=s.glowIntensity;
+    f.projection[0]=cam.azz;f.projection[1]=cam.bz;f.projection[2]=cam.az;f.projection[3]=s.fog&&cam.valid?1.f:0.f;for(int i=0;i<3;++i)f.fog[i]=s.fogColor[i];f.fog[3]=1;f.fogRange[0]=s.fogStart;f.fogRange[1]=s.fogEnd;
+    f.water[1]=s.stretchFactor;f.water[0]=s.water?1.f:0.f;f.water[2]=s.time?s.hour:14.f;
+    f.outline[0]=float((variables::ESP::nativeChamsOutline?1:0)|(variables::ESP::nativeOutlineGlow?2:0));f.outline[1]=std::clamp(variables::ESP::nativeOutlineWidth,.5f,6.f);f.outline[2]=variables::ESP::nativeChamsWalls?1.f:0.f;f.outline[3]=std::clamp(variables::ESP::nativeOutlineOpacity,0.f,1.f);
+    std::memcpy(f.outlineColor,variables::ESP::nativeOutlineColor,16);std::memcpy(f.hiddenColor,variables::ESP::nativeOutlineHiddenColor,16);std::memcpy(f.outlineGlow,variables::ESP::nativeOutlineGlowColor,16);f.outlineEffect[0]=variables::ESP::nativeOutlineGlow?std::clamp(variables::ESP::nativeOutlineGlowStrength,0.f,4.f):0.f;f.outlineEffect[1]=std::clamp(variables::ESP::nativeOutlineGlowRadius,1.f,32.f);f.outlineEffect[2]=static_cast<float>(std::clamp(variables::ESP::nativeOutlineStyle,0,2));f.outlineEffect[3]=static_cast<float>(std::fmod(GetTickCount64()*.001,16384.));
+    f.weather[0]=s.weather?1.f:0.f;f.weather[1]=static_cast<float>(s.weatherStyle);f.weather[2]=s.weatherDensity;f.weather[3]=s.weatherSpeed;std::memcpy(f.weatherColor,s.weatherColor,16);for(int i=0;i<3;++i)f.cameraPosition[i]=cam.pos[i];f.cameraPosition[3]=f.outlineEffect[3];f.reflection[0]=s.reflectionStrength;f.reflection[1]=s.reflectionRoughness;f.reflection[2]=s.reflectionDistance;f.reflection[3]=s.skyTint?1.f:0.f;f.fogRange[2]=s.reflectionWalls?1.f:0.f;f.fogRange[3]=s.worldReflection&&s.reflectionStrength>0?1.f:0.f;
+    if(WallCheckNeeded()&&aimVisibility.token&&std::chrono::duration<double>(now.time_since_epoch()).count()-aimVisibility.requestedAt<.12){std::memcpy(f.aimPoint,aimVisibility.point,16);f.aimOptions[0]=1;}
+    const unsigned bank=m.bank^1u;const auto seqAt=m.request+offsetof(NativeGameRender::Request,sequence)+bank*4;m.sequence+=2;
+    const bool uploaded=memory->Write<unsigned>(seqAt,m.sequence|1u)&&memory->WriteRaw(m.request+offsetof(NativeGameRender::Request,frames)+bank*sizeof(f),&f,sizeof(f))==sizeof(f)&&memory->Write<unsigned>(seqAt,m.sequence)&&memory->Write<unsigned>(m.request+offsetof(NativeGameRender::Request,bank),bank);
+    if(uploaded)m.bank=bank;
+    const auto applied=memory->Read<float>(m.request+offsetof(NativeGameRender::Request,appliedStretch));
+    const auto lastStretch=memory->Read<unsigned>(m.request+offsetof(NativeGameRender::Request,lastStretch));
+    const auto rendered=memory->Read<unsigned>(g.state+offsetof(RemoteState,entered));
+    GameVisuals::appliedStretch=s.stretchFactor>1.0001f&&lastStretch!=0xffffffff&&
+        unsigned(rendered-lastStretch)<=3&&std::isfinite(applied)&&applied>=1.f&&applied<=3.f?applied:1.f;
+    const auto calls=memory->Read<unsigned>(m.request+offsetof(NativeGameRender::Request,skyCalls));GameVisuals::skyStatus=s.sky?(calls?"Native animated sky active":"Waiting for the final scene pass"):"Off";
+}
+
+bool aim_visible(std::uint64_t identity,const float* point,const float* view,float* proven){
+    if(!WallCheckNeeded()||!g.state||gameUpload.phase!=2||!gameUpload.request)return false;
+    const auto dimensions=memory->Read<RBX::Vec2>(Globals::renderEngine.Addr+Offsets::VisualEngine::Dimensions);const auto camera=NativePattern::CameraFrom(view,dimensions.X,dimensions.Y);if(!camera.valid)return false;
+    NativeGameRender::VisibilityResult result{};const auto address=gameUpload.request+offsetof(NativeGameRender::Request,visibilityResult);const auto before=memory->Read<unsigned>(address);
+    const bool coherent=before&&!(before&1)&&memory->ReadRaw(address,&result,sizeof(result))==sizeof(result)&&memory->Read<unsigned>(address)==before&&result.sequence==before;
+    AimVisibility::Sample sample{};sample.token=result.token;sample.frame=result.frame;sample.status=result.status;std::memcpy(sample.point,result.point,16);std::memcpy(sample.camera,result.camera,16);std::memcpy(sample.forward,result.forward,16);
+    const auto now=std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count();const auto frame=memory->Read<unsigned>(g.state+offsetof(RemoteState,entered));
+    return aimVisibility.Check(identity,point,camera.pos,camera.fwd,now,frame,coherent?&sample:nullptr,proven);
+}
+
 bool Active()
 {
 
-	return variables::ESP::nativeChams || WeaponVisuals::Active();
+	return WallCheckNeeded() || variables::ESP::nativeChams || OutlineNeeded() || WeaponVisuals::Active() || GameVisuals::NativeNeeded();
 }
 
 bool is_vt(std::uint64_t obj, std::uint64_t rva)
@@ -2944,8 +3187,9 @@ bool typed_object(std::uint64_t object,const char* expected){
     return module.has(at+sizeof(name))&&memory->ReadRaw(at,name,sizeof(name)-1)==sizeof(name)-1&&std::strcmp(name,expected)==0;
 }
 void collect_fces(std::uint64_t part, std::vector<GeometryRange>& out,
-    std::vector<std::uint64_t>& visitedClusters,bool allowInstanced=true)
+    std::vector<std::uint64_t>& visitedClusters,bool allowInstanced=true,std::size_t maxRanges=SIZE_MAX)
 {
+    if(out.size()>=maxRanges)return;
 	static std::uintptr_t clusterField = Offsets::BasePart::ClusterNode;
 	std::uint64_t node =
 		memory->Read<std::uint64_t>(part + clusterField);
@@ -2956,7 +3200,7 @@ void collect_fces(std::uint64_t part, std::vector<GeometryRange>& out,
         if(!typed_object(entity,".?AVInstancedEntity2@Graphics@RBX@@"))return;
         auto resource=memory->Read<std::uint64_t>(entity+0x98);
         if(!typed_object(resource,".?AUMeshResource@Graphics@RBX@@"))return;
-        for(std::size_t offset=0xD0;offset<0x300;offset+=0x28)add_geom(resource,offset,out);
+        for(std::size_t offset=0xD0;offset<0x300&&out.size()<maxRanges;offset+=0x28)add_geom(resource,offset,out);
         return;
     }
 	for (const auto seen : visitedClusters)
@@ -3010,7 +3254,7 @@ void collect_fces(std::uint64_t part, std::vector<GeometryRange>& out,
         std::uint64_t confirm[2]{};
         if (memory->ReadRaw(base+listOffset,confirm,sizeof(confirm))!=sizeof(confirm) ||
             bounds[0]!=confirm[0] || bounds[1]!=confirm[1]) continue;
-        for (std::size_t i=0;i<n;++i) {
+        for (std::size_t i=0;i<n&&out.size()<maxRanges;++i) {
             const auto ent=entities[i];
             if (!addr_ok(ent) || std::find(seenEntities.begin(),seenEntities.end(),ent)!=seenEntities.end() ||
                 !is_vt(ent,Offsets::FastClusterEntity::VTableRva)) continue;
@@ -3021,7 +3265,74 @@ void collect_fces(std::uint64_t part, std::vector<GeometryRange>& out,
     }
 }
 
-void fill_geoms(bool refreshTargets)
+struct WorldGeometryCache {
+    std::uintptr_t root=0;DWORD pid=0;int kinds=-1;
+    bool scanning=false,reflectionOnly=false;
+    struct Node{RBX::RbxInstance item;unsigned depth;};
+    std::vector<Node> todo;
+    std::vector<GeometryRange> ready,building;
+    std::vector<std::uint64_t> clusters;
+    std::unordered_set<std::uintptr_t> seen;
+    std::chrono::steady_clock::time_point refresh{};
+};
+WorldGeometryCache worldGeometry;
+void refresh_world_geometry(){
+    auto& w=worldGeometry;const auto& s=GameVisuals::settings;
+    const bool world=s.world||s.water||s.weather||s.fog;
+    if(!world&&!s.worldReflection){w={};GameVisuals::worldStatus="Off";return;}
+    const bool reflectionOnly=!world;
+    const std::size_t maxRanges=reflectionOnly?160:2048;
+    if(w.pid!=memory->get_process_id()||w.root!=Globals::workspace.Addr||w.kinds!=s.worldKinds||w.reflectionOnly!=reflectionOnly){
+        w={};w.pid=memory->get_process_id();w.root=Globals::workspace.Addr;w.kinds=s.worldKinds;w.reflectionOnly=reflectionOnly;
+    }
+    const auto now=std::chrono::steady_clock::now();
+    if(!w.scanning&&now>=w.refresh){
+        w.building.clear();w.clusters.clear();w.seen.clear();w.todo.push_back({Globals::workspace,0});
+        w.refresh=now+std::chrono::seconds(reflectionOnly?10:2);w.scanning=true;
+    }
+    if(!w.scanning)return;
+    const auto camera=Globals::camera.GetCameraCFrame().GetPosition();
+    unsigned budget=reflectionOnly?12:64;
+    const auto deadline=now+std::chrono::milliseconds(2);
+    while(budget--&&!w.todo.empty()&&w.seen.size()<20000&&w.building.size()<maxRanges){
+        if(reflectionOnly&&std::chrono::steady_clock::now()>=deadline)break;
+        const auto node=w.todo.back();w.todo.pop_back();if(!node.item.Addr||node.depth>24||!w.seen.insert(node.item.Addr).second)continue;
+        const auto cls=node.item.GetClass();
+        if(cls=="Camera"||cls=="Terrain"||cls=="Tool"||cls=="Accessory"||cls=="Hat"||cls=="Script"||cls=="LocalScript"||cls=="ModuleScript"||cls=="ParticleEmitter"||cls=="Beam"||cls=="Trail")continue;
+        if(cls=="Model"&&node.item.FindChildByClass("Humanoid").Addr)continue;
+        if(cls=="Part"||cls=="MeshPart"||cls=="UnionOperation"||cls=="WedgePart"||cls=="CornerWedgePart"||cls=="TrussPart"||cls=="SpawnLocation"){
+            const auto primitive=node.item.GetPrimitivePtr();if(!primitive)continue;
+            const float alpha=memory->Read<float>(node.item.Addr+Offsets::BasePart::Transparency);if(!std::isfinite(alpha)||alpha<0||alpha>=.95f)continue;
+            const auto position=memory->Read<RBX::Vec3>(primitive+Offsets::Primitive::Position),size=memory->Read<RBX::Vec3>(primitive+Offsets::Primitive::Size);
+            const float dx=position.X-camera.X,dy=position.Y-camera.Y,dz=position.Z-camera.Z;
+            const float radius=std::max({size.X,size.Y,size.Z,0.f})*.8661f,limit=std::clamp(s.worldDistance,50.f,10000.f)+radius;
+            if(!std::isfinite(dx+dy+dz+radius)||dx*dx+dy*dy+dz*dz>limit*limit)continue;
+            const bool large=radius>=12;if(s.world&&((s.worldKinds==1&&!large)||(s.worldKinds==2&&large))&&!s.sky&&!s.glow)continue;
+            collect_fces(node.item.Addr,w.building,w.clusters,true,reflectionOnly?maxRanges:SIZE_MAX);
+        }else if(cls=="Workspace"||cls=="Folder"||cls=="Model")for(auto child:node.item.GetChildList())w.todo.push_back({child,node.depth+1});
+    }
+    if(w.todo.empty()||w.seen.size()>=20000||w.building.size()>=maxRanges){
+        w.ready=std::move(w.building);w.building.clear();w.todo.clear();w.scanning=false;
+    }else if(reflectionOnly&&w.ready.size()<w.building.size())w.ready=w.building;
+    GameVisuals::worldStatus=(s.world||s.water)?std::to_string(w.ready.size())+" native world batches; characters and tools excluded":"Off";
+}
+constexpr std::uint64_t k_world_material=NativeGameRuntime::worldFlag;
+WaterTrail::Trail waterTrail;
+void update_water_trail(std::uint64_t character,double now){
+    const auto& settings=GameVisuals::settings;
+    if(!settings.waterRipples||!settings.water||!character||!PlayerCache::localRootPrim){waterTrail.Reset();return;}
+    const auto root=memory->Read<RBX::Vec3>(PlayerCache::localRootPrim+Offsets::Primitive::Position);
+    const auto& limbs=PlayerCache::GetLimbs(character);WaterTrail::Point foot{};float bottom=1e30f;bool found=false;
+    for(auto part:{limbs.r6?limbs.lLeg:limbs.lFoot,limbs.r6?limbs.rLeg:limbs.rFoot}){
+        if(!addr_ok(part))continue;const auto primitive=memory->Read<std::uintptr_t>(part+Offsets::BasePart::Primitive);if(!addr_ok(primitive))continue;
+        const auto position=memory->Read<RBX::Vec3>(primitive+Offsets::Primitive::Position),size=memory->Read<RBX::Vec3>(primitive+Offsets::Primitive::Size);float y=position.Y-size.Y*.5f;
+        if(!std::isfinite(position.X+y+position.Z)||size.Y<=0||size.Y>8||std::abs(position.Y-root.Y)>8)continue;
+        if(y<bottom){foot={position.X,y,position.Z};bottom=y;found=true;}
+    }
+    if(!found){waterTrail.Reset();return;}
+    waterTrail.Update(character^(static_cast<std::uint64_t>(memory->get_process_id())<<32),{root.X,root.Y,root.Z},foot,now,settings.waterTrailSpacing);
+}
+void fill_geoms(bool refreshTargets,bool needsDraw)
 {
 	if (!g.state || !g.geoms || g.stage < 11)
 		return;
@@ -3039,10 +3350,19 @@ void fill_geoms(bool refreshTargets)
 		return;
 	}
 
+    if(!needsDraw){
+        if(worldGeometry.root)refresh_world_geometry();
+        if(g.ntarget||!g.targets.empty()){
+            g.targets.clear();
+            off();
+        }
+        return;
+    }
+
 	const float dscale = 1.0f;
 	const float dbias = 0.0f;
 	static auto previous = std::chrono::steady_clock::now();
-	static double phase = 0.0, weaponPhase=0.0, arPhase=0.0, glockPhase=0.0, limbPhase[2][2]{};
+	static double phase = 0.0, weaponPhase=0.0, arPhase=0.0, glockPhase=0.0, worldPhase=0.0,waterPhase=0.0,limbPhase[2][2]{};
 	const auto frameTime = std::chrono::steady_clock::now();
 	const float speed = std::isfinite(variables::ESP::nativeChamsAnimationSpeed)
 		? std::clamp(variables::ESP::nativeChamsAnimationSpeed, 0.0f, 15.0f) : 1.0f;
@@ -3050,6 +3370,8 @@ void fill_geoms(bool refreshTargets)
 	phase += std::chrono::duration<double>(frameTime - previous).count() * speed;
 	weaponPhase += std::chrono::duration<double>(frameTime-previous).count()*std::clamp(variables::Weapons::speed,0.f,15.f);
     const double elapsed=std::chrono::duration<double>(frameTime-previous).count();
+    worldPhase+=elapsed*std::clamp(GameVisuals::settings.worldSpeed,0.f,15.f);
+    waterPhase+=elapsed*std::clamp(GameVisuals::settings.waterWaveSpeed,0.f,3.f);
     arPhase+=elapsed*std::clamp(variables::Weapons::arMaterial.speed,0.f,15.f);
     glockPhase+=elapsed*std::clamp(variables::Weapons::glockMaterial.speed,0.f,15.f);
     for(int weapon=0;weapon<2;++weapon)for(int glove=0;glove<2;++glove)limbPhase[weapon][glove]+=elapsed*std::clamp(variables::Weapons::MaterialForLimb(weapon!=0,glove!=0).speed,0.f,15.f);
@@ -3064,9 +3386,11 @@ void fill_geoms(bool refreshTargets)
 	if (!local_addr)
 		local_addr = (std::uint64_t)Globals::localPlayer.FindChildByClass("Character").Addr;
 	const std::uint64_t local_player_addr = (std::uint64_t)Globals::localPlayer.Addr;
+    const double waterNow=std::chrono::duration<double>(frameTime.time_since_epoch()).count();update_water_trail(local_addr,waterNow);
 
 	auto& targets = g.targets;
 	if (refreshTargets || targets.empty()) {
+	refresh_world_geometry();
 	targets.clear();
 	targets.reserve(64);
 	std::vector<GeometryRange> taken;
@@ -3173,25 +3497,31 @@ void fill_geoms(bool refreshTargets)
             }
         }
     }
-	if(variables::ESP::nativeChams)for (const auto& player : PlayerCache::players)
+	if(WallCheckNeeded()||variables::ESP::nativeChams||OutlineNeeded())for (const auto& player : PlayerCache::players)
 	{
 
 		const bool is_local = (local_addr && (std::uint64_t)player.characterAddr == local_addr) ||
 			(local_player_addr && (std::uint64_t)player.playerAddr == local_player_addr);
-		if (is_local || PlayerRules::Esp(player.userId) || !App::PassesChamChecks(player.isValid, player.characterAddr, player.teamAddr, player.health))
-			continue;
-		if(!App::WithinVisualRange(player.characterAddr,variables::ESP::nativeDistance,variables::ESP::nativeUnlimited))continue;
+		if(is_local||!player.isValid||!player.characterAddr)continue;
+        const bool visual=!PlayerRules::Esp(player.userId)&&App::PassesChamChecks(player.isValid,player.characterAddr,player.teamAddr,player.health)&&App::WithinVisualRange(player.characterAddr,variables::ESP::nativeDistance,variables::ESP::nativeUnlimited);
+        if(!visual&&!WallCheckNeeded())continue;
 		++g_npick;
-		push_character(player.characterAddr);
+		const auto begin=targets.size();push_character(player.characterAddr);
+        if(!visual)for(auto i=begin;i<targets.size();++i)targets[i].weapon|=NativeGameRender::VisibilityOnly;
 	}
 
-	if (variables::ESP::nativeChams && local_addr && variables::ESP::meshChamsLocal &&
+	if ((variables::ESP::nativeChams||OutlineNeeded()) && local_addr && variables::ESP::meshChamsLocal &&
 		App::PassesVisibilityChecks((std::uintptr_t)local_addr))
 	{
 		++g_npick;
 		push_character(local_addr);
 	}
 
+    if(GameVisuals::NativeNeeded())for(const auto& range:worldGeometry.ready){
+        if(targets.size()>=k_max_targets)break;
+        if(std::any_of(taken.begin(),taken.end(),[&](const auto& r){return r.key()==range.key();}))continue;
+        taken.push_back(range);Target t{};t.weapon=k_world_material;t.geom=range.geom;t.renderEntity=range.renderEntity;t.startIndex=range.startIndex;t.baseVertex=range.baseVertex;t.indexCount=range.indexCount;t.topology=range.topology;t.mat.pattern[1]=pattern_seed(range.geom);targets.push_back(t);
+    }
 	std::sort(targets.begin(), targets.end(), [](const Target& a, const Target& b) { return std::tie(a.renderEntity,a.geom,a.startIndex,a.baseVertex,a.indexCount,a.topology) < std::tie(b.renderEntity,b.geom,b.startIndex,b.baseVertex,b.indexCount,b.topology); });
 	}
 
@@ -3262,7 +3592,7 @@ void fill_geoms(bool refreshTargets)
 		mat.pattern[0] = 0.0f;
         mat.body_status[0] = 0.0f;mat.body_status[1]=0;mat.body_status[2]=0;mat.world_depth={};
 
-		mat.pattern[2] = variables::ESP::nativeChamsOnly ? 1.0f : 0.0f;
+		mat.pattern[2] = variables::ESP::nativeChams&&variables::ESP::nativeChamsOnly ? 1.0f : 0.0f;
 		mat.pattern[3] = k_image_half_width;
 		mat.org_pos[0] = mat.org_pos[1] = mat.org_pos[2] = mat.org_pos[3] = 0.0f;
 		for (int i = 0; i < 4; ++i) {
@@ -3310,18 +3640,17 @@ void fill_geoms(bool refreshTargets)
 			mat.color[i] = variables::ESP::nativeChamsColor[i];
 			mat.glow[i] = variables::ESP::nativeChamsGlowColor[i];
 		}
-		mat.color[3] = std::clamp(variables::ESP::nativeChamsOpacity, 0.0f, 1.0f) *
-			std::clamp(variables::ESP::nativeChamsColor[3], 0.0f, 1.0f);
-		mat.glow[3] = variables::ESP::nativeChamsGlow ? variables::ESP::nativeChamsGlowStrength : 0.0f;
+		mat.color[3] = std::clamp(variables::ESP::nativeChamsOpacity,0.f,1.f)*(variables::ESP::nativeChams?1.f:0.f);
+		mat.glow[3] = variables::ESP::nativeChams&&variables::ESP::nativeChamsGlow ? variables::ESP::nativeChamsGlowStrength : 0.0f;
         t.occlusion=classify && visibleDepth && hiddenDepth;
         t.visibleDepthState=visibleDepth;t.occludedDepthState=hiddenDepth;
 
         if(t.weapon&k_character_attachment)
             t.visibleDepthState=memory->Read<std::uint64_t>(g.state+(reverse?k_attachment_visible_reversed:k_attachment_visible_standard));
         for(int i=0;i<4;++i)t.occludedColor[i]=std::clamp(variables::ESP::nativeChamsOccludedColor[i],0.0f,1.0f);
-        t.occludedColor[3]*=std::clamp(variables::ESP::nativeChamsOpacity,0.0f,1.0f);
-        t.occludedMode=std::clamp(variables::ESP::nativeChamsOccludedStyle,0,ShaderNameCount()-1);
-		mat.mode = mode;
+        t.occludedColor[3]=std::clamp(variables::ESP::nativeChamsOpacity,0.0f,1.0f)*(variables::ESP::nativeChams?1.f:0.f);
+        t.occludedMode=ShaderMode(variables::ESP::nativeChamsOccludedStyle);
+		mat.mode = ShaderMode(mode);
 		mat.time = now_s;
 		mat.depth_scale = dscale;
 		mat.depth_bias = dbias;
@@ -3336,7 +3665,7 @@ void fill_geoms(bool refreshTargets)
             std::memcpy(mat.color,gun?weaponMaterial.color:limb.color,16);mat.color[3]*=opacity;
             std::memcpy(mat.glow,gun?weaponMaterial.glowColor:limb.glowColor,16);
             mat.glow[3]=(gun?weaponMaterial.glow:limb.glow)?(gun?weaponMaterial.glowStrength:limb.glowStrength):0;
-            mat.mode=std::clamp(gun?weaponMaterial.style:limb.style,0,ShaderNameCount()-1);
+            mat.mode=ShaderMode(gun?weaponMaterial.style:limb.style);
             mat.time=static_cast<float>(gun?(variables::Weapons::separateWeapons?(isGlock?glockPhase:arPhase):weaponPhase):limbPhase[isGlock?1:0][kind==3?1:0]);
 
             const float surfaceScale=gun?std::clamp(weaponMaterial.scale,.01f,100.f)*.1f:(std::max)(.1f,limb.scale);
@@ -3351,9 +3680,18 @@ void fill_geoms(bool refreshTargets)
             if((gun&&!weaponMaterial.enabled)||(!gun&&!limb.enabled)){mat.pattern[2]=0;mat.color[3]=0;mat.glow[3]=0;}
             if(firstPerson&&(variables::Weapons::hide||(t.weapon&k_hidden_cosmetic))){mat.pattern[2]=1;mat.color[3]=0;mat.glow[3]=0;t.weapon&=~WeaponTextureRuntime::targetFlag;}
             std::memcpy(t.occludedColor,variables::ESP::nativeChamsOccludedColor,16);t.occludedColor[3]*=opacity;
-            t.occludedMode=std::clamp(variables::ESP::nativeChamsOccludedStyle,0,ShaderNameCount()-1);
+            t.occludedMode=ShaderMode(variables::ESP::nativeChamsOccludedStyle);
         }
         if(!variables::ESP::nativeChamsOcclusion){std::memcpy(t.occludedColor,mat.color,16);t.occludedMode=mat.mode;}
+        if(kind==0&&!variables::ESP::nativeChamsWalls)t.occludedColor[3]=0;
+        if(t.weapon&NativeGameRender::VisibilityOnly){mat.pattern[2]=0;mat.color[3]=0;mat.glow[3]=0;t.occludedColor[3]=0;}
+        if(t.weapon&k_world_material){
+            const auto& s=GameVisuals::settings;std::memcpy(mat.color,s.worldColor,16);mat.color[3]=s.world?std::clamp(s.worldOpacity,0.f,1.f)*s.worldColor[3]:(s.water?1.f:0.f);
+            std::memcpy(mat.glow,s.worldGlowColor,16);mat.glow[3]=s.world&&s.worldGlow?s.worldGlowStrength:0;mat.mode=GameVisuals::WorldMaterialMode(s.worldStyle);mat.body_status[1]=2;mat.time=static_cast<float>(worldPhase);mat.pattern[0]=.12f/std::clamp(s.worldScale,.25f,8.f);mat.pattern[2]=s.world&&!s.worldOriginal&&!s.water?1.f:0.f;
+            WaterMaterial::Apply(mat,s,waterTrail,waterNow,static_cast<float>(std::fmod(waterPhase,16384.)));
+            std::memset(t.occludedColor,0,sizeof(t.occludedColor));t.occludedMode=mat.mode;t.occlusion=classify&&visibleDepth&&hiddenDepth;
+            if(!t.occlusion){mat.color[3]=0;mat.pattern[2]=0;}
+        }
 
 	}
 
@@ -3457,97 +3795,92 @@ bool install()
 		return false;
 	}
 
-	auto cr = make_create_stub(g.state);
-	auto dr = make_draw_thunk(g.state);
-	auto ps = make_present_thunk(g.state, 0x10000);
-	if (cr.empty() || dr.empty() || ps.empty())
-	{
-		fail("thunk");
-		g_fail = now;
-		return false;
-	}
-	const auto align16 = [](std::size_t n) { return (n + 15u) & ~std::size_t(15); };
-	const std::size_t nps = align16(ps.size());
-	const std::size_t ncr = align16(cr.size());
-	std::size_t ndr = align16(dr.size());
-
-	const std::size_t nall = nps + ncr + align16(sizeof(k_native_depth_capture_code));
-	const std::uintptr_t cave = find_dll_cave(nall, 0);
-	if (!cave)
-	{
-		fail("cave");
-		g_fail = now;
-		return false;
-	}
-	g.cave = cave;
-	g.cave_n = nall;
-	std::uintptr_t drawCave = find_dll_cave(ndr, 0);
-    g.projection_enabled=drawCave!=0;
-    if(!drawCave){dr=make_draw_thunk(g.state,false);ndr=align16(dr.size());drawCave=find_dll_cave(ndr,0);}
-	if (!drawCave)
-	{
-		fail("draw cave");
-		g.cave = 0;
-		return false;
-	}
-	g.draw_cave = drawCave;
-	g.draw_cave_n = ndr;
-	g.present_thunk = cave;
-	g.create_stub = cave + nps;
-	g.draw_thunk = drawCave;
-    if(g.projection_enabled){
-        const auto code=make_projection_thunk();const auto required=align16(code.size());
-        g.projection_thunk=find_dll_cave(required,0);g.projection_thunk_n=required;
-        g.projection_enabled=g.projection_thunk&&write_exec(g.projection_thunk,code.data(),code.size());
-    }
-    if(!g.projection_enabled){
-        dr=make_draw_thunk(g.state,false);ndr=align16(dr.size());g.draw_cave=0;g.draw_cave_n=0;
-        drawCave=find_dll_cave(ndr,0);
-        if(!drawCave){fail("draw cave");g.cave=0;return false;}
-        g.draw_cave=drawCave;g.draw_cave_n=ndr;g.draw_thunk=drawCave;
-    }
-    memory->Write<std::uint64_t>(g.state+TextureProjectionRuntime::function,g.projection_enabled?g.projection_thunk:0);
-
 	if (!g.vt_mem)
-		g.vt_mem = memory->Alloc(0x2000, PAGE_READWRITE);
+		g.vt_mem = memory->Alloc(0x3000, PAGE_READWRITE);
 	if (!g.vt_mem)
 	{
 		fail("alloc vt");
-		g.cave = 0;
 		g_fail = now;
 		return false;
 	}
-	ps = make_present_thunk(g.state, g.create_stub);
-	if (ps.size() > nps)
-	{
-		fail("thunk jmp");
-		g.cave = 0;
-		g_fail = now;
-		return false;
-	}
-	if (!write_exec(g.create_stub, cr.data(), cr.size())
-		|| !write_exec(g.draw_thunk, dr.data(), dr.size())
-        || !write_exec(cave+nps+ncr,k_native_depth_capture_code,sizeof(k_native_depth_capture_code))
-		|| !write_exec(g.present_thunk, ps.data(), ps.size()))
-	{
-		fail("write stub");
-		g.cave = 0;
-		g_fail = now;
-		return false;
-	}
-	FlushInstructionCache(memory->GetHandle(), (void*)g.cave, nall);
-	FlushInstructionCache(memory->GetHandle(), (void*)g.draw_cave, ndr);
-	mark_cfg(g.present_thunk);
-	mark_cfg(g.create_stub);
-	mark_cfg(g.draw_thunk);
-    mark_cfg(cave+nps+ncr);
-    if(g.projection_enabled){FlushInstructionCache(memory->GetHandle(),reinterpret_cast<void*>(g.projection_thunk),g.projection_thunk_n);mark_cfg(g.projection_thunk);}
-    memory->Write<std::uint64_t>(g.state+k_capture_fn,cave+nps+ncr);
+    const auto pid=memory->get_process_id();
+    if(g.callbackState!=g.state || g.callbackPid!=pid) {
+        const auto align16=[](std::size_t n){return (n+15u)&~std::size_t(15);};
+        const auto create=make_create_stub(g.state);
+        const auto resolve=make_scene_thunk(g.state,true);
+        const auto targets=make_scene_thunk(g.state,false);
+        auto present=make_present_thunk(g.state,0x10000);
+        if(create.empty()||resolve.empty()||targets.empty()||present.empty()){fail("thunk");return false;}
+        const auto presentSize=align16(present.size());
+        const auto createSize=align16(create.size());
+        const auto depthSize=align16(sizeof(k_native_depth_capture_code));
+        const auto resolveSize=align16(resolve.size());
+        const auto mainSize=presentSize+createSize+depthSize+resolveSize+align16(targets.size());
+
+        const auto projection=make_projection_thunk();
+        g.cave=0;
+        g.draw_cave=0;
+        g.projection_thunk=0;
+        auto draw=make_draw_thunk(g.state);
+        g.draw_cave_n=align16(draw.size());
+        g.draw_cave=find_dll_cave(g.draw_cave_n,0);
+        if(g.draw_cave) {
+            g.cave_n=mainSize;
+            g.cave=find_dll_cave(mainSize,0);
+            g.projection_thunk_n=align16(projection.size());
+            if(g.cave)g.projection_thunk=find_dll_cave(g.projection_thunk_n,0);
+        }
+        g.projection_enabled=g.projection_thunk!=0;
+        if(!g.projection_enabled) {
+            g.cave=0;
+            g.draw_cave=0;
+            draw=make_draw_thunk(g.state,false);
+            g.draw_cave_n=align16(draw.size());
+            g.draw_cave=find_dll_cave(g.draw_cave_n,0);
+            if(!g.draw_cave){fail("draw cave");return false;}
+            g.cave_n=mainSize;
+            g.cave=find_dll_cave(mainSize,0);
+        }
+        if(!g.cave){fail("cave");return false;}
+        g.present_thunk=g.cave;
+        g.create_stub=g.cave+presentSize;
+        g.draw_thunk=g.draw_cave;
+        const auto depthThunk=g.create_stub+createSize;
+        g.resolve_thunk=depthThunk+depthSize;
+        g.targets_thunk=g.resolve_thunk+resolveSize;
+        present=make_present_thunk(g.state,g.create_stub);
+        if(present.size()>presentSize){fail("thunk jmp");return false;}
+
+        if(!write_exec(g.resolve_thunk,resolve.data(),resolve.size())||
+            !write_exec(g.targets_thunk,targets.data(),targets.size())||
+            !write_exec(g.create_stub,create.data(),create.size())||
+            !write_exec(g.draw_thunk,draw.data(),draw.size())||
+            !write_exec(depthThunk,k_native_depth_capture_code,sizeof(k_native_depth_capture_code))||
+            !write_exec(g.present_thunk,present.data(),present.size())||
+            (g.projection_enabled&&!write_exec(g.projection_thunk,projection.data(),projection.size()))) {
+            fail("write stub");
+            return false;
+        }
+        FlushInstructionCache(memory->GetHandle(),reinterpret_cast<void*>(g.cave),mainSize);
+        FlushInstructionCache(memory->GetHandle(),reinterpret_cast<void*>(g.draw_cave),g.draw_cave_n);
+        for(auto callback:{g.resolve_thunk,g.targets_thunk,g.present_thunk,g.create_stub,g.draw_thunk,depthThunk})
+            mark_cfg(callback);
+        if(g.projection_enabled) {
+            FlushInstructionCache(memory->GetHandle(),reinterpret_cast<void*>(g.projection_thunk),projection.size());
+            mark_cfg(g.projection_thunk);
+        }
+        std::copy_n(draw.begin(),g.drawEntry.size(),g.drawEntry.begin());
+        g.callbackState=g.state;
+        g.callbackPid=pid;
+        g.drawCodeInvalid=false;
+    }
+    memory->Write<std::uint64_t>(g.state+TextureProjectionRuntime::function,g.projection_enabled?g.projection_thunk:0);
+    const auto depthSize=(sizeof(k_native_depth_capture_code)+15u)&~std::size_t(15);
+    memory->Write<std::uint64_t>(g.state+k_capture_fn,g.resolve_thunk-depthSize);
 	if (!patch_vtables())
 	{
 		fail("vt");
 		unpatch();
-		g.cave = 0;
 		g_fail = now;
 		return false;
 	}
@@ -3667,7 +4000,7 @@ void apply_occlusion(bool off)
 
 void teardown()
 {
-    if(memory->IsConnected()&&g.hooked){if(NativeCommandFlow::NativeOwnsReply(nativeMesh.phase))release_native_mesh(true);release_texture();release_native_mesh(true);}
+    if(memory->IsConnected()&&g.hooked){if(game_owns_reply())release_game_renderer(true);if(NativeCommandFlow::NativeOwnsReply(nativeMesh.phase))release_native_mesh(true);release_texture();release_native_mesh(true);release_game_renderer(true);}
 	apply_occlusion(false);
 	if (g.state)
 		memory->Write<std::uint32_t>(g.state + offsetof(RemoteState, enabled), 0);
@@ -3688,8 +4021,11 @@ void teardown()
 
 }
 
+void ResetAimVisibility(){aimVisibility.Reset();}
+bool AimVisible(std::uint64_t identity,const float* point,const float* view,float* proven){return aim_visible(identity,point,view,proven);}
 void Prepare(){
     start_shader();
+    start_game_shaders();
 
     if(memory->IsConnected())find_d3d();
 }
@@ -3711,10 +4047,12 @@ const char* TextureTestStatus(){
     default:return !g.hooked&&g_why?"Native renderer failed to start":"Preparing custom texture...";
     }
 }
+bool Loaded(){return g.hooked&&g.stage>=11&&g.dc_armed&&!g.drawCodeInvalid&&g.draw_live&&g.ntarget>0;}
 const char* StartupStatus(){
     using State=NativePreparation::Shader::State;
     if(localShader.Status()==State::Preparing)return "Preparing native graphics...";
     if(localShader.Status()==State::Failed)return "Native graphics preparation failed";
+    if(g.drawCodeInvalid)return "Native draw callback unavailable";
     if(g.hooked)return g.stage>=11?"Ready":"Starting native renderer...";
     return g_why?g_why:"Ready to enable";
 }
@@ -3773,16 +4111,33 @@ void Tick()
 		std::printf("[NativeChams] depth=%s\n", rev ? "reverse" : "standard");
 	}
 
-	if (g.dc_hooked && !g.dc_armed && g.dc_arm && g.state &&
+    const auto& effects=GameVisuals::settings;
+    const bool needsDraw=variables::ESP::nativeChams||OutlineNeeded()||WallCheckNeeded()||
+        WeaponVisuals::Active()||effects.world||effects.weather||effects.worldReflection||effects.fog||effects.water;
+    if(g.dc_hooked&&g.dc_arm&&g.state) {
+        if(needsDraw&&!g.drawCodeInvalid) {
+            std::array<std::uint8_t,24> observed{};
+            g.drawCodeInvalid=memory->ReadRaw(g.draw_thunk,observed.data(),observed.size())!=observed.size()||
+                observed!=g.drawEntry;
+        }
+        if(g.dc_armed&&(!needsDraw||g.drawCodeInvalid)) {
+            DWORD prot=0;
+            if(memory->Protect(g.dc_arm,8,PAGE_READWRITE,&prot)) {
+                const bool restored=memory->Write<std::uint64_t>(g.dc_arm,g.orig_draw);
+                memory->Protect(g.dc_arm,8,prot,nullptr);
+                if(restored)g.dc_armed=false;
+            }
+        }
+    }
+	if (g.dc_hooked && !g.dc_armed && g.dc_arm && g.state && needsDraw && !g.drawCodeInvalid &&
 		memory->Read<std::uint32_t>(g.state + offsetof(RemoteState, ready)))
 	{
 		DWORD prot = 0;
 		if (memory->Protect(g.dc_arm, 8, PAGE_READWRITE, &prot))
 		{
-			memory->Write<std::uint64_t>(g.dc_arm, (std::uint64_t)g.draw_thunk);
+			g.dc_armed = memory->Write<std::uint64_t>(g.dc_arm, (std::uint64_t)g.draw_thunk);
 			memory->Protect(g.dc_arm, 8, prot, nullptr);
-			g.dc_armed = true;
-			std::printf("[NativeChams] resources ready -> draw hook armed\n");
+			if(g.dc_armed)std::printf("[NativeChams] resources ready -> draw hook armed\n");
 		}
 	}
 
@@ -3810,7 +4165,7 @@ void Tick()
 
 	}
 	if(g.stage<11)pump_creates();
-    if(g.stage>=11){if(pump_native_mesh())pump_texture();else if(nativeMesh.failed)texture_flags(false);}
+    if(g.stage>=11){if(game_owns_reply())pump_game_renderer();else{if(pump_native_mesh())pump_texture();else if(nativeMesh.failed)texture_flags(false);if(!g.cmd_wait&&!NativeCommandFlow::NativeOwnsReply(nativeMesh.phase)&&!texture_command_owns_reply())pump_game_renderer();}}
 
 	static auto last_fill = std::chrono::steady_clock::time_point{};
 	static auto last_material = std::chrono::steady_clock::time_point{};
@@ -3820,10 +4175,10 @@ void Tick()
 		const bool refresh = last_fill.time_since_epoch().count() == 0 || now_fill - last_fill >= std::chrono::milliseconds(60);
 		last_material = now_fill;
 		if (refresh) last_fill = now_fill;
-		fill_geoms(refresh);
+		fill_geoms(refresh,needsDraw);
 	}
 
-	apply_occlusion(((variables::ESP::nativeChams && variables::ESP::nativeChamsWalls) || (variables::Weapons::AnyNative() && variables::ESP::nativeChamsWalls)) && g.ntarget > 0);
+	apply_occlusion((((variables::ESP::nativeChams||OutlineNeeded()) && variables::ESP::nativeChamsWalls) || (variables::Weapons::AnyNative() && variables::ESP::nativeChamsWalls)) && g.ntarget > 0);
 	static auto last_stat = std::chrono::steady_clock::time_point{};
 	static int last_stage = -1;
 	if (g.stage == 11 && last_stage != 11)
@@ -3952,6 +4307,11 @@ const char* const* ShaderNames()
 	return k_shader_names;
 }
 
+const char* const* WorldShaderNames(){
+    static const auto names=[] {std::array<const char*,33> result{};std::copy_n(k_shader_names,32,result.begin());result[32]="Neon grid";return result;}();return names.data();
+}
+int WorldShaderNameCount(){return 33;}
+int ShaderMode(int index){index=std::clamp(index,0,ShaderNameCount()-1);return index==32?41:index;}
 int ShaderNameCount()
 {
 	return static_cast<int>(sizeof(k_shader_names) / sizeof(k_shader_names[0]));
@@ -3998,3 +4358,4 @@ Out preview_ps(PreviewInput input) {
 }
 }
 }
+

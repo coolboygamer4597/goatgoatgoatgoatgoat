@@ -3,6 +3,8 @@
 #endif
 #include "render.h"
 #include "AppUpdateUi.h"
+#include "GameVisualsUi.h"
+#include "NativeOutlineUi.h"
 #include "CustomSkinUi.h"
 #include "WindowIdentity.h"
 #include "../core/app/RuntimePaths.h"
@@ -282,7 +284,9 @@ void OverlayWindow::CloseWindow() {
     }
     if (windowClass.lpszClassName) {
         const bool removed = UnregisterClassW(windowClass.lpszClassName, windowClass.hInstance) != FALSE;
-
+        WindowIdentity::RecordClass(removed ? "unregistered" : "unregister-failed",
+            "Transparent game overlay canvas", "ExternalOverlay", windowClassName,
+            removed ? ERROR_SUCCESS : GetLastError());
         windowClass = {};
     }
 }
@@ -292,7 +296,9 @@ bool OverlayWindow::Initialize() {
     WNDCLASSEXW wc = { sizeof(wc), CS_CLASSDC, OverlayWndProc, 0L, 0L, GetModuleHandleW(nullptr), nullptr, nullptr, nullptr, nullptr, windowClassName, nullptr };
     windowClass = wc;
     const bool registered = RegisterClassExW(&windowClass) != 0;
-
+    WindowIdentity::RecordClass(registered ? "registered" : "register-failed",
+        "Transparent game overlay canvas", "ExternalOverlay", windowClassName,
+        registered ? ERROR_SUCCESS : GetLastError());
     if (!registered) { windowClass = {}; return false; }
     const auto fail = [this] { CleanupD3D11(); CloseWindow(); return false; };
     windowHandle = CreateWindowExW(WS_EX_TOPMOST | WS_EX_LAYERED | WS_EX_TRANSPARENT | WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE,
@@ -375,6 +381,7 @@ void OverlayWindow::BeginFrame() {
             s_lastAffinity = wantAffinity;
     }
     Core::Features::ShadowPlayPatch::Tick(variables::Misc::nvidiaStreamproof);
+    DesktopUi::Scale();
     ImGui_ImplDX11_NewFrame();
     ImGui_ImplWin32_NewFrame();
     ImGui::NewFrame();
@@ -401,9 +408,9 @@ constexpr PrimTabDef kTabs[]={{"AIM",""},{"VISUALS",""},{"SYSTEM",""},{"SKINS","
 constexpr int kTabCount=4;
 struct PrimSubTabDef {const char* label;const char* desc;};
 constexpr PrimSubTabDef kSubTabs[kTabCount][6]={
-    {{"Silent Aim",""},{"Checks",""},{"Recoil",""},{"",""}},
-    {{"Mesh",""},{"Native",""},{"Target checks",""}},
-    {{"General",""},{"Players",""},{"Appearance",""},{"",""}},
+    {{"Silent Aim",""},{"Checks",""},{"Recoil",""},{"Auto Glock",""}},
+    {{"Mesh",""},{"Native",""},{"Target checks",""},{"Game",""}},
+    {{"General",""},{"Players",""},{"Appearance",""},{"Discord",""}},
     {{"Skin Changer",""},{"Custom skin",""}}
 };
 int SubTabCount(int tab){int n=0;for(int i=0;i<6;++i)if(kSubTabs[tab][i].label && kSubTabs[tab][i].label[0])++n;return n;}
@@ -455,7 +462,7 @@ void PrimContent(const char* id, const char* title, const ImVec2& pos, const ImV
 }
 
 void OverlayWindow::RenderMenu() {
-    if(!variables::menuOpen){
+    if(!variables::menuOpen&&!MenuMotion::Visible()){
         CustomSkinPreview::Suspend();
         SadblobVideo::Update(d3dDevice,d3dContext,false,variables::Theme::sadblobStyle);
         if (variables::Misc::showInTaskbar) {
@@ -525,12 +532,16 @@ void OverlayWindow::RenderMenu() {
         else if(sub==1)
             PrimContent("aim_checks", "Checks", childPos, childSize,
                 [] { Settings::RenderAimChecks(); });
-        else
+        else if(sub==2)
             PrimContent("aim_recoil", "Recoil dampening", childPos, childSize,
                 [] { Settings::RenderRecoil(); });
+        else
+            PrimContent("aim_auto_glock", "Auto Glock", childPos, childSize,
+                [] { Settings::RenderAutoGlock(); });
         break;
     }
     case 1: {
+        if(sub==3){PrimContent("visual_game","Game",childPos,childSize,[]{GameVisualsUi::Draw();});break;}
 
         const char* subName = sub==0?"Chams":sub==1?"Native":"Target checks";
         PrimContent("visual_main", subName, childPos, childSize,
@@ -538,16 +549,21 @@ void OverlayWindow::RenderMenu() {
                 const ImVec2 base = ImGui::GetWindowPos();
                 ImDrawList* dl = ImGui::GetWindowDrawList();
 
+                if(sub==1&&NativeOutlineUi::settingsOpen){NativeOutlineUi::Draw();return;}
                 if(sub==0 || sub==1){
                     bool* unlimited=sub==0?&variables::ESP::meshUnlimited:&variables::ESP::nativeUnlimited;
                     float* distance=sub==0?&variables::ESP::meshDistance:&variables::ESP::nativeDistance;
                     imGuiCustom::Checkbox("Unlimited distance",unlimited,ImVec2(317,51));
                     if(!*unlimited)imGuiCustom::SliderFloat("draw_distance",distance,1,1000000,ImVec2(317,82+imGuiCustom::SliderTop()),360,"Draw Distance (studs)","%.0f");
-                    dl->AddText(base+ImVec2(317,155),PrimText(),"Applies to loaded characters.");
+                    if(sub==0){}
                     if(sub==1){
-                        dl->AddText(base+ImVec2(317,184),PrimText(),Cheat::Visuals::NativeChams::StartupStatus());
-                        const auto note=Cheat::Visuals::NativeChams::OcclusionNote();
-                        if(note && *note)dl->AddText(ImGui::GetFont(),13,base+ImVec2(317,215),PrimText(),note,nullptr,360);
+                        const bool enabled=variables::ESP::nativeChams||variables::ESP::nativeChamsOutline||variables::ESP::nativeOutlineGlow;
+                        const bool loaded=enabled&&Cheat::Visuals::NativeChams::Loaded();
+                        const ImU32 colour=enabled?(loaded?IM_COL32(95,235,125,255):IM_COL32(255,216,70,255)):IM_COL32(130,130,130,255);
+                        dl->AddRectFilled(base+ImVec2(317,167),base+ImVec2(327,177),colour);
+                        std::string status=enabled?(loaded?"Loaded":"Loading"):"Off";
+                        if(enabled&&!loaded)status+=std::string(1+int(ImGui::GetTime()*3)%3,'.');
+                        dl->AddText(base+ImVec2(338,164),colour,status.c_str());
                     }
                 }
                 if (sub == 0) {
@@ -577,20 +593,19 @@ void OverlayWindow::RenderMenu() {
                     imGuiCustom::SliderFloat("mesh_outline_fade", &variables::ESP::meshChamsOutlineFade, 0.0f, 1.0f, ImVec2(12.0f, ly + imGuiCustom::SliderTop()), 272.0f, "Outline Fade", "%.2f");
                 } else if (sub == 1) {
                     imGuiCustom::Checkbox("Show native preview",&variables::ESP::nativePreview,ImVec2(317,231));
+                    NativeOutlineUi::Entry();
 
                     float ly = 51.0f;
                     imGuiCustom::Checkbox("Native Chams", &variables::ESP::nativeChams, ImVec2(12.0f, ly));
-                    imGuiCustom::ColorSquare("native_fill", reinterpret_cast<ImVec4*>(variables::ESP::nativeChamsColor), ImVec2(264.0f, ly + 1.0f));
+                    imGuiCustom::ColorSquare("native_fill", reinterpret_cast<ImVec4*>(variables::ESP::nativeChamsColor), ImVec2(264.0f, ly + 1.0f),false);
                     ly += imGuiCustom::CheckStep();
                     imGuiCustom::SliderFloat("native_opacity", &variables::ESP::nativeChamsOpacity, 0.0f, 1.0f, ImVec2(12.0f, ly + imGuiCustom::SliderTop()), 272.0f, "Chams Opacity", "%.2f");
                     ly += imGuiCustom::SliderStep();
-                    imGuiCustom::Checkbox("Chams only (hide avatars)", &variables::ESP::nativeChamsOnly, ImVec2(12.0f, ly));
-                    ly += imGuiCustom::CheckStep();
                     const char* const* styles = Cheat::Visuals::NativeChams::ShaderNames();
                     imGuiCustom::Combo("native_style", &variables::ESP::nativeChamsStyle, styles, Cheat::Visuals::NativeChams::ShaderNameCount(), ImVec2(12.0f, ly + imGuiCustom::ComboTop()), 220.0f, "Style:");
                     ly += imGuiCustom::ComboStep() + imGuiCustom::ComboTop();
                     imGuiCustom::Checkbox("Occlusion", &variables::ESP::nativeChamsOcclusion, ImVec2(12.0f, ly));
-                    imGuiCustom::ColorSquare("native_occluded", reinterpret_cast<ImVec4*>(variables::ESP::nativeChamsOccludedColor), ImVec2(264.0f, ly + 1.0f));
+                    imGuiCustom::ColorSquare("native_occluded", reinterpret_cast<ImVec4*>(variables::ESP::nativeChamsOccludedColor), ImVec2(264.0f, ly + 1.0f),false);
                     ly += imGuiCustom::CheckStep();
                     if (variables::ESP::nativeChamsOcclusion) {
                         imGuiCustom::Combo("native_occluded_style", &variables::ESP::nativeChamsOccludedStyle, styles, Cheat::Visuals::NativeChams::ShaderNameCount(), ImVec2(12.0f, ly + imGuiCustom::ComboTop()), 220.0f, "Occluded Style:");
@@ -643,9 +658,10 @@ void OverlayWindow::RenderMenu() {
         break;
     }
     case 2:
-        if(sub==1) PrimContent("misc_players","Players",childPos,childSize,
+        if(sub==3)PrimContent("misc_discord","Discord",childPos,childSize,[]{GameVisualsUi::Discord();});
+        else if(sub==1) PrimContent("misc_players","Players",childPos,childSize,
             []{Mics::RenderPlayersMenu();});
-        else if(sub==2) PrimContent("misc_theme","Theme",childPos,childSize,
+        else if(sub==2) PrimContent("misc_theme","Appearance",childPos,childSize,
             []{Mics::RenderThemeMenu();});
         else PrimContent("misc_main", "General", childPos, childSize,
             [] { Mics::RenderMiscMenu(); });
@@ -679,7 +695,7 @@ void OverlayWindow::RenderMenu() {
         if(!window->Active)continue;
         auto* root=window->RootWindow;
         if(std::string(root->Name)!="goatgoatgoatgoatgoatgoat" && std::string(root->Name)!="Weapon preview" && std::string(root->Name)!="Native preview" && !(window->Flags&ImGuiWindowFlags_Popup))continue;
-        for(auto& v:window->DrawList->VtxBuffer){unsigned a=(v.col>>24);v.col=(v.col&0xFFFFFF)|(unsigned(a*MenuMotion::alpha)<<24);}
+        if(!variables::menuOpen && (window->Flags&ImGuiWindowFlags_Popup))ImGui::ClosePopupsOverWindow(nullptr,false);
     }
     imGuiCustom::ClearHandDrawnPopupRects();
 }

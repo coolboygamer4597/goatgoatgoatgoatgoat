@@ -2,6 +2,9 @@
 #define IMGUI_DEFINE_MATH_OPERATORS
 #endif
 #include "mics.h"
+#include "../../features/game/ServerRegion.h"
+#include "../../features/game/StretchResolution.h"
+#include "../../../render/FeatureUi.h"
 #include "../../app/AppUpdates.h"
 #include "../../features/survival/AntiAfkState.h"
 #include "../../globals/globals.h"
@@ -62,7 +65,20 @@ void RenderPlayersMenu() {
     }
 }
 void RenderThemeMenu() {
-    float ry = 46.0f;
+    static int section=0;const char* sections[]={"Theme","Display"};FeatureUi::Sections(sections,2,section);
+    if(section==1){
+        FeatureUi::Column left{12,95},right{365,95};
+        left.Slider("menu_scale","Menu scale",variables::Misc::menuScale,75,150,"%.0f%%");
+        if(left.Button("Reset menu scale"))variables::Misc::menuScale=100;
+        left.Check("Menu animation",variables::Misc::menuAnimation);
+        const char* choices[]={"","4:3","5:4","16:10"};
+        int aspect=variables::Misc::stretchResolution?std::clamp(variables::Misc::stretchAspect,0,2)+1:0;
+        if(right.Combo("stretch_aspect","Aspect ratio",aspect,choices,4)){variables::Misc::stretchResolution=aspect!=0;if(aspect)variables::Misc::stretchAspect=aspect-1;}
+        if(right.Button("Reset to default"))variables::Misc::stretchResolution=false;
+        right.Text(StretchResolution::status);
+        return;
+    }
+    float ry = 95.0f;
     auto chooseCustomMp4 = [] {
         wchar_t selected[32768]{};
         OPENFILENAMEW dialog{};
@@ -236,74 +252,30 @@ void RenderThemeMenu() {
 }
 
 void RenderMiscMenu() {
-    auto updateState=AppUpdates::Get();bool automaticUpdates=updateState.automatic;
-    if(imGuiCustom::Checkbox("Check for updates on startup",&automaticUpdates,ImVec2(317,300)))AppUpdates::SetAutomatic(automaticUpdates);
-    ImGui::SetCursorPos(ImVec2(317,333));if(ImGui::Button(UiText::Tr(updateState.phase==AppUpdates::Phase::Checking?"Checking...":"Check for updates")))AppUpdates::Check();
-    ImGui::SetCursorPos(ImVec2(317,366));ImGui::Text(UiText::Tr("Version %s"),AppUpdates::CurrentVersion());
-    auto selected = OffsetUpdates::GetSelection();
-    int source = static_cast<int>(selected.source);
-    if (imGuiCustom::Combo("offset_source", &source, OffsetSourceUi::names, 3,
-        ImVec2(317, 67), 360, "Offsets source:")) {
-        try { OffsetUpdates::SetSelection(static_cast<OffsetUpdates::Source>(source), selected.file); OffsetSourceUi::error.clear(); }
-        catch (const std::exception& e) { OffsetSourceUi::error=e.what(); }
+    static int section=0;const char* tabs[]={"General","Panels","Alerts","Updates"};FeatureUi::Sections(tabs,4,section);
+    FeatureUi::Column left{12,95},right{365,95};
+    if(section==0){
+        left.Check("Stream Proof",variables::Misc::streamProof);
+        imGuiCustom::Keybind("stream_key",&variables::Misc::streamKey,ImVec2(242,95),ImVec2(80,15),&variables::Misc::streamKeyMode);
+        left.Check("Show in taskbar",variables::Misc::showInTaskbar);
+        float fps=float(variables::Misc::fpsLimit);if(left.Slider("fps_cap","FPS Cap",fps,60,2000,"%.0f"))variables::Misc::fpsLimit=int(fps+.5f);
+        const char* languages[]={"Norsk","English"};if(left.Combo("ui_language","Language",UiText::language,languages,2))UiText::Save();
+        left.Label("Menu key");imGuiCustom::Keybind("menu_key",&variables::menuKey,ImVec2(230,left.y),ImVec2(85,15),nullptr,false);if(variables::menuKey<=0)variables::menuKey=VK_INSERT;
+        right.y=(std::max)(right.y,330.f);right.Check("Anti-AFK",AntiAfk::enabled);
+        if(AntiAfk::enabled)right.Text(AntiAfk::error.empty()?"Local idle settings applied":AntiAfk::error.c_str());
+    }else if(section==1){
+        left.Check("Spotify Player",variables::Misc::spotifyPlayer);imGuiCustom::Keybind("spotify_key",&variables::Misc::spotifyKey,ImVec2(242,95),ImVec2(80,15),&variables::Misc::spotifyKeyMode);
+        left.Check("Keybind list",variables::Misc::keybinds);left.Check("Performance",variables::Misc::performancePanel);left.Check("Spectator team counter",variables::Misc::spectatorCounter);
+    }else if(section==2){
+        left.Check("Senior Mod+ alerts",variables::Misc::moderatorAlerts);left.Check("Server region alerts",variables::Misc::serverRegionAlerts);
+        right.Label("Server region");right.y+=29;right.Text(ServerRegion::Status());right.Text("IP Geolocation by DB-IP.com");right.Text("Offline database; approximate location.");
+    }else{
+        auto selected=OffsetUpdates::GetSelection();int source=int(selected.source);
+        if(left.Combo("offset_source","Offsets source",source,OffsetSourceUi::names,3))try{OffsetUpdates::SetSelection(static_cast<OffsetUpdates::Source>(source),selected.file);OffsetSourceUi::error.clear();}catch(const std::exception& e){OffsetSourceUi::error=e.what();}
+        if(source==2){if(left.Button("Select offsets file...")){auto file=OffsetSourceUi::Browse(static_cast<HWND>(ImGui::GetWindowViewport()->PlatformHandleRaw),Keys::StreamProofOn(),selected.file);if(!file.empty())try{OffsetUpdates::SetSelection(OffsetUpdates::Source::Local,file);OffsetSourceUi::error.clear();}catch(const std::exception& e){OffsetSourceUi::error=e.what();}}left.Text(selected.file.filename().u8string());}
+        left.Text(OffsetUpdates::Status());if(!OffsetSourceUi::error.empty())left.Text(OffsetSourceUi::error);
+        const auto update=AppUpdates::Get();bool automatic=update.automatic;if(right.Check("Check for updates on startup",automatic))AppUpdates::SetAutomatic(automatic);
+        if(right.Button(update.phase==AppUpdates::Phase::Checking?"Checking...":"Check for updates"))AppUpdates::Check();right.Text(std::string("Version ")+AppUpdates::CurrentVersion());
     }
-    if (source==2) {
-        ImGui::SetCursorPos(ImVec2(317,109));
-        if (ImGui::Button(UiText::Tr("Select offsets file..."))) {
-            auto file=OffsetSourceUi::Browse(static_cast<HWND>(ImGui::GetWindowViewport()->PlatformHandleRaw),Keys::StreamProofOn(),selected.file);
-            if (!file.empty()) try { OffsetUpdates::SetSelection(OffsetUpdates::Source::Local,file); OffsetSourceUi::error.clear(); }
-                catch (const std::exception& e) { OffsetSourceUi::error=e.what(); }
-        }
-        ImGui::SetCursorPos(ImVec2(317,141));ImGui::TextWrapped(UiText::Tr("%s"), selected.file.filename().u8string().c_str());
-    }
-    ImGui::SetCursorPos(ImVec2(317,185));ImGui::TextWrapped(UiText::Tr("%s"),UiText::Message(OffsetUpdates::Status()).c_str());
-    ImGui::SetCursorPos(ImVec2(317,220));ImGui::TextDisabled(UiText::Tr("Source changes apply on the next launch."));
-    if (!OffsetSourceUi::error.empty()) { ImGui::SetCursorPos(ImVec2(317,255));ImGui::TextWrapped(UiText::Tr("%s"),UiText::Message(OffsetSourceUi::error).c_str()); }
-    imGuiCustom::Checkbox("Anti-AFK",&AntiAfk::enabled,ImVec2(317,402));
-    if(AntiAfk::enabled&&!AntiAfk::error.empty()){
-        ImGui::SetCursorPos(ImVec2(317,430));ImGui::PushTextWrapPos(680);
-        ImGui::TextDisabled(UiText::Tr("%s"),UiText::Tr(AntiAfk::error.c_str()));ImGui::PopTextWrapPos();
-    }
-    float ry = 46.0f;
-    imGuiCustom::Checkbox("Stream Proof", &variables::Misc::streamProof, ImVec2(12.0f, ry));
-    imGuiCustom::Keybind("stream_key", &variables::Misc::streamKey, ImVec2(206.0f, ry - 1.0f), ImVec2(68.0f, 13.0f), &variables::Misc::streamKeyMode);
-    ry += imGuiCustom::CheckStep();
-    imGuiCustom::Checkbox("Spotify Player", &variables::Misc::spotifyPlayer, ImVec2(12.0f, ry));
-    imGuiCustom::Keybind("spotify_key", &variables::Misc::spotifyKey, ImVec2(206.0f, ry - 1.0f), ImVec2(68.0f, 13.0f), &variables::Misc::spotifyKeyMode);
-    ry += imGuiCustom::CheckStep();
-    imGuiCustom::Checkbox("Keybind list", &variables::Misc::keybinds, ImVec2(12.0f,ry));
-    ry += imGuiCustom::CheckStep();
-    imGuiCustom::Checkbox("Performance", &variables::Misc::performancePanel, ImVec2(12.0f,ry));
-    ry += imGuiCustom::CheckStep();
-    imGuiCustom::Checkbox("Show in taskbar", &variables::Misc::showInTaskbar, ImVec2(12.0f,ry));
-    ry += imGuiCustom::CheckStep();
-    imGuiCustom::Checkbox("Senior Mod+ alerts", &variables::Misc::moderatorAlerts, ImVec2(12.0f,ry));
-    ry += imGuiCustom::CheckStep();
-    imGuiCustom::Checkbox("Spectator team counter", &variables::Misc::spectatorCounter, ImVec2(12.0f,ry));
-    ry += imGuiCustom::CheckStep();
-
-    {
-        static float fpsSlider = (float)variables::Misc::fpsLimit;
-        imGuiCustom::SliderFloat("fps_cap", &fpsSlider, 60.0f, 2000.0f,
-            ImVec2(12.0f, ry + imGuiCustom::SliderTop()), 272.0f, "FPS Cap", "%.0f");
-        int snapped = (int)(fpsSlider + 0.5f);
-        if (variables::Misc::fpsLimit != snapped) {
-            variables::Misc::fpsLimit = snapped;
-
-            if (variables::Misc::fpsLimit < 60)
-                variables::Misc::fpsLimit = 60;
-        }
-        ry += imGuiCustom::SliderTop() + 15.0f;
-    }
-    ry += 16.0f;
-    const char* languages[]={"Norsk", "English"};
-    if(imGuiCustom::Combo("ui_language", &UiText::language, languages, 2,
-        ImVec2(12.0f,ry+imGuiCustom::ComboTop()),158.0f,"Language:")) UiText::Save();
-    ry += imGuiCustom::ComboTop()+32.0f;
-    ImGui::GetWindowDrawList()->AddText(ImGui::GetWindowPos()+ImVec2(12.0f,ry),
-        ImGui::GetColorU32(ImGuiCol_Text),UiText::Tr("Menu key:"));
-    imGuiCustom::Keybind("menu_key", &variables::menuKey, ImVec2(206.0f,ry), ImVec2(85,15),nullptr,false);
-    if(variables::menuKey<=0) variables::menuKey=VK_INSERT;
-    }
-
+}
 }

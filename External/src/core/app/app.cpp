@@ -27,6 +27,10 @@
 #include "../functions/aim/aim.h"
 #include "../functions/aim/recoil.h"
 #include "../features/survival/AntiAfk.h"
+#include "../features/game/GameEnvironment.h"
+#include "../features/game/StretchResolution.h"
+#include "../features/game/ServerRegion.h"
+#include "../features/game/DiscordPresence.h"
 #include "../functions/aim/raycast_silent.h"
 #include "../functions/skins/skins.h"
 #include "../../render/render.h"
@@ -142,7 +146,9 @@ Mesh::Vector2 GetRobloxViewport(const ImVec2& overlaySize) {
 void RenderMeshVisuals(ImDrawList* drawList, const RBX::Mat4& rbView, const ImVec2& overlaySize) {
     if (!variables::ESP::meshChams && !Cheat::Visuals::NativeChams::WorldDepthNeeded())
         return;
-    const Mesh::Matrix4x4 view = ToMeshMatrix(rbView);
+    Mesh::Matrix4x4 view=ToMeshMatrix(rbView);
+    const float horizontal=StretchResolution::AppliedFactor();
+    for(float& coefficient:view.m[0])coefficient*=horizontal;
     const Mesh::Vector2 viewport = GetRobloxViewport(overlaySize);
     const float width = (std::max)(overlaySize.x, 1.0f);
     const float height = (std::max)(overlaySize.y, 1.0f);
@@ -610,7 +616,6 @@ std::int32_t Run() {
 
         if (!OverlayLifecycle::PumpMessages() || !Globals::running) break;
         const auto frameStart = std::chrono::steady_clock::now();
-        MenuMotion::Update(variables::menuOpen);
         Preferences::Tick();
         Performance::Sample(variables::Misc::performancePanel);
         static auto nextGameInfo=std::chrono::steady_clock::time_point{};
@@ -633,6 +638,7 @@ std::int32_t Run() {
             ImGui::ClearActiveID();
         }
         menuKeyWasDown = menuKeyDown;
+        MenuMotion::Update(variables::menuOpen,variables::Misc::menuAnimation);
 
         AntiAfk::Tick();
         Recoil::Tick();
@@ -660,8 +666,12 @@ std::int32_t Run() {
         !variables::menuOpen && foregroundPid==memory->get_process_id(),
         variables::ESP::nativeChams,variables::ESP::meshChams);
     WeaponVisuals::Refresh();
+    StretchResolution::Tick();
+    GameEnvironment::Tick();
+    ServerRegion::Tick();
+    DiscordPresence::Tick();
     { Performance::Scope timing(Performance::Native);
-      if (variables::ESP::nativeChams || WeaponVisuals::Active()) Cheat::Visuals::NativeChams::Tick();
+      if ((variables::Aimbot::silentEnabled&&variables::Aimbot::silentWallCheck) || variables::ESP::nativeChams || variables::ESP::nativeChamsOutline || variables::ESP::nativeOutlineGlow || WeaponVisuals::Active() || GameVisuals::NativeNeeded()) Cheat::Visuals::NativeChams::Tick();
       else Cheat::Visuals::NativeChams::Stop();
     }
 
@@ -674,7 +684,7 @@ std::int32_t Run() {
         const bool overlayNeeded =
             variables::menuOpen || variables::Misc::showInTaskbar || MenuMotion::Visible() || Keys::SpotifyOn()
             || Keys::KeybindsOn() || variables::Misc::performancePanel
-            || variables::Misc::spectatorCounter
+            || variables::Misc::spectatorCounter || ServerRegion::Visible()
             || (variables::Misc::moderatorAlerts && !SessionPresence::state.Notices().empty())
             || (variables::Aimbot::silentEnabled && variables::Aimbot::silentShowFOV)
             || variables::ESP::meshChams
@@ -729,7 +739,11 @@ std::int32_t Run() {
                 nextFrame = nowFrame + std::chrono::microseconds(periodUs);
         }
     }
+    StretchResolution::Stop();
     AntiAfk::Stop();
+    GameEnvironment::Stop();
+    DiscordPresence::Stop();
+    WeaponAudio::StopPreview();
     Recoil::Stop();
     UiAssets::Shutdown();
     Cheat::Features::RaycastSilent::SetActive(false);

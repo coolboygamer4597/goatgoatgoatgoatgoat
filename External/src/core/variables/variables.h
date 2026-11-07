@@ -21,6 +21,10 @@ inline float recoilGlockStrength=.5f;
 inline float recoilGlockPull=60.f;
 inline bool silentEnabled = false;
 inline bool silentActive = false;
+inline bool silentWallCheck = false;
+inline float hitChance=100;
+inline bool hitChancePerPart=false;
+inline std::array<float,7> bodyHitChance={100,100,100,100,100,100,100};
 inline int silentMethod = 1;
 inline int silentKey = 1;
 inline bool silentToggleKey = false;
@@ -67,7 +71,7 @@ inline float nativeDistance=2000,meshDistance=2000;
 
 inline int nativeChamsStyle = 0;
 inline float nativeChamsOpacity = 0.85f;
-inline bool nativeChamsOnly = false;
+inline bool nativeChamsOnly = true;
 inline bool nativeChamsOcclusion = false;
 inline int nativeChamsOccludedStyle = 0;
 inline float nativeChamsOccludedColor[4] = {1.0f,0.20f,0.25f,0.85f};
@@ -81,6 +85,10 @@ inline float nativeChamsGlowColor[4] = {1.00f, 0.45f, 0.10f, 0.60f};
 inline float nativeChamsGlowStrength = 0.55f;
 
 inline bool nativeChamsWalls = true;
+inline bool nativeChamsOutline=false,nativeOutlineGlow=false;
+inline int nativeOutlineStyle=0;
+inline float nativeOutlineWidth=1.5f,nativeOutlineOpacity=1.f,nativeOutlineGlowStrength=1.f,nativeOutlineGlowRadius=8.f;
+inline float nativeOutlineColor[4]={1,1,1,1},nativeOutlineHiddenColor[4]={1,.2f,.3f,1},nativeOutlineGlowColor[4]={.2f,.65f,1,1};
 
 }
 
@@ -129,6 +137,10 @@ inline void SetSharedMaterial(const LimbMaterial& m){native=m.enabled;glow=m.glo
 }
 
 namespace Misc {
+inline float menuScale=100;
+inline bool menuAnimation=true;
+inline bool stretchResolution=false,serverRegionAlerts=false;
+inline int stretchAspect=0;
 inline bool streamProof = true;
 inline bool nvidiaStreamproof = false;
 inline bool showInTaskbar = false;
@@ -159,3 +171,4 @@ inline ImVec4 text = ImVec4(0.92f,0.92f,0.9f,1);
 inline ImVec4 textBright = ImVec4(1,1,1,1);
 }
 }
+

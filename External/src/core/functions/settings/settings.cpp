@@ -5,10 +5,14 @@
 #include "../../variables/variables.h"
 #include "../../../render/menu/library.h"
 #include <algorithm>
+#include "../../../render/FeatureUi.h"
 #include "../aim/recoil.h"
 
 namespace Settings {
 void RenderAimMain() {
+    FeatureUi::Column chance{365,55};chance.Slider("hit_chance","Hit chance",variables::Aimbot::hitChance,0,100,"%.0f%%");chance.Check("Per body part",variables::Aimbot::hitChancePerPart);
+    if(variables::Aimbot::hitChancePerPart){static int part=0;const char* parts[]={"Head","Torso","Left arm","Right arm","Left leg","Right leg","Root"};chance.Combo("hit_chance_part","Body part",part,parts,7);chance.Slider("part_chance","Part hit chance",variables::Aimbot::bodyHitChance[part],0,100,"%.0f%%");}
+
     float ay = 46.0f;
     imGuiCustom::Checkbox("Silent Aim", &variables::Aimbot::silentEnabled, ImVec2(12.0f, ay));
     imGuiCustom::Keybind("silent_key", &variables::Aimbot::silentKey,
@@ -34,6 +38,7 @@ void RenderAimMain() {
     imGuiCustom::SliderFloat("silent_fov", &variables::Aimbot::silentFovRadius, 1.0f, 600.0f, ImVec2(12.0f, ay + imGuiCustom::SliderTop()), 272.0f, "FOV Radius", "%.0f");
     ay += imGuiCustom::SliderStep();
     imGuiCustom::Checkbox("Nearest Point", &variables::Aimbot::silentNearestPoint, ImVec2(12.0f, ay));
+    ay+=imGuiCustom::CheckStep();imGuiCustom::Checkbox("Wall Check",&variables::Aimbot::silentWallCheck,ImVec2(12,ay));
 }
 
 void RenderRecoil() {
@@ -46,12 +51,13 @@ void RenderRecoil() {
     imGuiCustom::SliderFloat("recoil_strength",&percent,0,100,ImVec2(12,150),272,"Strength","%.0f%%");
     strength=percent/100.f;
     imGuiCustom::SliderFloat("recoil_pull",&pull,0,profile?160.f:1200.f,ImVec2(12,206),272,profile?"Vertical pull per shot":"Vertical pull per second","%.0f");
-    if(profile){
-        imGuiCustom::Checkbox("Automatic Glock",&variables::Aimbot::glockAutomatic,ImVec2(12,255));
-        float delay=static_cast<float>(variables::Aimbot::glockClickDelay);
-        imGuiCustom::SliderFloat("glock_delay",&delay,25,1000,ImVec2(12,305),272,"Shot interval (ms)","%.0f");
-        variables::Aimbot::glockClickDelay=static_cast<int>(delay+.5f);
-    }
+}
+
+void RenderAutoGlock() {
+    imGuiCustom::Checkbox("Automatic Glock",&variables::Aimbot::glockAutomatic,ImVec2(12,46));
+    float delay=static_cast<float>(variables::Aimbot::glockClickDelay);
+    imGuiCustom::SliderFloat("glock_delay",&delay,25,1000,ImVec2(12,102),272,"Shot interval (ms)","%.0f");
+    variables::Aimbot::glockClickDelay=static_cast<int>(delay+.5f);
 }
 
 void RenderAimChecks() {
@@ -61,5 +67,6 @@ void RenderAimChecks() {
     imGuiCustom::Checkbox("Team Check", &variables::Aimbot::teamCheck, ImVec2(12.0f, by));
     by += imGuiCustom::CheckStep();
     imGuiCustom::Checkbox("Invisible Check", &variables::Aimbot::invisibleCheck, ImVec2(12.0f, by));
+
 }
 }

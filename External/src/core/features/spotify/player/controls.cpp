@@ -1,5 +1,6 @@
-﻿#include "../../../../render/menu/UiText.h"
+#include "../../../../render/menu/UiText.h"
 #include "media.h"
+#include "../../../../render/RetroUi.h"
 #include "music_player_host.h"
 #include "music_player_internal.h"
 #include "music_player_icons.h"
@@ -129,10 +130,10 @@ void DrawTransportControls(const TransportContext& ctx) {
         timelineDragSeekSec = -1.0;
     }
     ImGui::PopID();
-    const float barR = (barMax.y - barMin.y) * 0.5f;
+    const float barR = 0;
     dl->AddRectFilled(barMin, barMax, IM_COL32(255, 255, 255, 76), barR);
     dl->AddRectFilled(barMin, ImVec2(barMin.x + (barMax.x - barMin.x) * displayProgress, barMax.y),
-                      IM_COL32(244, 248, 252, 228), barR);
+                      ImGui::GetColorU32(variables::Theme::accent), barR);
     if (ctx.duration > 0.0) {
         const float thumbX = barMin.x + (barMax.x - barMin.x) * displayProgress;
         dl->AddCircleFilled(ImVec2(thumbX, barY + barThickness * 0.5f),
@@ -156,7 +157,7 @@ void DrawTransportControls(const TransportContext& ctx) {
     music_host::DrawText(dl, ctx.regular, timeSize,
         ImVec2(barMax.x - music_host::Measure(ctx.regular, timeSize, rb).x, timeY),
         IM_COL32(255, 255, 255, 136), rb);
-    const char* status = UiText::Tr("Lossless");
+    const char* status = UiText::Tr(ctx.playing?"PLAYING":"PAUSED");
     const float statusTextSize = fullScreen ? std::clamp(ctx.fullArtSize * 0.035f, 10.5f, 17.f)
                                             : (compactMusic ? 10.f : 10.5f) * S;
     ImVec2 statusSize = music_host::Measure(ctx.bold, statusTextSize, status);
@@ -203,9 +204,8 @@ void DrawTransportControls(const TransportContext& ctx) {
         if (kind == -1) kind = ctx.playing ? 2 : 1;
         const float radius = (i == 1) ? primaryRadius : secondaryRadius;
 
-        if (hv > 0.01f)
-            dl->AddCircleFilled(ImVec2(bx, cy), radius * (0.88f + 0.22f * hv),
-                                IM_COL32(255, 255, 255, (int)(12 + 40 * hv)), 24);
+        dl->AddRectFilled(ImVec2(bx-radius,cy-radius),ImVec2(bx+radius,cy+radius),ImGui::GetColorU32(hov?variables::Theme::panels:variables::Theme::controls));
+        dl->AddRect(ImVec2(bx-radius,cy-radius),ImVec2(bx+radius,cy+radius),ImGui::GetColorU32(hov?variables::Theme::accent:variables::Theme::text));
 
         if (glow >= 0.f) {
             const float rr = radius * (0.85f + glow * 1.55f);

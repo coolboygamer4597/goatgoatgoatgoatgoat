@@ -1,4 +1,4 @@
-﻿#include "../../../../render/menu/UiText.h"
+#include "../../../../render/menu/UiText.h"
 #include "music_player_host.h"
 #include "music_player_internal.h"
 
@@ -43,7 +43,7 @@ void DrawFullscreenHeader(const HeaderContext& ctx) {
                           ImVec2(artMax.x + 3.f, artMax.y + 6.f),
                           IM_COL32(0, 0, 0, 118), 10.f);
         dl->AddImageRounded(AlbumArtTexture(), artMin, artMax,
-                            ImVec2(0, 0), ImVec2(1, 1), IM_COL32_WHITE, 10.f);
+                            ImVec2(0, 0), ImVec2(1, 1), IM_COL32_WHITE, 0.f);
         dl->AddRect(artMin, artMax, IM_COL32(0, 0, 0, 190), 10.f, 0, 1.4f);
     } else {
         dl->AddRectFilled(artMin, artMax, IM_COL32(255, 255, 255, 16), 8.f);

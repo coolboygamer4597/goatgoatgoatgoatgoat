@@ -13,6 +13,8 @@
 #include <cstddef>
 #include <cstdio>
 #include <initializer_list>
+#include <algorithm>
+#include <cmath>
 
 #ifndef CFG_CALL_TARGET_VALID
 #define CFG_CALL_TARGET_VALID 0x00000001
@@ -61,6 +63,7 @@ namespace Cheat {
                     float cam_z = 0.f;
                     std::uint32_t counter_pad = 0;
                     std::uint64_t handler_calls = 0;
+                    std::uint32_t chance=10000,attempts=0;
                 };
 #pragma pack(pop)
 
@@ -318,7 +321,7 @@ namespace Cheat {
 
 
     std::vector<std::uint8_t> make_direct_hook_thunk(
-        std::uintptr_t stateAddress, std::uintptr_t originalFunction) {
+        std::uintptr_t stateAddress, std::uintptr_t originalFunction, bool extended=true, bool legacyTrace=false) {
         std::vector<std::uint8_t> code;
         code.reserve(256);
         std::vector<std::size_t> inactiveJumps;
@@ -339,6 +342,11 @@ namespace Cheat {
         code.insert(code.end(), { 0x4D, 0x85, 0xC9 });
         emitInactive();
 
+        if(extended){
+            code.insert(code.end(),{0x50,0x52,0xB8,1,0,0,0,0xF0,0x41,0x0F,0xC1,0x42,0x3C,0xFF,0xC0});
+            code.insert(code.end(),{0x89,0xC2,0xC1,0xEA,0x10,0x31,0xD0,0x69,0xC0,0x2D,0x35,0xEB,0x7F,0x89,0xC2,0xC1,0xEA,0x0F,0x31,0xD0,0x69,0xC0,0x8B,0xA6,0x6C,0x84,0x89,0xC2,0xC1,0xEA,0x10,0x31,0xD0,0xBA,0x10,0x27,0,0,0xF7,0xE2,0x41,0x3B,0x52,0x38,0x5A,0x58});
+            code.insert(code.end(),{0x0F,0x83});inactiveJumps.push_back(code.size());code.insert(code.end(),{0,0,0,0});
+        }
         code.insert(code.end(), { 0xF3, 0x41, 0x0F, 0x10, 0x42, 0x08 });
         code.insert(code.end(), { 0xF3, 0x41, 0x0F, 0x5C, 0x00 });
         code.insert(code.end(), { 0xF3, 0x41, 0x0F, 0x10, 0x4A, 0x0C });
@@ -415,14 +423,23 @@ namespace Cheat {
         for (const std::size_t jump : inactiveJumps)
             patch_rel32(code, jump, inactiveOffset);
 
+        if(legacyTrace){
+            code.insert(code.end(),{0x41,0x83,0x7A,0x40,0,0x0F,0x84});const auto noTrace=code.size();code.insert(code.end(),{0,0,0,0});
+            code.insert(code.end(),{0x4D,0x85,0xC0,0x0F,0x84});const auto noOrigin=code.size();code.insert(code.end(),{0,0,0,0});
+            code.insert(code.end(),{0x4D,0x85,0xC9,0x0F,0x84});const auto noDirection=code.size();code.insert(code.end(),{0,0,0,0});
+            code.insert(code.end(),{0x50,0x52,0x41,0x53,0xBA,1,0,0,0,0xF0,0x41,0x0F,0xC1,0x52,0x44,0x89,0xD0,0x83,0xE2,0x3F,0xC1,0xE2,5,0x4D,0x8D,0x5C,0x12,0x60,0x41,0x89,0x43,0x1C,0x41,0xC7,0x03,0,0,0,0});
+            for(unsigned axis=0;axis<3;++axis){code.insert(code.end(),{0x41,0x8B,0x50,static_cast<std::uint8_t>(axis*4),0x41,0x89,0x53,static_cast<std::uint8_t>(4+axis*4),0x41,0x8B,0x51,static_cast<std::uint8_t>(axis*4),0x41,0x89,0x53,static_cast<std::uint8_t>(16+axis*4)});}
+            code.insert(code.end(),{0x41,0x8B,0x53,0x1C,0xFF,0xC2,0x41,0x89,0x13,0x41,0x5B,0x5A,0x58});for(auto jump:{noTrace,noOrigin,noDirection})patch_rel32(code,jump,code.size());
+        }
         code.insert(code.end(), { 0xFF, 0x25, 0, 0, 0, 0 });
         append_u64(code, originalFunction);
         return code;
     }
 
     void RecoverPreviousDirect(std::uintptr_t slot) {
-        const auto shape=make_direct_hook_thunk(0,0);
         for(int layer=0;layer<16;++layer){
+            bool recovered=false;
+            for(int format=0;format<3;++format){const bool extended=format!=2,legacyTrace=format==1;const auto shape=make_direct_hook_thunk(0,0,extended,legacyTrace);
             const auto current=g_Memory.Read<std::uintptr_t>(slot);
             if(!addr_ok(current))return;
             std::vector<std::uint8_t> bytes(shape.size());
@@ -431,11 +448,12 @@ namespace Cheat {
             std::uintptr_t state=0,original=0;
             std::memcpy(&state,bytes.data()+2,8);
             std::memcpy(&original,bytes.data()+bytes.size()-8,8);
-            if(!addr_ok(state)||!addr_ok(original)||original==current)return;
-            if(bytes!=make_direct_hook_thunk(state,original))return;
+            if(!addr_ok(state)||!addr_ok(original)||original==current)continue;
+            if(bytes!=make_direct_hook_thunk(state,original,extended,legacyTrace))continue;
             const std::uint32_t off=0;
             if(!w_mem(state,&off,sizeof(off)))return;
-            if(!write_protected(slot,&original,sizeof(original)))return;
+            if(!write_protected(slot,&original,sizeof(original)))return;recovered=true;break;
+            }if(!recovered)return;
         }
     }
 
@@ -980,7 +998,7 @@ namespace Cheat {
                 }
             }
 
-            void SetActive(bool on, const Vector3& world_target, bool wallbang)
+            void SetActive(bool on, const rbx::vector3_t& world_target, bool wallbang,float chance)
             {
                 if (!on)
                 {
@@ -1023,6 +1041,8 @@ namespace Cheat {
                     w_mem(hook.state + offsetof(RaycastState, target_x), pos, sizeof(pos));
                     w_mem(hook.state + offsetof(RaycastState, scale), &scale, sizeof(scale));
                     w_mem(hook.state + offsetof(RaycastState, cam_x), cam, sizeof(cam));
+                    const std::uint32_t threshold=static_cast<std::uint32_t>(std::clamp(std::isfinite(chance)?chance:100.f,0.f,100.f)*100.f+.5f);
+                    w_mem(hook.state+offsetof(RaycastState,chance),&threshold,sizeof(threshold));
                     w_mem(hook.state + offsetof(RaycastState, active), &one, sizeof(one));
                     hook.active = true;
                 };
@@ -1035,3 +1055,5 @@ namespace Cheat {
 }
 
 #undef g_Memory
+
+

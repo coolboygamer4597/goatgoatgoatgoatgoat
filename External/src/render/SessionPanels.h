@@ -1,5 +1,7 @@
 #pragma once
 #include "menu/library.h"
+#include "RetroUi.h"
+#include "../core/features/game/ServerRegion.h"
 #include "../core/features/SessionPresence.h"
 #include "../core/variables/variables.h"
 #include <imgui_internal.h>
@@ -53,6 +55,9 @@ inline void Draw(){
         draw->AddText(font,26,p+ImVec2(14,29),IM_COL32(244,247,252,255),count.c_str());
         draw->AddCircleFilled(p+ImVec2(panel.x-19,34),4,accent);
         End();
+    }
+    if(ServerRegion::Visible()){
+        const ImVec2 dimensions(360,72);Begin("##server_region",origin+ImVec2(size.x-372,12),dimensions);auto draw=ImGui::GetWindowDrawList();const auto p=ImGui::GetWindowPos();RetroUi::Frame(draw,p,p+dimensions);draw->AddRectFilled(p+ImVec2(14,17),p+ImVec2(23,26),IM_COL32(95,235,125,255));draw->AddText(p+ImVec2(35,14),ImGui::GetColorU32(variables::Theme::textBright),"Server region");draw->AddText(p+ImVec2(14,43),ImGui::GetColorU32(variables::Theme::text),ServerRegion::location.c_str());End();
     }
     if(!variables::Misc::moderatorAlerts||SessionPresence::state.Notices().empty())return;
     const auto notice=SessionPresence::state.Notices().front();

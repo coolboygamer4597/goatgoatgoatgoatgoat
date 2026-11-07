@@ -10,7 +10,7 @@ struct Patch {
  template<class Read,class WriteTimeout,class WriteDisabled>
  bool Restore(Read read,WriteTimeout timeout,WriteDisabled disabled){
   if(!captured)return true;Values current;if(!read(current))return false;
-
+   
   bool a=current.timeout!=86400||current.timeout==original.timeout||timeout(original.timeout);
   bool b=current.disabled!=1||current.disabled==original.disabled||disabled(original.disabled);
   if(a&&b)captured=false;return !captured;
@@ -20,7 +20,12 @@ struct Patch {
   Values current;if(!read(current)||current.timeout>31536000||current.disabled>1)return false;
   if(!captured){original=current;captured=true;}
   bool a=current.timeout==86400||timeout(86400);bool b=a&&(current.disabled==1||disabled(1));
-  if(!b){Restore(read,timeout,disabled);return false;}return true;
+  Values applied;
+  if(!b||!read(applied)||applied.timeout!=86400||applied.disabled!=1) {
+   Restore(read,timeout,disabled);
+   return false;
+  }
+  return true;
  }
 };
 }

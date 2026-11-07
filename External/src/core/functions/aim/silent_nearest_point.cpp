@@ -117,6 +117,7 @@ PrecisePointResult ResolveNearestPoint(const std::vector<std::uintptr_t>& partAd
                     best = d;
                     out.screen = s;
                     out.world = world;
+                    out.part=part;
                     out.distance = d;
                     found = true;
                 }

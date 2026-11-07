@@ -45,6 +45,7 @@ struct Occluder {
     std::string mesh_id{};
     std::uint8_t shape{ 0 };
     bool can_query{ true };
+    bool boxCandidate{ false };
 };
 
 struct Cache {
@@ -268,6 +269,7 @@ bool Append(std::uint64_t primitive, Cache& cache) {
         }
     }
     part.mesh_id = ReadOccluderMeshId(owner, ownerClass, part.shape);
+    part.boxCandidate = ownerClass == "Part" && part.shape == 0 && part.mesh_id.empty();
     cache.buildingParts.push_back(part);
     CalibrateLtmOffset(cache);
     return true;
@@ -320,6 +322,38 @@ void Step(Cache& cache) {
     }
 }
 
+Cache& RefreshCache() {
+    Cache& cache=State();
+    const auto root=Globals::workspace.Addr;
+    const auto now=GetTickCount64();
+    if(root!=cache.workspace || (!cache.building && (!cache.completedAt || now-cache.completedAt>2000)))
+        BeginBuild(cache,root);
+    Step(cache);
+    return cache;
+}
+
+bool HitsBox(const Mesh::Vector3& from,const Mesh::Vector3& to,const Occluder& box) {
+    const auto origin=from-box.position;
+    const auto delta=to-from;
+    const float half[]={box.size.x*.5f,box.size.y*.5f,box.size.z*.5f};
+    float enter=.0001f,exit=.9999f;
+    for(int i=0;i<3;++i) {
+        const Mesh::Vector3 axis{box.rotation.m[i],box.rotation.m[3+i],box.rotation.m[6+i]};
+        const float extent=half[i]-.015f;
+        if(extent<=0 || !Finite(axis) || std::abs(axis.Dot(axis)-1.f)>.03f)return false;
+        const float start=axis.Dot(origin),direction=axis.Dot(delta);
+        if(std::abs(direction)<.00001f) {
+            if(std::abs(start)>=extent)return false;
+            continue;
+        }
+        const float a=(-extent-start)/direction,b=(extent-start)/direction;
+        enter=(std::max)(enter,(std::min)(a,b));
+        exit=(std::min)(exit,(std::max)(a,b));
+        if(enter>=exit)return false;
+    }
+    return true;
+}
+
 Mesh::Matrix4x4 RotationMatrix(const Rotation3& rotation) {
     return Mesh::Matrix4x4(
         rotation.m[0], rotation.m[1], rotation.m[2], 0.0f,
@@ -332,6 +366,24 @@ Mesh::Matrix4x4 RotationMatrix(const Rotation3& rotation) {
 
 void Reset() {
     State() = Cache{};
+}
+
+bool BlocksSegment(const Mesh::Vector3& from,const Mesh::Vector3& to) {
+    if(!Finite(from)||!Finite(to))return false;
+    const auto& cache=RefreshCache();
+    const auto& parts=cache.parts.empty()?cache.buildingParts:cache.parts;
+    for(const auto& part:parts) {
+        if(!part.boxCandidate||!HitsBox(from,to,part))continue;
+        const auto owner=g_Memory.Read<std::uint64_t>(part.primitive+Offsets::Primitive::Part);
+        if(!owner||PartHiddenByAlpha(owner)||
+            !(g_Memory.Read<std::uint8_t>(part.primitive+Offsets::Primitive::Flags)&0x20u))continue;
+        Occluder current=part;
+        if(!memory->read_raw(part.primitive+Offsets::Primitive::Position,&current.position,sizeof(current.position))||
+            !memory->read_raw(part.primitive+Offsets::Primitive::Size,&current.size,sizeof(current.size))||
+            !memory->read_raw(part.primitive+Offsets::Primitive::Rotation,&current.rotation,sizeof(current.rotation)))continue;
+        if(Finite(current.position)&&Finite(current.size)&&HitsBox(from,to,current))return true;
+    }
+    return false;
 }
 
 Mesh::Vector3 ClosestPointOnSegment(const Mesh::Vector3& p, const Mesh::Vector3& a, const Mesh::Vector3& b) {
@@ -369,12 +421,7 @@ void VisitOccluders(const Mesh::Vector3& camera, float maxDistance, std::size_t 
                                              const std::string&, std::uint8_t, bool, bool)>& visitor) {
     if (!visitor || maxCount == 0 || maxDistance <= 0.0f)
         return;
-    Cache& cache = State();
-    const std::uint64_t root = Globals::workspace.Addr;
-    const ULONGLONG now = GetTickCount64();
-    if (root != cache.workspace || (!cache.building && (!cache.completedAt || now - cache.completedAt > 2000)))
-        BeginBuild(cache, root);
-    Step(cache);
+    Cache& cache = RefreshCache();
 
     struct Candidate { float distanceSquared; std::size_t index; };
     std::vector<Candidate> candidates;

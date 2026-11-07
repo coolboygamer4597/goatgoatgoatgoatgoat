@@ -23,9 +23,9 @@ namespace Core {
 				static constexpr DWORD kRetryMs = 2000;
 				static HANDLE g_ConfigMap = nullptr;
 
-
+				 
 				static constexpr wchar_t kConfigMapName[] = L"Local\\CapPipeCfg";
-				static constexpr DWORD kConfigMagic = 0x5053564Eu;
+				static constexpr DWORD kConfigMagic = 0x5053564Eu;  
 
 				struct SharedConfig {
 					DWORD skipPid;
@@ -193,7 +193,7 @@ namespace Core {
 					return ok;
 				}
 
-
+				 
 				static bool RemoteAlreadyPresent(DWORD pid)
 				{
 					wchar_t name[64]{};
@@ -212,7 +212,7 @@ namespace Core {
 						return true;
 					}
 
-
+					 
 					if (RemoteAlreadyPresent(pid)) {
 						MarkInjected(pid);
 						NvLog("Inject: already present in pid=%lu — skip remap", pid);
@@ -245,7 +245,7 @@ namespace Core {
 					return ok;
 				}
 
-			}
+			}  
 
 			bool EnsurePatched()
 			{

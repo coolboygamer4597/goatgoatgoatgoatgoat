@@ -1,5 +1,6 @@
 #pragma once
 #include "menu/library.h"
+#include "RetroUi.h"
 #include <imgui_internal.h>
 #include "../core/variables/variables.h"
 #include "../core/keys/keys.h"
@@ -22,7 +23,7 @@ inline void Begin(int index,const char* id,const char* title,float& x,float& y,f
  ImGui::SetNextWindowSize(ImVec2(width,height));
  ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding,0);
  ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize,0);
- ImGui::PushStyleColor(ImGuiCol_WindowBg,ImVec4(.055f,.05f,.045f,.94f));
+ ImGui::PushStyleColor(ImGuiCol_WindowBg,variables::Theme::background);
  ImGui::Begin(id,nullptr,ImGuiWindowFlags_NoTitleBar|ImGuiWindowFlags_NoResize|ImGuiWindowFlags_NoMove|ImGuiWindowFlags_NoScrollbar|ImGuiWindowFlags_NoSavedSettings);
  ImGui::SetCursorPos(ImVec2(0,0));ImGui::InvisibleButton("##drag",ImVec2(width,29));
  if(ImGui::IsItemActive() && ImGui::IsMouseDragging(0)){
@@ -31,8 +32,10 @@ inline void Begin(int index,const char* id,const char* title,float& x,float& y,f
   ImGui::SetWindowPos(position);
  }
  auto dl=ImGui::GetWindowDrawList();auto p=ImGui::GetWindowPos();
- dl->AddRectFilledMultiColor(p,ImVec2(p.x+width,p.y+2),ImGui::GetColorU32(variables::Theme::accent),IM_COL32(100,65,40,15),IM_COL32(100,65,40,15),ImGui::GetColorU32(variables::Theme::accent));
- dl->AddText(p+ImVec2(12,9),IM_COL32(230,226,222,255),UiText::Tr(title));
+ RetroUi::Frame(dl,p,p+ImVec2(width,height));
+ dl->AddRectFilled(p+ImVec2(10,10),p+ImVec2(17,17),ImGui::GetColorU32(variables::Theme::accent));
+ dl->AddText(p+ImVec2(24,8),ImGui::GetColorU32(variables::Theme::textBright),UiText::Tr(title));
+ dl->AddLine(p+ImVec2(10,27),p+ImVec2(width-10,27),ImGui::GetColorU32(variables::Theme::controls));
  {std::lock_guard<std::mutex> lock(rectMutex);rects[index]={p.x,p.y,width,height};}
 }
 inline void End(){ImGui::End();ImGui::PopStyleColor();ImGui::PopStyleVar(2);ImGui::PopFont();}
@@ -51,7 +54,7 @@ inline void Draw(){
   for(auto row:rows){
    const auto color=row.active?IM_COL32(255,255,255,255):IM_COL32(128,128,128,255);
    auto dl=ImGui::GetWindowDrawList();auto p=ImGui::GetWindowPos();
-   dl->AddText(p+ImVec2(12,y),color,UiText::Tr(row.name));
+   dl->AddRectFilled(p+ImVec2(12,y+4),p+ImVec2(18,y+10),row.active?ImGui::GetColorU32(variables::Theme::accent):IM_COL32(80,80,90,255));dl->AddText(p+ImVec2(26,y),color,UiText::Tr(row.name));
    const char* key=row.key?UiText::Tr(imGuiCustom::KeyName(row.key)):UiText::Tr("Always");
    float width=ImGui::CalcTextSize(key).x;
    dl->AddText(p+ImVec2(273-width,y),color,key);y+=20;
@@ -69,6 +72,7 @@ inline void Draw(){
   for(int i=0;i<Performance::Count;++i){
    const float y=85+22.f*i;dl->AddText(p+ImVec2(12,y),IM_COL32(200,200,200,255),UiText::Tr(labels[i]));
    char value[32];std::snprintf(value,sizeof(value),"%.3f",Performance::average[i]);
+   const float load=std::clamp(float(Performance::average[i])/8.f,0.f,1.f);dl->AddRectFilled(p+ImVec2(135,y+4),p+ImVec2(231,y+10),ImGui::GetColorU32(variables::Theme::controls));dl->AddRectFilled(p+ImVec2(135,y+4),p+ImVec2(135+load*96,y+10),ImGui::GetColorU32(variables::Theme::accent));
    dl->AddText(p+ImVec2(323-ImGui::CalcTextSize(value).x,y),IM_COL32(230,230,230,255),value);
   }
   ImGui::SetCursorPos(ImVec2(12,249));ImGui::Text("%s: %.2f%%",UiText::Tr("Skin worker CPU"),Performance::skinCpu);

@@ -261,7 +261,7 @@ public:
         for(int k=0;k<3;++k){mat.color[k]=fill[k];mat.glow[k]=emissive[k];}
         mat.color[3]=(avatar?variables::ESP::nativeChamsOpacity:weaponMaterial.opacity)*fill[3];
         mat.glow[3]=avatar?(variables::ESP::nativeChamsGlow?variables::ESP::nativeChamsGlowStrength:0):(weaponMaterial.glow?weaponMaterial.glowStrength:0);
-        mat.mode=avatar?(occluded?variables::ESP::nativeChamsOccludedStyle:variables::ESP::nativeChamsStyle):weaponMaterial.style;mat.time=phase;mat.depth_scale=1;
+        mat.mode=Cheat::Visuals::NativeChams::ShaderMode(avatar?(occluded?variables::ESP::nativeChamsOccludedStyle:variables::ESP::nativeChamsStyle):weaponMaterial.style);mat.time=phase;mat.depth_scale=1;
         mat.pattern[0]=1.2f/std::clamp(variables::ESP::nativeChamsPatternSize,.25f,4.f)/(avatar?1.f:std::clamp(weaponMaterial.scale,.01f,100.f)*.1f);
         mat.pattern[3]=avatar?(!variables::ESP::nativeChamsOnly?1.f:0.f):(showOriginal?1.f:0.f);
         if(skinOnly){mat.color[3]=0;mat.pattern[3]=1;}

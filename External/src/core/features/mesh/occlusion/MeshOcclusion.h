@@ -9,6 +9,7 @@
 namespace Cheat::Visuals::MeshOcclusion {
 
 void Reset();
+bool BlocksSegment(const Mesh::Vector3& from,const Mesh::Vector3& to);
 
 bool PartFaded(std::uint64_t partAddress);
 std::size_t FadeOffset();

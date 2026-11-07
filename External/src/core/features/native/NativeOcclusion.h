@@ -9,6 +9,12 @@
 
 namespace NativeOcclusion {
 inline constexpr char flagName[]="RenderFastClusterOcclusionCulling";
+inline constexpr char versionedFlagName[]="RenderFastClusterOcclusionCulling4";
+
+inline bool matchesName(const char* name,std::size_t size) {
+    return (size>=sizeof(flagName) && std::memcmp(name,flagName,sizeof(flagName))==0) ||
+        (size>=sizeof(versionedFlagName) && std::memcmp(name,versionedFlagName,sizeof(versionedFlagName))==0);
+}
 struct Entry {std::uint64_t value,name,length;};
 struct Section {std::uint64_t begin,size;std::uint32_t flags;};
 struct Layout {std::uint64_t nameOffset=8,lengthOffset=16;};
@@ -22,13 +28,15 @@ inline bool validLayout(Layout layout) {
 template<class Read>
 bool namedFlag(std::uint64_t base,std::uint64_t size,std::uint64_t flag,Read read,Layout layout={}) {
     auto inside=[&](std::uint64_t p,std::uint64_t n){return p>=base && n<=size && p-base<=size-n;};
-    std::uint8_t value=0xff;std::uint64_t pointer=0,length=0;char name[sizeof(flagName)]{};
+    std::uint8_t value=0xff;std::uint64_t pointer=0,length=0;char name[sizeof(versionedFlagName)]{};
     const auto span=std::max(layout.nameOffset,layout.lengthOffset)+8;
     return validLayout(layout) && inside(flag,span) && read(flag,&value,sizeof(value)) && value<=1 &&
         read(flag+layout.nameOffset,&pointer,sizeof(pointer)) &&
-        read(flag+layout.lengthOffset,&length,sizeof(length)) && length==sizeof(flagName)-1 &&
-        inside(pointer,sizeof(name)) && read(pointer,name,sizeof(name)) &&
-        std::memcmp(name,flagName,sizeof(name))==0;
+        read(flag+layout.lengthOffset,&length,sizeof(length)) &&
+        (length==sizeof(flagName)-1 || length==sizeof(versionedFlagName)-1) &&
+        inside(pointer,length+1) && read(pointer,name,length+1) &&
+        (length==sizeof(flagName)-1 ? std::memcmp(name,flagName,sizeof(flagName))==0 :
+            std::memcmp(name,versionedFlagName,sizeof(versionedFlagName))==0);
 }
 
 template<class Read>
@@ -88,7 +96,7 @@ std::uint64_t resolve(std::uint64_t base,std::uint64_t size,Read read,Layout lay
     std::vector<std::uint64_t> names;
     for(const auto& s:sections)scan(s,[&](std::uint64_t at,const std::vector<unsigned char>& buffer){
         for(std::size_t i=0;i+sizeof(flagName)<=buffer.size();++i)
-            if(buffer[i]==flagName[0] && std::memcmp(buffer.data()+i,flagName,sizeof(flagName))==0 &&
+            if(buffer[i]==flagName[0] && matchesName(reinterpret_cast<const char*>(buffer.data()+i),buffer.size()-i) &&
                std::find(names.begin(),names.end(),at+i)==names.end())names.push_back(at+i);
     });
     if(names.empty() || names.size()>16)return 0;

@@ -128,6 +128,23 @@ void Apply(const OffsetData::Package& package,const std::string& version){
         const std::string key=name;const auto number=value->second;const bool anti=key.rfind("AntiAfk.",0)==0,layout=key=="AntiAfk.NameOffset"||key=="AntiAfk.NameLengthOffset";
         if(anti?(layout?(number<8||number>72||number%8):(number<4096||number>0xffffffffULL)):(number<(key=="Highlight.OutlineTransparency"?0x80:0x100)||number>=0x1000))throw std::runtime_error("Optional offset exceeds its range.");optional[key]=static_cast<std::uintptr_t>(number);
     }
+    for(const auto* name:{
+        "Lighting.Ambient","Lighting.OutdoorAmbient","Lighting.Brightness",
+        "Lighting.ExposureCompensation","Lighting.FogColor","Lighting.FogStart",
+        "Lighting.FogEnd","Lighting.GeographicLatitude","Lighting.ClockTime",
+        "Lighting.LightDirection","Lighting.SunPosition","Lighting.MoonPosition",
+        "Lighting.Source","Lighting.LightColor","Lighting.GradientTop",
+        "Lighting.GradientBottom","RenderView.VisualEngine","RenderView.LightingValid"
+    })if(auto value=package.fields.find(name);value!=package.fields.end()){
+        const auto offset=value->second;
+        const std::string key=name;
+        const bool backReference=key=="RenderView.VisualEngine";
+        const bool flag=key=="RenderView.LightingValid";
+        const unsigned alignment=flag?1:backReference||key=="Lighting.ClockTime"?8:4;
+        if(offset<(backReference?8:0x80)||offset>=0x1000||offset%alignment)
+            throw std::runtime_error("Optional offset exceeds its range.");
+        optional[name]=static_cast<std::uintptr_t>(offset);
+    }
     for(auto& field:OffsetCatalog::Fields())*field.active=static_cast<std::uintptr_t>(package.fields.at(field.name));Offsets::ClientVersion=version;{std::lock_guard<std::mutex> lock(stateMutex);optionalFields=std::move(optional);}
 }
 std::uintptr_t OptionalField(const std::string& name){std::lock_guard<std::mutex> lock(stateMutex);const auto found=optionalFields.find(name);return found==optionalFields.end()?0:found->second;}

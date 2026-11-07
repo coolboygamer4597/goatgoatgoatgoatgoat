@@ -7,6 +7,7 @@
 #include "core/cache/cache.h"
 #include "core/features/native/NativeChams.h"
 #include "core/features/native/NativePattern.h"
+#include "core/features/game/StretchResolution.h"
 
 using namespace Mesh;
 
@@ -1866,6 +1867,9 @@ void Flush(ID3D11RenderTargetView* rtv)
 	{
 		const RBX::Mat4 live = Globals::renderEngine.GetViewMat();
 		std::memcpy(g_cbdata.view, live.data, sizeof(live.data));
+		const float horizontal = StretchResolution::AppliedFactor();
+		for (int column = 0; column < 4; ++column)
+			g_cbdata.view[column] *= horizontal;
         const auto camera=NativePattern::CameraFrom(live.data,float(g_width),float(g_height));
         if(camera.valid) {
             std::memcpy(g_cbdata.camera,camera.pos,12);

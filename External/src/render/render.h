@@ -47,3 +47,4 @@ public:
     HWND GetWindowHandle() const;
     ImVec2 GetClientSize() const;
 };
+

@@ -201,10 +201,10 @@ inline bool ParseHexColor(const char* text, ImVec4& out) {
 
 inline bool SliderFloat(const char* label, float* value, float min_value, float max_value, const ImVec2& pos, float width, const char* text_label, const char* format);
 
-inline bool ColorSquare(const char* id_text, ImVec4* color, const ImVec2& pos)
+inline bool ColorSquare(const char* id_text, ImVec4* color, const ImVec2& pos,bool alpha=true)
 {
     ImGuiWindow* window = ImGui::GetCurrentWindow();
-
+    if(!alpha)color->w=1;
     const ImVec2 base = window->Pos;
     const ImVec2 min = ImVec2(std::floor(base.x + pos.x + g_contentOffset.x), std::floor(base.y + pos.y + g_contentOffset.y));
     const ImVec2 size(14.0f, 10.0f);
@@ -258,13 +258,18 @@ inline bool ColorSquare(const char* id_text, ImVec4* color, const ImVec2& pos)
         ImGui::PushStyleColor(ImGuiCol_Header, GetTheme().CardBg);
         ImGui::PushStyleColor(ImGuiCol_HeaderHovered, GetTheme().ControlInactive);
         ImGui::PushStyleColor(ImGuiCol_HeaderActive, GetTheme().ControlInactive);
-        ImGui::ColorPicker4("##picker", (float*)color, ImGuiColorEditFlags_NoSidePreview | ImGuiColorEditFlags_NoSmallPreview | ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_NoOptions | ImGuiColorEditFlags_PickerHueBar);
+        ImGui::ColorPicker4("##picker", (float*)color, ImGuiColorEditFlags_NoSidePreview | ImGuiColorEditFlags_NoSmallPreview | ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_NoOptions | ImGuiColorEditFlags_PickerHueBar | (alpha?0:ImGuiColorEditFlags_NoAlpha));
         ImGui::PopStyleColor(11);
+        int rgb[3]={static_cast<int>(ImClamp(color->x,0.f,1.f)*255.f+.5f),static_cast<int>(ImClamp(color->y,0.f,1.f)*255.f+.5f),static_cast<int>(ImClamp(color->z,0.f,1.f)*255.f+.5f)};
+        ImGui::SetNextItemWidth(180.f);
+        if(ImGui::InputInt3("RGB",rgb)){color->x=ImClamp(rgb[0],0,255)/255.f;color->y=ImClamp(rgb[1],0,255)/255.f;color->z=ImClamp(rgb[2],0,255)/255.f;}
+        if(ImGui::Button(UiText::Tr("Black")))*color=ImVec4(0,0,0,1);ImGui::SameLine();
+        if(ImGui::Button(UiText::Tr("White")))*color=ImVec4(1,1,1,1);
         const Theme& ptheme = GetTheme();
         ImFont* pfont = GetFonts().InterMedium ? GetFonts().InterMedium : (GetFonts().CascadiaMonoBL ? GetFonts().CascadiaMonoBL : ImGui::GetFont());
         ImGuiWindow* pwin = ImGui::GetCurrentWindow();
         ImVec2 prel = ImGui::GetCursorScreenPos() - pwin->Pos + ImVec2(0.0f, 16.0f);
-        SliderFloat("hex_opacity", &color->w, 0.0f, 1.0f, prel, 180.0f, "Opacity", "%.2f");
+        if(alpha)SliderFloat("hex_opacity", &color->w, 0.0f, 1.0f, prel, 180.0f, "Opacity", "%.2f");
         if (color->w < 0.0f) color->w = 0.0f;
         if (color->w > 1.0f) color->w = 1.0f;
         char hex[16];
@@ -308,7 +313,7 @@ inline bool ColorSquare(const char* id_text, ImVec4* color, const ImVec2& pos)
                 ImGui::PushID(100 + i);
                 ImGuiID iid = ImGui::GetID("hex_opt");
                 float ih = AnimateFloat(iid, hov, 18.0f);
-                ImVec4 parsed{};
+                ImVec4 parsed=*color;
                 bool valid = (i == 1) ? ParseHexColor(ImGui::GetClipboardText(), parsed) : true;
                 if (ih > 0.01f)
                     hexFg->AddRectFilled(iMin, iMax, ColorU32(LerpColor(ptheme.ControlBg, ptheme.ControlInactive, ih * 0.8f), hexCtxAnim), 0.0f);

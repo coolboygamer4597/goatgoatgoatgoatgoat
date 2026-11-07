@@ -1,0 +1,6 @@
+IP Geolocation by DB-IP.com
+Source: https://db-ip.com/db/download/ip-to-city-lite
+November 2026 DB-IP City Lite, filtered to Roblox 128.116.0.0/16 IPv4 addresses.
+Licensed under Creative Commons Attribution 4.0 International: https://creativecommons.org/licenses/by/4.0/
+Source download: https://download.db-ip.com/free/dbip-city-lite-2026-11.csv.gz
+Locations are approximate. No per-user requests or collection.

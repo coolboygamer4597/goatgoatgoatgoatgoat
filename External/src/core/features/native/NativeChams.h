@@ -9,7 +9,10 @@ namespace Visuals {
 namespace NativeChams {
 
 void Prepare();
+void ResetAimVisibility();
+bool AimVisible(std::uint64_t identity,const float* point,const float* view,float* proven);
 const char* StartupStatus();
+bool Loaded();
 const char* TextureTestStatus();
 void Tick();
 void Stop();
@@ -39,6 +42,9 @@ const char* OcclusionNote();
 
 const char* const* ShaderNames();
 int ShaderNameCount();
+int ShaderMode(int index);
+const char* const* WorldShaderNames();
+int WorldShaderNameCount();
 
 std::string PreviewShaderSource();
 

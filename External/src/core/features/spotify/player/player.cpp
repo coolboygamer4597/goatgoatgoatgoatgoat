@@ -1,5 +1,6 @@
 #include "../../../../render/menu/UiText.h"
 #include "media.h"
+#include "../../../../../ext/imgui/UiPresentation.h"
 #include "music_player_host.h"
 #include "music_player_ui.h"
 #include "music_player_internal.h"
@@ -101,8 +102,8 @@ bool CursorOverMusicCard() {
     if (!GetCursorPos(&cur)) return false;
     HWND self = music_host::overlay::GetOverlayWindow();
     if (self) ScreenToClient(self, &cur);
-    return cur.x >= (LONG)g_cardMin.x && cur.x <= (LONG)g_cardMax.x
-        && cur.y >= (LONG)g_cardMin.y && cur.y <= (LONG)g_cardMax.y;
+    return cur.x >= (LONG)UiPresentation::Physical(g_cardMin.x) && cur.x <= (LONG)UiPresentation::Physical(g_cardMax.x)
+        && cur.y >= (LONG)UiPresentation::Physical(g_cardMin.y) && cur.y <= (LONG)UiPresentation::Physical(g_cardMax.y);
 }
 
 void ShutdownMusicPlayer() {

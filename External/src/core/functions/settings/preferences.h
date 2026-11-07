@@ -5,6 +5,10 @@
 #include "../../features/survival/AntiAfkState.h"
 #include "../../variables/player_rules.h"
 #include "../skins/skins.h"
+#include "../../features/game/GameVisualsState.h"
+#include "../../features/game/DiscordPresence.h"
+#include "../../features/game/WeaponAudio.h"
+#include "../../features/game/SettingText.h"
 #include <filesystem>
 #include <fstream>
 #include <sstream>
@@ -24,6 +28,19 @@ template<class T> void Add(std::vector<Field>& fields,int tab,const std::string&
  [&value](const std::string& text){T next{};std::istringstream s(text);if(s>>next && s.eof() && std::isfinite(static_cast<double>(next)))value=next;}});
 }
 inline std::vector<Field>& Fields(){static auto fields=[] {std::vector<Field> out;
+        Add(out,2,"Misc.menuScale",variables::Misc::menuScale);Add(out,2,"Misc.menuAnimation",variables::Misc::menuAnimation);Add(out,2,"Misc.stretchResolution",variables::Misc::stretchResolution);Add(out,2,"Misc.stretchAspect",variables::Misc::stretchAspect);Add(out,2,"Misc.serverRegionAlerts",variables::Misc::serverRegionAlerts);
+        auto& game=GameVisuals::settings;
+        Add(out,1,"Game.materialLayout",game.materialLayout);
+        Add(out,1,"Game.skyTint",game.skyTint);Add(out,1,"Game.sky",game.sky);Add(out,1,"Game.skyStyle",game.skyStyle);Add(out,1,"Game.skyAnimate",game.skyAnimate);Add(out,1,"Game.skySpeed",game.skySpeed);Add(out,1,"Game.skyIntensity",game.skyIntensity);Add(out,1,"Game.skyScale",game.skyScale);Add(out,1,"Game.skyRotation",game.skyRotation);
+        Add(out,1,"Game.world",game.world);Add(out,1,"Game.worldStyle",game.worldStyle);Add(out,1,"Game.worldKinds",game.worldKinds);Add(out,1,"Game.worldOriginal",game.worldOriginal);Add(out,1,"Game.worldOpacity",game.worldOpacity);Add(out,1,"Game.worldSpeed",game.worldSpeed);Add(out,1,"Game.worldScale",game.worldScale);Add(out,1,"Game.worldDistance",game.worldDistance);Add(out,1,"Game.worldGlow",game.worldGlow);Add(out,1,"Game.worldGlowStrength",game.worldGlowStrength);
+        Add(out,1,"Game.ambient",game.ambient);Add(out,1,"Game.brightness",game.brightness);Add(out,1,"Game.brightnessValue",game.brightnessValue);Add(out,1,"Game.exposure",game.exposure);Add(out,1,"Game.exposureValue",game.exposureValue);Add(out,1,"Game.time",game.time);Add(out,1,"Game.hour",game.hour);Add(out,1,"Game.glow",game.glow);Add(out,1,"Game.glowIntensity",game.glowIntensity);Add(out,1,"Game.glowRadius",game.glowRadius);Add(out,1,"Game.glowThreshold",game.glowThreshold);
+        for(int i=0;i<3;++i){const auto suffix="."+std::to_string(i);Add(out,1,"Game.skyPrimary"+suffix,game.skyPrimary[i]);Add(out,1,"Game.skySecondary"+suffix,game.skySecondary[i]);Add(out,1,"Game.ambientColor"+suffix,game.ambientColor[i]);Add(out,1,"Game.outdoorColor"+suffix,game.outdoorColor[i]);}
+        for(int i=0;i<4;++i){Add(out,1,"Game.worldColor."+std::to_string(i),game.worldColor[i]);Add(out,1,"Game.worldGlowColor."+std::to_string(i),game.worldGlowColor[i]);}
+        Add(out,1,"Game.weather",game.weather);Add(out,1,"Game.weatherStyle",game.weatherStyle);Add(out,1,"Game.weatherDensity",game.weatherDensity);Add(out,1,"Game.weatherSpeed",game.weatherSpeed);Add(out,1,"Game.worldReflection",game.worldReflection);Add(out,1,"Game.reflectionWalls",game.reflectionWalls);Add(out,1,"Game.reflectionStrength",game.reflectionStrength);Add(out,1,"Game.reflectionRoughness",game.reflectionRoughness);Add(out,1,"Game.reflectionDistance",game.reflectionDistance);for(int i=0;i<4;++i)Add(out,1,"Game.weatherColor."+std::to_string(i),game.weatherColor[i]);
+        auto& discord=DiscordPresence::settings;Add(out,2,"Discord.enabled",discord.enabled);
+        const auto text=[&](const char* name,char* target,std::size_t size){out.push_back({2,name,[target]{return SettingText::Encode(target);},[target,size](const std::string& value){std::string decoded;if(SettingText::Decode(value,decoded,size-1)){std::memcpy(target,decoded.data(),decoded.size());target[decoded.size()]=0;}}});};
+        text("Discord.details",discord.details,sizeof(discord.details));
+        out.push_back({3,"Weapons.localAudio",[]{return WeaponAudio::Serialize();},[](const std::string& value){WeaponAudio::Restore(value);}});
         Add(out,0,"Aimbot.recoilEnabled",variables::Aimbot::recoilEnabled);
         Add(out,0,"Aimbot.glockAutomatic",variables::Aimbot::glockAutomatic);
         Add(out,0,"Aimbot.glockClickDelay",variables::Aimbot::glockClickDelay);
@@ -31,6 +48,7 @@ inline std::vector<Field>& Fields(){static auto fields=[] {std::vector<Field> ou
         Add(out,0,"Aimbot.recoilPull",variables::Aimbot::recoilPull);
         Add(out,0,"Aimbot.recoilGlockStrength",variables::Aimbot::recoilGlockStrength);
         Add(out,0,"Aimbot.recoilGlockPull",variables::Aimbot::recoilGlockPull);
+        Add(out,0,"Aimbot.hitChance",variables::Aimbot::hitChance);Add(out,0,"Aimbot.hitChancePerPart",variables::Aimbot::hitChancePerPart);for(int i=0;i<7;++i)Add(out,0,"Aimbot.bodyHitChance."+std::to_string(i),variables::Aimbot::bodyHitChance[i]);
         Add(out,0,"Aimbot.silentEnabled",variables::Aimbot::silentEnabled);
         Add(out,0,"Aimbot.silentMethod",variables::Aimbot::silentMethod);
         Add(out,0,"Aimbot.silentKey",variables::Aimbot::silentKey);
@@ -45,6 +63,7 @@ inline std::vector<Field>& Fields(){static auto fields=[] {std::vector<Field> ou
         Add(out,0,"Aimbot.deadCheck",variables::Aimbot::deadCheck);
         Add(out,0,"Aimbot.teamCheck",variables::Aimbot::teamCheck);
         Add(out,0,"Aimbot.invisibleCheck",variables::Aimbot::invisibleCheck);
+        Add(out,0,"Aimbot.silentWallCheck",variables::Aimbot::silentWallCheck);
         Add(out,0,"Aimbot.aimTarget",variables::Aimbot::aimTarget);
         Add(out,1,"ESP.meshChams",variables::ESP::meshChams);
         Add(out,1,"ESP.meshChamsLocal",variables::ESP::meshChamsLocal);
@@ -103,6 +122,7 @@ inline std::vector<Field>& Fields(){static auto fields=[] {std::vector<Field> ou
             for(int i=0;i<4;++i){Add(out,3,key+"color."+std::to_string(i),m.color[i]);Add(out,3,key+"glowColor."+std::to_string(i),m.glowColor[i]);}
         }
 
+
         Add(out,3,"Weapons.separateArms",variables::Weapons::separateArms);Add(out,3,"Weapons.separateGloves",variables::Weapons::separateGloves);
         Add(out,3,"Weapons.armMaterialsInitialized",variables::Weapons::armMaterialsInitialized);Add(out,3,"Weapons.gloveMaterialsInitialized",variables::Weapons::gloveMaterialsInitialized);
         for(int slot=0;slot<2;++slot)for(int glove=0;glove<2;++glove){
@@ -142,7 +162,7 @@ inline std::vector<Field>& Fields(){static auto fields=[] {std::vector<Field> ou
         Add(out,1,"ESP.nativeChams",variables::ESP::nativeChams);
         Add(out,1,"ESP.nativeChamsStyle",variables::ESP::nativeChamsStyle);
         Add(out,1,"ESP.nativeChamsOpacity",variables::ESP::nativeChamsOpacity);
-        Add(out,1,"ESP.nativeChamsOnly",variables::ESP::nativeChamsOnly);
+
         Add(out,1,"ESP.nativeChamsOcclusion",variables::ESP::nativeChamsOcclusion);
         Add(out,1,"ESP.nativeChamsOccludedStyle",variables::ESP::nativeChamsOccludedStyle);
         Add(out,1,"ESP.nativeChamsOccludedColor.0",variables::ESP::nativeChamsOccludedColor[0]);
@@ -163,6 +183,8 @@ inline std::vector<Field>& Fields(){static auto fields=[] {std::vector<Field> ou
         Add(out,1,"ESP.nativeChamsGlowColor.3",variables::ESP::nativeChamsGlowColor[3]);
         Add(out,1,"ESP.nativeChamsGlowStrength",variables::ESP::nativeChamsGlowStrength);
         Add(out,1,"ESP.nativeChamsWalls",variables::ESP::nativeChamsWalls);
+        Add(out,1,"ESP.nativeChamsOutline",variables::ESP::nativeChamsOutline);Add(out,1,"ESP.nativeOutlineGlow",variables::ESP::nativeOutlineGlow);Add(out,1,"ESP.nativeOutlineStyle",variables::ESP::nativeOutlineStyle);Add(out,1,"ESP.nativeOutlineWidth",variables::ESP::nativeOutlineWidth);Add(out,1,"ESP.nativeOutlineOpacity",variables::ESP::nativeOutlineOpacity);Add(out,1,"ESP.nativeOutlineGlowStrength",variables::ESP::nativeOutlineGlowStrength);Add(out,1,"ESP.nativeOutlineGlowRadius",variables::ESP::nativeOutlineGlowRadius);
+        for(int i=0;i<4;++i){const auto suffix="."+std::to_string(i);Add(out,1,"ESP.nativeOutlineColor"+suffix,variables::ESP::nativeOutlineColor[i]);Add(out,1,"ESP.nativeOutlineHiddenColor"+suffix,variables::ESP::nativeOutlineHiddenColor[i]);Add(out,1,"ESP.nativeOutlineGlowColor"+suffix,variables::ESP::nativeOutlineGlowColor[i]);}
         Add(out,2,"Misc.streamProof",variables::Misc::streamProof);
         Add(out,2,"Misc.nvidiaStreamproof",variables::Misc::nvidiaStreamproof);
         Add(out,2,"System.antiAfk",AntiAfk::enabled);
@@ -278,6 +300,8 @@ inline void Apply(const std::string& text){
  variables::ESP::visualKeybindMode=variables::ESP::visualKeybindMode==1?1:0;
  variables::ESP::visualKeybindTarget=variables::ESP::visualKeybindTarget==1?1:0;
  variables::Misc::fpsLimit=(std::max)(60,(std::min)(2000,variables::Misc::fpsLimit));
+ if(saveTabs[1]&&values.count("Game.worldStyle")&&!values.count("Game.materialLayout"))GameVisuals::MigrateMaterials();
+ GameVisuals::settings.materialLayout=2;GameVisuals::Sanitize();
 }
 inline void Load(const std::filesystem::path& path=Path()){std::ifstream f(path);std::string text((std::istreambuf_iterator<char>(f)),{});Apply(text);lastWritten=text;loaded=true;}
 inline bool Save(const std::filesystem::path& path=Path()){

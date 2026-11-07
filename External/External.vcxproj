@@ -339,4 +339,13 @@
     <ClInclude Include="src\core\functions\skins\SkinLook.h" />
     <ClInclude Include="src\render\CustomSkinPreview.h" />
   </ItemGroup>
-</Project>
+  <ItemGroup>
+    <ClInclude Include="src\core\features\game\GameSkyShader.h" />
+    <ClInclude Include="src\core\features\game\GameSkyPrograms.h" />
+    <None Include="tools\CompileGameSky.ps1" />
+  </ItemGroup>
+  <Target Name="PrepareGameSkyPrograms" BeforeTargets="ClCompile">
+    <Exec Command="powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File &quot;$(ProjectDir)tools\CompileGameSky.ps1&quot; -SourceFile &quot;$(ProjectDir)src\core\features\game\GameSkyShader.h&quot; -OutputFile &quot;$(ProjectDir)src\core\features\game\GameSkyPrograms.h&quot;" />
+  </Target>
+<Target Name="CopyRegionAttribution" AfterTargets="Build"><Copy SourceFiles="$(ProjectDir)src\core\features\game\ServerRegionData-LICENSE.txt" DestinationFolder="$(OutDir)" /></Target></Project>
+

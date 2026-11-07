@@ -1,6 +1,8 @@
 #include "../../keys/activation_key.h"
 #include "../../keys/keys.h"
 #include "aim.h"
+#include "../../features/native/NativeChams.h"
+#include "../../features/mesh/occlusion/MeshOcclusion.h"
 #include "../../cache/cache.h"
 #include "../../../sdk/w2s.h"
 #include "raycast_silent.h"
@@ -139,6 +141,7 @@ bool ClosestOnProjectedTriangle(const RBX::Vec2& cursor,
     float bestSq = FLT_MAX;
     RBX::Vec2 bestScreen{};
     RBX::Vec3 bestWorld{};
+    std::uintptr_t bestPart=0;
     bool found = false;
 
     if (wa >= -0.0001f && wb >= -0.0001f && wc >= -0.0001f) {
@@ -259,7 +262,7 @@ bool ClosestPointOnR6Part(std::uintptr_t part, const RBX::Mat4& view,
     return found;
 }
 
-bool BestPartScreen(const PlayerCache::CachedPlayer& plr, const RBX::Mat4& view, const RBX::Vec2& center, float maxDist, RBX::Vec2& outScreen, RBX::Vec3& outWorld) {
+bool BestPartScreen(const PlayerCache::CachedPlayer& plr, const RBX::Mat4& view, const RBX::Vec2& center, float maxDist, RBX::Vec2& outScreen, RBX::Vec3& outWorld, std::uintptr_t& outPart) {
     const float sw = W2S::ScreenW();
     const float sh = W2S::ScreenH();
     const int mode = variables::Aimbot::aimTarget;
@@ -298,6 +301,7 @@ bool BestPartScreen(const PlayerCache::CachedPlayer& plr, const RBX::Mat4& view,
             return false;
         outScreen = s;
         outWorld = w;
+        outPart=addr;
         return true;
     }
     std::vector<std::uintptr_t> parts;
@@ -331,6 +335,7 @@ bool BestPartScreen(const PlayerCache::CachedPlayer& plr, const RBX::Mat4& view,
             best = preciseDistance;
             outScreen = preciseScreen;
             outWorld = preciseWorld;
+            outPart=addr;
             found = true;
             continue;
         }
@@ -348,6 +353,7 @@ bool BestPartScreen(const PlayerCache::CachedPlayer& plr, const RBX::Mat4& view,
         best = d;
         outScreen = s;
         outWorld = w;
+        outPart=addr;
         found = true;
     }
     return found;
@@ -359,11 +365,17 @@ void RunAimbot(const RBX::Mat4& view) {
     static Keys::ActivationKey activation;
     DWORD foregroundPid = 0;
     GetWindowThreadProcessId(GetForegroundWindow(), &foregroundPid);
+    const bool canAim=!variables::menuOpen && foregroundPid==memory->get_process_id();
     const bool keyActive = activation.Update(enabled, variables::Aimbot::silentToggleKey,
-        variables::Aimbot::silentKey, Keys::IsKeyPressed(variables::Aimbot::silentKey),
-        !variables::menuOpen && foregroundPid == memory->get_process_id());
-    variables::Aimbot::silentActive = enabled && variables::Aimbot::silentKey > 0 &&
-        (variables::Aimbot::silentToggleKey ? activation.latched : keyActive);
+        variables::Aimbot::silentKey, Keys::IsKeyPressed(variables::Aimbot::silentKey),canAim);
+    const bool wallCheck=variables::Aimbot::silentWallCheck;
+    static bool previousWallCheck=wallCheck;
+    if(wallCheck!=previousWallCheck || !enabled || !canAim) {
+        Cheat::Visuals::NativeChams::ResetAimVisibility();
+        Cheat::Features::RaycastSilent::SetActive(false);
+    }
+    previousWallCheck=wallCheck;
+    variables::Aimbot::silentActive=keyActive;
     const bool magicBullet = variables::Aimbot::silentMethod == 2;
     static bool loggedTarget = false;
     static bool loggedHandlerActivity = false;
@@ -382,15 +394,15 @@ void RunAimbot(const RBX::Mat4& view) {
     Cheat::Features::RaycastSilent::Ensure(true);
 
     if (!keyActive) {
-
         Cheat::Features::RaycastSilent::SetActive(false);
-        return;
+        if(!wallCheck||!canAim||variables::Aimbot::silentKey<=0)return;
     }
 
     const RBX::Vec2 center = SilentAimCenter();
     const float radius = SilentAimRadius();
     const PlayerCache::CachedPlayer* bestPlayer = nullptr;
     RBX::Vec3 bestWorld{};
+    std::uintptr_t bestPart=0;
     float bestScore = FLT_MAX;
 
     const bool nearestPoint = variables::Aimbot::silentNearestPoint;
@@ -404,7 +416,7 @@ void RunAimbot(const RBX::Mat4& view) {
             continue;
 
         RBX::Vec2 screen{};
-        RBX::Vec3 world{};
+        RBX::Vec3 world{};std::uintptr_t selectedPart=0;
         if (nearestPoint) {
 
             std::vector<std::uintptr_t> parts;
@@ -426,8 +438,8 @@ void RunAimbot(const RBX::Mat4& view) {
             if (!point.found)
                 continue;
             screen = point.screen;
-            world = point.world;
-        } else if (!BestPartScreen(player, view, center, radius, screen, world)) {
+            world = point.world;selectedPart=point.part;
+        } else if (!BestPartScreen(player, view, center, radius, screen, world, selectedPart)) {
             continue;
         }
 
@@ -436,18 +448,39 @@ void RunAimbot(const RBX::Mat4& view) {
         if (score < bestScore) {
             bestScore = score;
             bestPlayer = &player;
-            bestWorld = world;
+            bestWorld = world;bestPart=selectedPart;
         }
     }
 
     if (!bestPlayer) {
-
+        if(wallCheck)Cheat::Visuals::NativeChams::ResetAimVisibility();
         Cheat::Features::RaycastSilent::SetActive(false);
         return;
     }
 
-    const Vector3 rayTarget{bestWorld.X, bestWorld.Y, bestWorld.Z};
-    Cheat::Features::RaycastSilent::SetActive(true, rayTarget, magicBullet);
+    if(wallCheck) {
+        const float selected[3]={bestWorld.X,bestWorld.Y,bestWorld.Z};
+        float proven[3]{};
+        const auto camera=Globals::workspace.GetCurrentCamera();
+        const auto origin=camera.GetCameraCFrame().GetPosition();
+        if(!camera.Addr ||
+            !Cheat::Visuals::NativeChams::AimVisible(bestPlayer->characterAddr,selected,view.data,proven) ||
+            Cheat::Visuals::MeshOcclusion::BlocksSegment({origin.X,origin.Y,origin.Z},{proven[0],proven[1],proven[2]})) {
+            Cheat::Features::RaycastSilent::SetActive(false);
+            return;
+        }
+        bestWorld={proven[0],proven[1],proven[2]};
+    }
+    if(!keyActive)return;
+    const rbx::vector3_t rayTarget{bestWorld.X, bestWorld.Y, bestWorld.Z};
+    int category=6;const auto& limbs=PlayerCache::GetLimbs(bestPlayer->characterAddr);
+    if(bestPart==limbs.head)category=0;else if(bestPart==limbs.torso||bestPart==limbs.upperTorso||bestPart==limbs.lowerTorso)category=1;
+    else if(bestPart==limbs.lArm||bestPart==limbs.lUpperArm||bestPart==limbs.lLowerArm||bestPart==limbs.lHand)category=2;
+    else if(bestPart==limbs.rArm||bestPart==limbs.rUpperArm||bestPart==limbs.rLowerArm||bestPart==limbs.rHand)category=3;
+    else if(bestPart==limbs.lLeg||bestPart==limbs.lUpperLeg||bestPart==limbs.lLowerLeg||bestPart==limbs.lFoot)category=4;
+    else if(bestPart==limbs.rLeg||bestPart==limbs.rUpperLeg||bestPart==limbs.rLowerLeg||bestPart==limbs.rFoot)category=5;
+    const float chance=variables::Aimbot::hitChancePerPart?variables::Aimbot::bodyHitChance[category]:variables::Aimbot::hitChance;
+    Cheat::Features::RaycastSilent::SetActive(true, rayTarget, magicBullet,chance);
     if (!loggedTarget) {
         std::printf("[Silent] target armed method=%s part=0x%llx\n",
             magicBullet ? "magic-raycast" : "raycast",
@@ -472,3 +505,4 @@ void RunAimbot(const RBX::Mat4& view) {
     }
 }
 }
+

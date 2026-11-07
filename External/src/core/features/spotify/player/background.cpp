@@ -1,4 +1,5 @@
 #include "media.h"
+#include "../../../../render/RetroUi.h"
 #include "music_player_internal.h"
 
 #include <algorithm>
@@ -357,134 +358,20 @@ void ResetPaletteState() {
     s_motion = 0.f;
 }
 
-void DrawPlayerBackground(ImDrawList* dl, const ImVec2& min, const ImVec2& size,
-                          bool playing, bool showLyrics, bool artworkView,
-                          bool fullScreen, bool haveArt, float hover,
-                          float uiScale) {
-    (void)uiScale;
-    UpdatePalette();
-    const MusicPalette& p = s_paletteCurrent;
-    ImVec2 max(min.x + size.x, min.y + size.y);
-    float dt = std::min(ImGui::GetIO().DeltaTime, 0.05f);
-    if (playing) s_motion += dt * 0.32f;
-
-    const float rounding = Px(fullScreen ? 20.f : 15.f);
-    const bool compactSurface = !fullScreen && !showLyrics && !artworkView;
-    dl->AddRectFilled(min, max, IM_COL32(4, 5, 8, 255), rounding);
-
-    ImTextureID atmosphere = AlbumAtmosphereTexture();
-    if (haveArt && atmosphere) {
-        float& fade = AlbumAtmosphereFadeRef();
-        fade += (1.f - fade) * (1.f - std::exp(-3.4f * dt));
-        const float fieldAlpha = (fullScreen ? 204.f :
-            (artworkView ? 184.f : (showLyrics ? 232.f : 136.f))) *
-            std::clamp(fade, 0.f, 1.f);
-        dl->AddImageRounded(atmosphere, min, max,
-                            ImVec2(0.f, 0.f), ImVec2(1.f, 1.f),
-                            IM_COL32(255, 255, 255, (int)fieldAlpha), rounding);
-        dl->AddRectFilled(min, max,
-            IM_COL32(3, 4, 7,
-                fullScreen ? 38 : (artworkView ? 30 : (showLyrics ? 22 : 28))),
-            rounding);
+void DrawPlayerBackground(ImDrawList* dl,const ImVec2& min,const ImVec2& size,
+    bool playing,bool showLyrics,bool artworkView,bool fullScreen,bool haveArt,float hover,float uiScale){
+    const ImVec2 max(min.x+size.x,min.y+size.y);RetroUi::Frame(dl,min,max);
+    if(artworkView&&haveArt&&AlbumArtTexture()){
+        const float aspect=size.x/size.y;ImVec2 a(0,0),b(1,1);if(aspect>1){a.y=(1-1/aspect)*.5f;b.y=1-a.y;}else{a.x=(1-aspect)*.5f;b.x=1-a.x;}
+        dl->AddImage(AlbumArtTexture(),ImVec2(min.x+7,min.y+7),ImVec2(max.x-7,max.y-7),a,b);
+        dl->AddRectFilled(ImVec2(min.x+7,max.y-95*uiScale),ImVec2(max.x-7,max.y-7),IM_COL32(0,0,0,185));
+    }else{
+        RetroUi::Stars(dl,ImVec2(min.x+8,min.y+8),ImVec2(size.x-16,size.y-16),float(ImGui::GetTime()));
+        const float divider=max.y-(showLyrics?86:74)*uiScale;
+        dl->AddLine(ImVec2(min.x+12,divider),ImVec2(max.x-12,divider),ImGui::GetColorU32(variables::Theme::controls));
     }
-    ImVec4 surfaceTop = Lerp(p.top, p.accentA, 0.035f);
-    ImVec4 surfaceBottom = Lerp(p.bottom, p.top, 0.09f);
-    if (showLyrics && !fullScreen) {
-        surfaceTop = Lerp(p.top, p.accentA, 0.10f);
-        surfaceBottom = Lerp(p.bottom, p.accentC, 0.09f);
-    }
-    const float paletteOpacity = fullScreen ? 0.80f
-        : (artworkView ? 0.46f : (showLyrics ? 0.94f : 0.94f));
-    DrawRoundedGradient(dl,
-        ImVec2(min.x + 1.f, min.y + 1.f), ImVec2(max.x - 1.f, max.y - 1.f),
-        Color(surfaceTop, paletteOpacity),
-        Color(Lerp(surfaceTop, p.accentA, 0.10f),
-              fullScreen ? 0.25f : paletteOpacity),
-        Color(Lerp(surfaceBottom, p.accentB, 0.08f),
-              fullScreen ? 0.30f : paletteOpacity),
-        Color(surfaceBottom, fullScreen ? 0.34f : paletteOpacity),
-        rounding - 1.f);
-
-    if (!fullScreen)
-        dl->AddRectFilled(min, max,
-            IM_COL32(3, 4, 7,
-                compactSurface ? 30 : (showLyrics ? 20 : 66)), rounding);
-    if (compactSurface)
-        dl->AddRectFilled(min, max, IM_COL32(38, 39, 43, 24), rounding);
-
-    dl->PushClipRect(min, max, true);
-    float waveA = std::sin(s_motion * 1.07f);
-    float waveB = std::cos(s_motion * 0.83f);
-    float waveC = std::sin(s_motion * 0.61f + 1.8f);
-    float waveD = std::cos(s_motion * 0.49f + 0.7f);
-    float radius = std::min(size.x, size.y) * 0.58f;
-    const float atmosphereScale = fullScreen ? 0.52f : 1.f;
-    DrawBlob(dl,
-        ImVec2(min.x + size.x * (0.16f + waveA * 0.060f),
-               min.y + size.y * (0.16f + waveB * 0.050f)),
-        radius, p.accentA, (showLyrics ? 0.165f : 0.085f) * atmosphereScale);
-    DrawBlob(dl,
-        ImVec2(min.x + size.x * (0.86f - waveB * 0.055f),
-               min.y + size.y * (0.82f + waveA * 0.050f)),
-        radius * 0.90f, p.accentB,
-        (showLyrics ? 0.135f : 0.070f) * atmosphereScale);
-    if (showLyrics && !fullScreen) {
-        DrawBlob(dl,
-            ImVec2(min.x + size.x * (0.50f + waveC * 0.085f),
-                   min.y + size.y * (0.48f + waveD * 0.065f)),
-            radius * 0.82f, p.accentC, 0.105f);
-        DrawBlob(dl,
-            ImVec2(min.x + size.x * (0.22f - waveD * 0.04f),
-                   min.y + size.y * (0.78f + waveC * 0.04f)),
-            radius * 0.68f, p.accentA, 0.075f);
-    }
-    dl->PopClipRect();
-
-    if (artworkView && haveArt) {
-        ImTextureID art = AlbumArtTexture();
-        if (art) {
-            const ImVec2 artMin(min.x + 1.f, min.y + 1.f);
-            const ImVec2 artMax(max.x - 1.f, max.y - 1.f);
-            const float artExtent = artMax.y - artMin.y;
-            const float rectW = artMax.x - artMin.x;
-            const float rectH = artExtent;
-            float uvX = 0.f, uvY = 0.f;
-            if (rectW > rectH) uvY = (1.f - rectH / rectW) * 0.5f;
-            else if (rectH > rectW) uvX = (1.f - rectW / rectH) * 0.5f;
-            dl->AddImageRounded(art, artMin, artMax,
-                                ImVec2(uvX, uvY), ImVec2(1.f - uvX, 1.f - uvY),
-                                IM_COL32_WHITE, rounding - 1.f);
-            const float fadeTop = artMax.y - std::min(112.f, artExtent * 0.37f);
-            if (ImTextureID fade = AlbumArtworkFadeTexture())
-                dl->AddImageRounded(fade, artMin, artMax,
-                             ImVec2(0.f, 0.f), ImVec2(1.f, 1.f),
-                             IM_COL32_WHITE, rounding - 1.f,
-                             ImDrawFlags_RoundCornersBottom);
-            dl->AddRectFilled(ImVec2(artMin.x, fadeTop), artMax,
-                IM_COL32(2, 3, 5, 12), rounding - 1.f,
-                ImDrawFlags_RoundCornersBottom);
-        }
-    }
-
-    DrawRoundedGradient(dl,
-        ImVec2(min.x, min.y), ImVec2(max.x, max.y),
-        IM_COL32(0, 0, 0, fullScreen ? 34 : (artworkView ? 0 : 4)),
-        IM_COL32(0, 0, 0, fullScreen ? 28 : (artworkView ? 0 : 6)),
-        IM_COL32(0, 0, 0, fullScreen ? 16 :
-            (artworkView ? 0 : (compactSurface ? 8 : 12))),
-        IM_COL32(0, 0, 0, fullScreen ? 22 :
-            (artworkView ? 0 : (compactSurface ? 10 : 15))),
-        rounding);
-
-    if (compactSurface && hover > 0.001f)
-        dl->AddRectFilled(min, max,
-            IM_COL32(255, 255, 255, (int)(11.f * hover)), rounding);
-
-    dl->AddRect(ImVec2(min.x + 0.5f, min.y + 0.5f),
-                ImVec2(max.x - 0.5f, max.y - 0.5f),
-                IM_COL32(236, 242, 248,
-                    (int)((fullScreen ? 30.f : 26.f) + hover * 18.f)),
-                rounding - 0.5f, 0, 1.f);
+    const auto accent=ImGui::GetColorU32(variables::Theme::accent);
+    const float unit=(std::max)(1.f,std::round(uiScale));
+    for(int i=0;i<3;++i){float h=playing?3+std::floor(3+3*std::sin(float(ImGui::GetTime())*4+i*1.5f)):3;dl->AddRectFilled(ImVec2(max.x-(14+i*4)*unit,min.y+9*unit),ImVec2(max.x-(12+i*4)*unit,min.y+(9+h)*unit),accent);}
 }
-
 }

@@ -41,6 +41,7 @@ std::int32_t WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
         return 0;
     }
 
+    WindowIdentity::BeginSession();
     UiText::Load();
     LogLine("goatgoatgoatgoatgoatgoat - waiting for roblox...");
     const std::int32_t code = StartupLoader::Run([]{return App::init();}) ? App::Run() :

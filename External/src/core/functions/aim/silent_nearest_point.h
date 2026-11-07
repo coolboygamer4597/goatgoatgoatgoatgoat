@@ -7,6 +7,7 @@
 namespace Aimbot {
 struct PrecisePointResult {
     bool found = false;
+    std::uintptr_t part=0;
     RBX::Vec2 screen{};
     RBX::Vec3 world{};
     float distance = 0.f;

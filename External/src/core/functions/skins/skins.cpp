@@ -1,7 +1,9 @@
 #include "../../app/SkinDownloads.h"
+#include "../../features/game/WeaponAudio.h"
 #ifndef IMGUI_DEFINE_MATH_OPERATORS
 #define IMGUI_DEFINE_MATH_OPERATORS
 #endif
+#include "../../../render/WeaponAudioUi.h"
 #include "skins.h"
 #include "SkinMix.h"
 #include "SkinCatalogRules.h"
@@ -46,6 +48,7 @@ constexpr std::uintptr_t kMotorGloveLink = 0x128;
 std::mutex g_stateMutex;
 std::vector<std::string> g_catalog;
 std::string g_selected;
+
 
 std::optional<std::string> g_queuedSelection;
 bool g_editorActive=false;
@@ -1248,6 +1251,7 @@ bool RestoreStockGloves(std::string& error) {
 void ApplyGlovesCore(const RBX::RbxInstance& armModel,
                      const std::string& selected, std::string& error) {
 
+
     for (auto& rec : g_gloveRecords) {
         if (rec.dirty)
             RestoreCore(rec);
@@ -1553,6 +1557,7 @@ void ApplySelectedSkin(const RBX::RbxInstance& armModel,
         }
     }
 
+
     ApplySoundsCore();
     std::lock_guard<std::mutex> lock(g_stateMutex);
     std::size_t active = 0;
@@ -1816,11 +1821,20 @@ RBX::RbxInstance OriginalCatalog(const std::string& weapon,const std::string& sk
 void ApplySoundsCore(){
     SkinMix::Choices choices;bool active;
     {std::lock_guard<std::mutex> lock(g_stateMutex);choices=g_editorChoices;active=g_editorActive;}
-    if(!active)return;
+    unsigned soundRevision=0;const auto local=WeaponAudio::Snapshot(&soundRevision);
+    static unsigned appliedRevision=0;static DWORD soundPid=0;
+    static std::string localIds[2][4];
+    if(soundPid!=memory->get_process_id()){soundPid=memory->get_process_id();appliedRevision=0;g_soundPatches.clear();}
+    if(soundRevision!=appliedRevision){
+        if(!g_soundPatches.empty()){ProcessSuspend guard;if(!guard.ok())return;RestoreSoundsCore();}
+        for(int weapon=0;weapon<2;++weapon)for(int event=0;event<4;++event)localIds[weapon][event]=local.enabled?WeaponAudio::Install(local.clips[weapon][event]):std::string{};
+        appliedRevision=soundRevision;
+    }
+    if(!active&&!local.enabled)return;
     static auto next=std::chrono::steady_clock::time_point{};auto now=std::chrono::steady_clock::now();if(now<next)return;next=now+std::chrono::milliseconds(200);
     g_soundPatches.erase(std::remove_if(g_soundPatches.begin(),g_soundPatches.end(),[](const SoundPatch& p){SoundValues current;std::uintptr_t buffer;std::uint64_t capacity;return !ReadSound(p.sound,current,buffer,capacity)||buffer!=p.buffer||capacity!=p.capacity||RBX::RbxInstance(p.sound).GetParent().Addr!=p.parent||current.id!=p.after.id;}),g_soundPatches.end());
     struct Change{SoundPatch patch;};std::vector<Change> changes;int missing=0,tooLong=0;
-    auto collect=[&](RBX::RbxInstance target,const std::vector<SoundEntry>& donors,bool mix){
+    auto collect=[&](RBX::RbxInstance target,const std::vector<SoundEntry>& donors,bool mix,int weapon=0){
         for(const auto& item:Sounds(target)){
             if(std::any_of(g_soundPatches.begin(),g_soundPatches.end(),[&](const SoundPatch& p){return p.sound==item.second;}))continue;
             SoundPatch patch;patch.sound=item.second;patch.parent=RBX::RbxInstance(item.second).GetParent().Addr;
@@ -1832,24 +1846,31 @@ void ApplySoundsCore(){
                 if(match!=donors.end()&&ReadDonorSound(match->second,donor))patch.after=donor;else ++missing;
                 if(patch.after.id.size()>patch.capacity){patch.after=patch.before;++tooLong;}
             }
-            if(choices.mute)patch.after.volume=0;
+            const int event=WeaponAudio::Event(item.first);
+            if(local.enabled&&event>=0&&!local.clips[weapon][event].file.empty()){
+                const auto& id=localIds[weapon][event];
+                if(!id.empty()&&id.size()<=patch.capacity){patch.after.id=id;patch.after.volume=local.clips[weapon][event].volume;patch.after.speed=local.clips[weapon][event].pitch;}
+                else if(id.empty())++missing;else ++tooLong;
+            }
+            if(active&&choices.mute)patch.after.volume=0;
             if(patch.after.id==patch.before.id&&patch.after.volume==patch.before.volume&&patch.after.speed==patch.before.speed)continue;
             changes.push_back({std::move(patch)});
         }
     };
     const auto root=WeaponCatalogRoot();const auto live=ResolveLiveWeapons(ResolveArmModel(),WeaponNames(root));
     for(const auto& weapon:WeaponNames(root)){
-        const auto donorName=weapon=="AR-15"?choices.arSounds:weapon=="Glock 19"?choices.glockSounds:std::string{};
+        if(weapon!="AR-15"&&weapon!="Glock 19")continue;
+        const auto donorName=!active?std::string{}:weapon=="AR-15"?choices.arSounds:choices.glockSounds;
         const auto donorWeapon=weapon=="AR-15"?choices.arSoundWeapon:choices.glockSoundWeapon;
         const auto donors=donorName.empty()?std::vector<SoundEntry>{}:Sounds(OriginalCatalog(donorWeapon,donorName));
         std::string nativeName;
         {std::lock_guard<std::mutex> lock(g_stateMutex);auto it=g_nativeNames.find(weapon);nativeName=it==g_nativeNames.end()?weapon+"_Default":it->second;}
         auto rec=FindRecord(weapon);auto target=rec&&rec->dirty?RBX::RbxInstance(rec->live):ResolveCatalogModel(root.FindChild(weapon),nativeName);
-        collect(target,donors,!donorName.empty());
-        for(const auto& model:live)if(model.weapon==weapon)collect(RBX::RbxInstance(model.model),donors,!donorName.empty());
+        collect(target,donors,!donorName.empty(),weapon=="Glock 19"?1:0);
+        for(const auto& model:live)if(model.weapon==weapon)collect(RBX::RbxInstance(model.model),donors,!donorName.empty(),weapon=="Glock 19"?1:0);
     }
 
-    if(choices.mute){auto character=Globals::localPlayer.GetModelRef();for(auto child:character.GetChildList())if(child.GetClass()=="Tool")collect(child,{},false);}
+    if(active&&choices.mute){auto character=Globals::localPlayer.GetModelRef();for(auto child:character.GetChildList())if(child.GetClass()=="Tool")collect(child,{},false);}
     if(!changes.empty()){
         ProcessSuspend guard;if(!guard.ok()){g_soundStatus="Sound changes deferred";return;}
         for(auto& change:changes){
@@ -1863,6 +1884,7 @@ void ApplySoundsCore(){
     g_soundStatus.clear();
     if(missing)g_soundStatus="Some sound events are unavailable; original sounds retained";
     if(tooLong)g_soundStatus+=(g_soundStatus.empty()?"":" / ")+std::string("Some sound IDs exceed available space");
+    if(local.enabled){std::lock_guard<std::mutex> guard(WeaponAudio::lock);WeaponAudio::status=g_soundStatus.empty()?"Local sounds active on supported weapon events":g_soundStatus;}
 }
 
 void CollectCatalog(const RBX::RbxInstance& node, const std::string& weapon,
@@ -1976,6 +1998,7 @@ bool ProcessQueuedSelection() {
     if (!ReleaseRequests(error)) { SetStatus(error); return false; }
     {
         std::lock_guard<std::mutex> lock(g_stateMutex);
+
 
         if (!g_queuedSelection) return true;
         g_selected = std::move(*g_queuedSelection);
@@ -2147,10 +2170,13 @@ void RenderEditor(){
     if(category==2){select(UiText::Tr("Use selected skin sounds"),"","");for(const auto& type:{std::string("AR-15"),std::string("Glock 19")}){auto choices=slots[type];if(std::find(choices.begin(),choices.end(),"Default")==choices.end())choices.insert(choices.begin(),"Default");for(const auto& skin:choices)select(type+" / "+skin,skin,type);}}
     else{auto choices=category==1?gloves:slots[glock?"Glock 19":"AR-15"];if(std::find(choices.begin(),choices.end(),"Default")==choices.end())choices.insert(choices.begin(),"Default");if(category==0&&!glock&&std::find(choices.begin(),choices.end(),"0416")==choices.end())choices.push_back("0416");for(const auto& pick:choices)select(pick,pick,"");}
     ImGui::EndChild();
+    if(category==2){at(right,155);ImGui::BeginChild("local_audio_settings",ImVec2(col,270));WeaponAudioUi::Draw(glock);ImGui::EndChild();}
+    else{
     at(right,155);ImGui::TextUnformatted(UiText::Tr("Active settings"));
     at(right,190);ImGui::Text(UiText::Tr("AR: %s"),draft.ar.c_str());at(right,220);ImGui::Text(UiText::Tr("Glock: %s"),draft.glock.c_str());
     at(right,250);ImGui::Text(UiText::Tr("Gloves: %s"),draft.arGloves.c_str());
     at(right,287);ImGui::PushTextWrapPos(right+col);ImGui::TextUnformatted(UiText::Tr("Changes apply when selected. Gloves are shared and update on the next equip."));ImGui::PopTextWrapPos();
+    }
     bool mute=draft.mute;imGuiCustom::Checkbox("Mute local weapons",&mute,ImVec2(left,437));if(mute!=draft.mute){draft.mute=mute;draft.look.present=false;ApplyEditor(draft,message);}
     if(!message.empty()){at(left,464);ImGui::PushTextWrapPos(left+width);ImGui::TextWrapped(UiText::Tr("%s"),UiText::Message(message).c_str());ImGui::PopTextWrapPos();}
 }

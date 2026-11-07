@@ -102,7 +102,6 @@ struct Integrator {
         if(requireRelease)return 0;
         if(!wasDown){held=0;remainder=0;wasDown=true;return 0;}
         held+=dt;
-        if(held>3.5){remainder=0;return 0;}
         remainder+=rate*dt;
         const int counts=static_cast<int>(std::floor(remainder));
         remainder-=counts;
@@ -115,13 +114,13 @@ struct PulseIntegrator {
     double pending=0,remaining=0,remainder=0;
     bool requireRelease=true,wasDown=false;
     void Reset(bool down){pending=remaining=remainder=0;requireRelease=down;wasDown=down;}
-    int Step(double dt,bool allowed,bool down,double amount,std::uint64_t identity,bool reload=false) {
+    int Step(double dt,bool allowed,bool down,double amount,std::uint64_t identity,bool reload,bool shotConfirmed) {
         if(!std::isfinite(dt) || dt<=0 || dt>.1 || !std::isfinite(amount) || amount<0 || amount>160 ||
             !allowed || reload || identity!=identity_) {
             identity_=identity;Reset(down);return 0;
         }
         if(requireRelease){if(!down)Reset(false);return 0;}
-        if(down && !wasDown && amount>0){pending=std::min(pending+amount,320.);remaining=.12;}
+        if(shotConfirmed && amount>0){pending=std::min(pending+amount,320.);remaining=.12;}
         wasDown=down;
         if(remaining<=0 || pending<=0){pending=remaining=0;return 0;}
         const double interval=std::min(dt,remaining);

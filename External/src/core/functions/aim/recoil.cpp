@@ -98,6 +98,7 @@ RecoilModel::Horizontal horizontal;
 std::array<float,4> horizontalFov{};
 Clock::time_point lastShot{};
 int previousAmmo=-1;
+Clock::time_point lastFireInput{};
 std::uintptr_t shotIdentity=0;
 const char* horizontalStatus="Horizontal: calibrating";
 RecoilModel::Integrator integrator;
@@ -142,7 +143,7 @@ bool Refresh() {
     return root && humanoid && tool;
 }
 }
-void Stop(){StopAutomatic();observer.Stop();horizontal.Reset();lastShot={};previousAmmo=-1;shotIdentity=0;const bool down=(GetAsyncKeyState(VK_LBUTTON)&0x8000)!=0;integrator.Reset(down);pulse.Reset(down);previous={};nextResolve={};nextAmmoPoll=nextAmmoResolve={};ammoField=ammoIdentity=0;currentAmmo=-1;character=root=humanoid=tool=0;stance=-1;glock=false;variables::Aimbot::recoilActive=false;status="Disabled";}
+void Stop(){StopAutomatic();observer.Stop();horizontal.Reset();lastShot={};lastFireInput={};previousAmmo=-1;shotIdentity=0;const bool down=(GetAsyncKeyState(VK_LBUTTON)&0x8000)!=0;integrator.Reset(down);pulse.Reset(down);previous={};nextResolve={};nextAmmoPoll=nextAmmoResolve={};ammoField=ammoIdentity=0;currentAmmo=-1;character=root=humanoid=tool=0;stance=-1;glock=false;variables::Aimbot::recoilActive=false;status="Disabled";}
 bool AutomaticHeld(){return automaticHolding&&observer.PhysicalLeft();}
 const char* Status(){return status;}
 const char* HorizontalStatus(){return horizontalStatus;}
@@ -153,7 +154,7 @@ void Tick() {
     const double dt=previous.time_since_epoch().count()?std::chrono::duration<double>(now-previous).count():0;
     previous=now;
     long long physicalDx=0;const bool rawReady=observer.Take(physicalDx);
-    auto idle=[&](const char* message){StopAutomatic();integrator.Reset(down);pulse.Reset(down);horizontal.Reset();lastShot={};previousAmmo=-1;status=message;};
+    auto idle=[&](const char* message){StopAutomatic();integrator.Reset(down);pulse.Reset(down);horizontal.Reset();lastShot={};lastFireInput={};previousAmmo=-1;status=message;};
     if(!variables::Aimbot::recoilEnabled&&!variables::Aimbot::glockAutomatic){idle("Disabled");return;}
     if(!memory || !Globals::running || !memory->IsConnected()){idle("Paused: game disconnected");return;}
     if(variables::menuOpen){idle("Paused: menu open");return;}
@@ -178,10 +179,16 @@ void Tick() {
     if(!Click(edge)){StopAutomatic();idle("Mouse input unavailable");return;}
     automaticHolding=autoAllowed&&automatic.active;
     if(autoAllowed&&automatic.active)down=automatic.outputDown;
-    if(!variables::Aimbot::recoilEnabled){integrator.Reset(down);pulse.Reset(down);horizontal.Reset();lastShot={};previousAmmo=-1;status="Disabled";return;}
+    if(!variables::Aimbot::recoilEnabled){integrator.Reset(down);pulse.Reset(down);horizontal.Reset();lastShot={};lastFireInput={};previousAmmo=-1;status="Disabled";return;}
     const auto currentShotIdentity=tool ^ (character<<1);
-    if(shotIdentity!=currentShotIdentity){shotIdentity=currentShotIdentity;previousAmmo=ammo;lastShot={};horizontal.Reset();}
-    if(previousAmmo>=0 && ammo<previousAmmo && (down || (glock && pulse.remaining>0)))lastShot=now;
+    if(shotIdentity!=currentShotIdentity){shotIdentity=currentShotIdentity;previousAmmo=ammo;lastShot={};lastFireInput={};horizontal.Reset();}
+    if(down || AutomaticHeld())lastFireInput=now;
+    const bool shotConfirmed=previousAmmo>=0 && ammo<previousAmmo &&
+        lastFireInput.time_since_epoch().count() && now-lastFireInput<std::chrono::milliseconds(40);
+    if(shotConfirmed)lastShot=now;
+    if(!glock&&!down)lastShot={};
+    const auto grace=glock?std::chrono::milliseconds(100):std::chrono::milliseconds(140);
+    const bool firing=lastShot.time_since_epoch().count() && now-lastShot<grace;
     previousAmmo=ammo;
     auto camera=Globals::workspace.GetCurrentCamera();
     RBX::CFrame cf{},rf{};RBX::Mat4 projection{};
@@ -202,14 +209,14 @@ void Tick() {
     int counts=0;
     if(glock) {
         integrator.Reset(down);
-        counts=pulse.Step(dt,true,down,strength*pull*scale,identity,reload);
+        counts=pulse.Step(dt,true,down,strength*pull*scale,identity,reload,shotConfirmed);
         status=pulse.requireRelease?"Release shoot to resume":pulse.remaining>0?"Dampening: Glock pulse":down?"Glock: waiting for next click":"Ready: click Left Mouse";
         variables::Aimbot::recoilActive=pulse.remaining>0 && !pulse.requireRelease && strength>0 && pull>0;
     } else {
         pulse.Reset(down);
-        counts=integrator.Step(dt,true,down,strength*pull*scale,identity,reload);
-        status=down?(integrator.requireRelease?"Release shoot to resume":integrator.held>3.5?"Release shoot after the burst":"Dampening: AR-15"):"Ready: hold Left Mouse";
-        variables::Aimbot::recoilActive=down && !integrator.requireRelease && integrator.held<=3.5 && strength>0 && pull>0;
+        counts=integrator.Step(dt,true,down,firing?strength*pull*scale:0,identity,reload);
+        status=down?(integrator.requireRelease?"Release shoot to resume":firing?"Dampening: AR-15":"Waiting for a shot"):"Ready: hold Left Mouse";
+        variables::Aimbot::recoilActive=firing && down && !integrator.requireRelease && strength>0 && pull>0;
     }
     if(reload)status="Paused: reload key held";
     int sideways=0;
@@ -220,7 +227,7 @@ void Tick() {
     const bool candidate=down || recentShot;
     const bool eligible=variables::Aimbot::recoilHorizontal && stance==0 && !reload && std::abs(cf.data[5])<.98f;
     const double yaw=std::atan2(-static_cast<double>(cf.data[2]),-static_cast<double>(cf.data[8]))*57.295779513;
-    const bool canCorrect=recentShot && (glock?!pulse.requireRelease:!integrator.requireRelease && integrator.held<=3.5) && strength>0 && pull>0;
+    const bool canCorrect=firing && (glock?!pulse.requireRelease:!integrator.requireRelease) && strength>0 && pull>0;
     sideways=horizontal.Step(dt,yaw,static_cast<double>(physicalDx),profile,identity,rawReady&&eligible,!candidate,candidate,canCorrect,strength);
     horizontalStatus=!variables::Aimbot::recoilHorizontal?"Horizontal: off":stance!=0?"Horizontal: standing only":!rawReady?"Horizontal: waiting for mouse input":!horizontal.calibration[profile].gain?"Move left/right briefly without firing to calibrate.":horizontal.active?"Horizontal: stabilizing":"Horizontal: ready";
     if(!counts && !sideways)return;

@@ -14,6 +14,11 @@ extern "C" __declspec(noinline) unsigned NativePrepareDepth(void* page,ID3D11Dep
  ctx->RSGetViewports(&n,&viewport);
  auto* dimensions=reinterpret_cast<float*>(bytes+NativeDepthCapture::dimensions);
  if(n!=1 || viewport.Width!=dimensions[0] || viewport.Height!=dimensions[1] || viewport.TopLeftX!=0 || viewport.TopLeftY!=0 || viewport.MinDepth!=0 || *reinterpret_cast<unsigned*>(&viewport.MaxDepth)!=0x3f800000u)return 0;
+ D3D11_DEPTH_STENCIL_VIEW_DESC type;view->GetDesc(&type);
+ if(type.ViewDimension==D3D11_DSV_DIMENSION_TEXTURE2DMS){
+  using Resolve=unsigned(*)(void*,ID3D11DepthStencilView*,unsigned,unsigned);auto resolve=*reinterpret_cast<Resolve*>(bytes+0xC88);auto* request=*reinterpret_cast<void**>(bytes+0xC60);
+  return resolve&&request?resolve(request,view,*reinterpret_cast<unsigned*>(bytes+0xA8),capture):0;
+ }
  if(cache->view!=view) {
   if(cache->srv)cache->srv->Release();if(cache->copy)cache->copy->Release();
   if(cache->source)cache->source->Release();if(cache->view)cache->view->Release();
