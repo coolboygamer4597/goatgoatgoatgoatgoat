@@ -10,15 +10,20 @@
 namespace NativeOcclusion {
 inline constexpr char flagName[]="RenderFastClusterOcclusionCulling";
 inline constexpr char versionedFlagName[]="RenderFastClusterOcclusionCulling4";
+inline constexpr char debugFlagName[]="DebugDisableFastClusterOcclusionCulling";
+struct NamedFlag { const char* name; bool disabledWhenTrue; };
+inline constexpr std::array<NamedFlag,3> cullingFlags{{
+    {flagName,false}, {versionedFlagName,false}, {debugFlagName,true}
+}};
 
-inline bool matchesName(const char* name,std::size_t size) {
-    return (size>=sizeof(flagName) && std::memcmp(name,flagName,sizeof(flagName))==0) ||
-        (size>=sizeof(versionedFlagName) && std::memcmp(name,versionedFlagName,sizeof(versionedFlagName))==0);
+inline bool matchesName(const char* name,std::size_t size,const char* expected) {
+    const auto length=std::strlen(expected);
+    return size>=length+1 && std::memcmp(name,expected,length+1)==0;
 }
 struct Entry {std::uint64_t value,name,length;};
 struct Section {std::uint64_t begin,size;std::uint32_t flags;};
 struct Layout {std::uint64_t nameOffset=8,lengthOffset=16;};
-struct Discovery {std::uint64_t address=0;Layout layout{};};
+struct Discovery {std::uint64_t address=0;Layout layout{};bool disabledWhenTrue=false;const char* name=flagName;};
 inline bool validLayout(Layout layout) {
     return layout.nameOffset>=8 && layout.nameOffset<=64 && !(layout.nameOffset&7) &&
         layout.lengthOffset>=8 && layout.lengthOffset<=72 && !(layout.lengthOffset&7) &&
@@ -26,25 +31,25 @@ inline bool validLayout(Layout layout) {
 }
 
 template<class Read>
-bool namedFlag(std::uint64_t base,std::uint64_t size,std::uint64_t flag,Read read,Layout layout={}) {
+bool namedFlag(std::uint64_t base,std::uint64_t size,std::uint64_t flag,Read read,Layout layout={},const char* expected=flagName) {
+    const auto expectedLength=std::strlen(expected);
     auto inside=[&](std::uint64_t p,std::uint64_t n){return p>=base && n<=size && p-base<=size-n;};
-    std::uint8_t value=0xff;std::uint64_t pointer=0,length=0;char name[sizeof(versionedFlagName)]{};
+    std::uint8_t value=0xff;std::uint64_t pointer=0,length=0;std::array<char,128> name{};
     const auto span=std::max(layout.nameOffset,layout.lengthOffset)+8;
     return validLayout(layout) && inside(flag,span) && read(flag,&value,sizeof(value)) && value<=1 &&
         read(flag+layout.nameOffset,&pointer,sizeof(pointer)) &&
         read(flag+layout.lengthOffset,&length,sizeof(length)) &&
-        (length==sizeof(flagName)-1 || length==sizeof(versionedFlagName)-1) &&
-        inside(pointer,length+1) && read(pointer,name,length+1) &&
-        (length==sizeof(flagName)-1 ? std::memcmp(name,flagName,sizeof(flagName))==0 :
-            std::memcmp(name,versionedFlagName,sizeof(versionedFlagName))==0);
+        length==expectedLength && expectedLength+1<=name.size() &&
+        inside(pointer,length+1) && read(pointer,name.data(),length+1) &&
+        std::memcmp(name.data(),expected,expectedLength+1)==0;
 }
 
 template<class Read>
-std::optional<Layout> measureLayout(std::uint64_t base,std::uint64_t size,std::uint64_t flag,Read read) {
+std::optional<Layout> measureLayout(std::uint64_t base,std::uint64_t size,std::uint64_t flag,Read read,const char* expected=flagName) {
     std::optional<Layout> result;
     for(std::uint64_t offset=8;offset<=64;offset+=8) {
         Layout layout{offset,offset+8};
-        if(!namedFlag(base,size,flag,read,layout))continue;
+        if(!namedFlag(base,size,flag,read,layout,expected))continue;
         if(result)return {};
         result=layout;
     }
@@ -52,8 +57,10 @@ std::optional<Layout> measureLayout(std::uint64_t base,std::uint64_t size,std::u
 }
 
 template<class Read>
-std::uint64_t resolve(std::uint64_t base,std::uint64_t size,Read read,Layout layout={}) {
+std::uint64_t resolve(std::uint64_t base,std::uint64_t size,Read read,Layout layout={},const char* expected=flagName) {
     if(!base || size<4096 || size>512ULL*1024*1024 || size>~std::uint64_t(0)-base || !validLayout(layout))return 0;
+    const auto expectedLength=std::strlen(expected)+1;
+    if(expectedLength<2 || expectedLength>128)return 0;
     const auto metadataSpan=std::max(layout.nameOffset,layout.lengthOffset)+8;
     auto inside=[&](std::uint64_t p,std::uint64_t n){return p>=base && n<=size && p-base<=size-n;};
     unsigned char dos[64]{};
@@ -95,8 +102,8 @@ std::uint64_t resolve(std::uint64_t base,std::uint64_t size,Read read,Layout lay
     };
     std::vector<std::uint64_t> names;
     for(const auto& s:sections)scan(s,[&](std::uint64_t at,const std::vector<unsigned char>& buffer){
-        for(std::size_t i=0;i+sizeof(flagName)<=buffer.size();++i)
-            if(buffer[i]==flagName[0] && matchesName(reinterpret_cast<const char*>(buffer.data()+i),buffer.size()-i) &&
+        for(std::size_t i=0;i+expectedLength<=buffer.size();++i)
+            if(buffer[i]==static_cast<unsigned char>(expected[0]) && matchesName(reinterpret_cast<const char*>(buffer.data()+i),buffer.size()-i,expected) &&
                std::find(names.begin(),names.end(),at+i)==names.end())names.push_back(at+i);
     });
     if(names.empty() || names.size()>16)return 0;
@@ -109,7 +116,7 @@ std::uint64_t resolve(std::uint64_t base,std::uint64_t size,Read read,Layout lay
                 if(std::find(names.begin(),names.end(),p)==names.end() || at+i<s.begin+layout.nameOffset)continue;
                 const auto flag=at+i-layout.nameOffset;
                 if(flag<s.begin || metadataSpan>s.size || flag-s.begin>s.size-metadataSpan ||
-                   !namedFlag(base,size,flag,read,layout))continue;
+                   !namedFlag(base,size,flag,read,layout,expected))continue;
                 if(std::find(candidates.begin(),candidates.end(),flag)==candidates.end())candidates.push_back(flag);
             }
         });
@@ -119,15 +126,17 @@ std::uint64_t resolve(std::uint64_t base,std::uint64_t size,Read read,Layout lay
 
 template<class Read>
 Discovery discover(std::uint64_t base,std::uint64_t size,Read read,std::uint64_t anchor=0) {
-    if(anchor) {
-        const auto layout=measureLayout(base,size,anchor,read);
-        if(layout && resolve(base,size,read,*layout)==anchor)return {anchor,*layout};
-        return {};
-    }
-    const auto found=resolve(base,size,read);
-    if(found) {
-        const auto layout=measureLayout(base,size,found,read);
-        if(layout)return {found,*layout};
+    for(const auto& candidate:cullingFlags) {
+        if(anchor) {
+            const auto layout=measureLayout(base,size,anchor,read,candidate.name);
+            if(layout && resolve(base,size,read,*layout,candidate.name)==anchor)
+                return {anchor,*layout,candidate.disabledWhenTrue,candidate.name};
+            continue;
+        }
+        const auto found=resolve(base,size,read,{},candidate.name);
+        if(!found)continue;
+        const auto layout=measureLayout(base,size,found,read,candidate.name);
+        if(layout)return {found,*layout,candidate.disabledWhenTrue,candidate.name};
     }
     return {};
 }

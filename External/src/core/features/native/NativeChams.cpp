@@ -910,6 +910,7 @@ struct Hook {
 	bool occl_off = false;
 	std::uint8_t occl = 0;
 	std::uintptr_t occl_addr = 0;
+	bool occl_disabled_when_true = false;
 	int occl_reverts = 0;
     std::uintptr_t projection_thunk=0;
     std::size_t projection_thunk_n=0;
@@ -3915,25 +3916,24 @@ uintptr_t occl_flag()
 		return 0;
 	const auto& module = remote_module_range(L"RobloxPlayerBeta.exe");
     if(!module.ok() || module.base!=base)return 0;
-    struct Lookup {DWORD pid=0;std::uint64_t base=0,size=0,address=0;ULONGLONG retry=0;NativeOcclusion::Layout layout{};};
+    struct Lookup {DWORD pid=0;std::uint64_t base=0,size=0,address=0;ULONGLONG retry=0;NativeOcclusion::Layout layout{};const char* name=NativeOcclusion::flagName;bool disabledWhenTrue=false;};
     static Lookup lookup;
     const auto size=module.end-module.base;
     const auto pid=memory->get_process_id();
     if(lookup.pid!=pid || lookup.base!=base || lookup.size!=size)lookup={pid,base,size,0,0};
     auto read=[](std::uint64_t at,void* out,std::size_t n){return memory->ReadRaw(at,out,n)==n;};
-    if(lookup.address && !NativeOcclusion::namedFlag(base,size,lookup.address,read,lookup.layout))lookup.address=0;
+    if(lookup.address && !NativeOcclusion::namedFlag(base,size,lookup.address,read,lookup.layout,lookup.name))lookup.address=0;
     if(!lookup.address) {
         const auto now=GetTickCount64();
         if(now<lookup.retry)return 0;
         lookup.retry=now+10000;
-        const NativeOcclusion::Layout dumped{Offsets::NativeOcclusion::NameOffset,Offsets::NativeOcclusion::NameLengthOffset};
         const auto hint=Offsets::NativeOcclusion::FlagRva<size?base+Offsets::NativeOcclusion::FlagRva:0;
-        const auto resolved=NativeOcclusion::resolve(base,size,read,dumped);
-        if(hint && resolved==hint) {lookup.address=hint;lookup.layout=dumped;}
-        else if(resolved) {lookup.address=resolved;lookup.layout=dumped;}
+        const auto found=NativeOcclusion::discover(base,size,read,hint);
+        if(found.address) {lookup.address=found.address;lookup.layout=found.layout;lookup.name=found.name;lookup.disabledWhenTrue=found.disabledWhenTrue;}
     }
     const auto addr=lookup.address;
     if(!addr)return 0;
+	g.occl_disabled_when_true=lookup.disabledWhenTrue;
 	MEMORY_BASIC_INFORMATION mbi{};
 	if (!VirtualQueryEx(memory->GetHandle(), (void*)addr, &mbi, sizeof(mbi)))
 		return 0;
@@ -3962,40 +3962,43 @@ void apply_occlusion(bool off)
 			memory->Write<std::uint8_t>(g.occl_addr, g.occl);
 		g.occl_addr = 0;
 		g.occl_off = false;
+		g.occl_disabled_when_true = false;
 		occl_note("occlusion culling restored");
 		return;
 	}
 	if (g.occl_off)
 	{
 
-		if (g.occl_addr && memory->Read<std::uint8_t>(g.occl_addr) != 0)
+		const auto desired=static_cast<std::uint8_t>(g.occl_disabled_when_true?1:0);
+		if (g.occl_addr && memory->Read<std::uint8_t>(g.occl_addr) != desired)
 		{
 			++g.occl_reverts;
-			memory->Write<std::uint8_t>(g.occl_addr, 0);
+			memory->Write<std::uint8_t>(g.occl_addr, desired);
 			if (g.occl_reverts == 60)
-				occl_note("client changed the verified culling flag repeatedly while Native was active");
+				occl_note("Native occlusion flag was reset by the client");
 		}
 		return;
 	}
 	const std::uintptr_t addr = occl_flag();
 	if (!addr)
 	{
-		occl_note("named culling flag unavailable or ambiguous - through-wall Native is unavailable");
+		occl_note("Native occlusion is unavailable");
 		return;
 	}
+	const auto desired=static_cast<std::uint8_t>(g.occl_disabled_when_true?1:0);
 	std::uint8_t saved=0xff,actual=0xff;
-    if(memory->ReadRaw(addr,&saved,1)!=1 || saved>1 || !memory->Write<std::uint8_t>(addr,0) ||
-       memory->ReadRaw(addr,&actual,1)!=1 || actual!=0) {
-        occl_note("named culling flag could not be disabled - through-wall Native is unavailable");
+    if(memory->ReadRaw(addr,&saved,1)!=1 || saved>1 || !memory->Write<std::uint8_t>(addr,desired) ||
+       memory->ReadRaw(addr,&actual,1)!=1 || actual!=desired) {
+        occl_note("Native occlusion setup failed");
         return;
     }
 	g.occl_addr = addr;
 	g.occl = saved;
 	g.occl_reverts = 0;
 	g.occl_off = true;
-	occl_note(memory->Read<std::uint8_t>(addr) == 0
-		? "verified character occlusion-culling flag disabled"
-		: "occlusion flag is not writable - hidden targets stay hidden");
+	occl_note(memory->Read<std::uint8_t>(addr) == desired
+		? "Native occlusion enabled"
+		: "Native occlusion flag is not writable");
 }
 
 void teardown()
